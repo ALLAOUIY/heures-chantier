@@ -1,4 +1,4 @@
-var CACHE_NAME = 'heures-v1';
+var CACHE_NAME = 'heures-v3';
 var ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', function(e) {

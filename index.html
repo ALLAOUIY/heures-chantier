@@ -1092,6 +1092,7 @@
             </label>
             <button class="btn" onclick="window.print()">Imprimer</button>
             <button class="btn danger" onclick="resetWeek()">Vider</button>
+            <button class="btn" id="sessionBtn" onclick="openSessionPanel()" title="Comptes, session et activite">Compte</button>
             <button class="btn" onclick="toggleFullscreen()" title="Plein ecran saisie" id="btnFullscreen">&#x26F6;</button>
             <button class="btn" onclick="toggleShortcutsModal()" title="Raccourcis clavier">?</button>
         </div>
@@ -1493,7 +1494,7 @@ const CFG = {
     logoMaxBytes: 500000, undoCap: 50, favsCap: 5,
     routeKmWarn: 50, petitGrandFlip: 50,
     durationCap: 960, recentSamples: 20,
-    weekKeyRe: /^chantier_\d{4}-\d{2}-\d{2}$/,
+    weekKeyRe: /^chantier_(?:u\d+_)?\d{4}-\d{2}-\d{2}$/,
     nonWeekKeys: ['profile','logo','lieux','company','template','favs','adaptive','intelligence','settings','corrupt']
 };
 let DAY_NAMES = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
@@ -1518,14 +1519,18 @@ function getWeekStart(d) {
 }
 function formatDate(d) { const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }
 function formatShortDate(d) { return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
-function getStorageKey() { return 'chantier_' + formatDate(currentWeekStart); }
+function getStorageKey() { return uK(formatDate(currentWeekStart)); }
+function keySuffix(key) {
+    const m = /^chantier_(?:u\d+_)?(.+)$/.exec(key || '');
+    return m ? m[1] : (key || '');
+}
 function loadEntries() {
     try {
         const raw = localStorage.getItem(getStorageKey());
         if (!raw) return [];
         let entries;
         try { entries = JSON.parse(raw); } catch (parseErr) {
-            const corruptKey = 'chantier_corrupt_' + Date.now();
+            const corruptKey = uK('corrupt_' + Date.now());
             try { localStorage.setItem(corruptKey, raw); } catch {}
             showToast('Donnees corrompues sauvegardees, donnees vides restituees', 'error');
             return [];
@@ -1547,10 +1552,11 @@ function saveEntries(e) {
         showToast('Erreur de sauvegarde', 'error');
         return;
     }
+    logAuditThrottled('save_day', formatDate(currentWeekStart) + ' (' + e.length + ' entree(s))');
     debouncedLearn();
 }
-function loadProfile() { try { return JSON.parse(localStorage.getItem('chantier_profile')) || {}; } catch { return {}; } }
-function saveProfile(p) { try { localStorage.setItem('chantier_profile', JSON.stringify(p)); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
+function loadProfile() { try { return JSON.parse(localStorage.getItem(uK('profile'))) || {}; } catch { return {}; } }
+function saveProfile(p) { try { localStorage.setItem(uK('profile'), JSON.stringify(p)); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
 let _isDirty = false;
 function changeWeek(dir) { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
 function goToToday() { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart = getWeekStart(new Date()); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
@@ -1575,15 +1581,15 @@ function autoSave() {
 function persistTimerState() {
     try {
         if (timerRunning && timerStart) {
-            localStorage.setItem('chantier_timer', JSON.stringify({start: timerStart, paused: timerPaused, running: timerRunning}));
+            localStorage.setItem(uK('timer'), JSON.stringify({start: timerStart, paused: timerPaused, running: timerRunning}));
         } else {
-            localStorage.removeItem('chantier_timer');
+            localStorage.removeItem(uK('timer'));
         }
     } catch {}
 }
 function restoreTimerState() {
     try {
-        const raw = localStorage.getItem('chantier_timer');
+        const raw = localStorage.getItem(uK('timer'));
         if (!raw) return;
         const t = JSON.parse(raw);
         if (t && t.running && t.start) {
@@ -1647,7 +1653,7 @@ function renderBackupBadge() {
 function buildSearchIndex() {
     const index = [];
     try {
-        const keys = Object.keys(localStorage).filter(k => CFG.weekKeyRe.test(k));
+        const keys = Object.keys(localStorage).filter(k => isCurrentUserWeekKey(k));
         keys.forEach(function(key) {
             try {
                 const entries = JSON.parse(localStorage.getItem(key)) || [];
@@ -1842,10 +1848,10 @@ function saveSingleEntry(entry) {
 
 // === TEMPLATES MULTIPLES ===
 function loadAllTemplates() {
-    try { return JSON.parse(localStorage.getItem('chantier_templates')) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(uK('templates'))) || []; } catch { return []; }
 }
 function saveAllTemplates(tpls) {
-    try { localStorage.setItem('chantier_templates', JSON.stringify(tpls.slice(0, 10))); } catch {}
+    try { localStorage.setItem(uK('templates'), JSON.stringify(tpls.slice(0, 10))); } catch {}
 }
 function saveNamedTemplate(name) {
     if (!pendingShifts.length) { showToast('Rien a sauvegarder', 'warning'); return; }
@@ -2063,7 +2069,7 @@ function runIntegrityCheck() {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith('chantier_') && CFG.weekKeyRe.test(k)) keys.push(k);
+        if (isCurrentUserWeekKey(k)) keys.push(k);
     }
     keys.forEach(function(key) {
         try {
@@ -2113,11 +2119,10 @@ function checkAutoBackup() {
     const today = formatDate(now);
     if (last === today) return;
     try {
-        const data = { version: 1, date: now.toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: localStorage.getItem('chantier_logo') || null, lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
-        const skip = ['chantier_profile', 'chantier_logo', 'chantier_lieux', 'chantier_company', 'chantier_template', 'chantier_favs', 'chantier_adaptive', 'chantier_intelligence'];
+        const data = { version: 1, date: now.toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: uK('logo') ? localStorage.getItem(uK('logo')) || null : null, lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith('chantier_') && !skip.includes(k)) {
+            if (isCurrentUserWeekKey(k)) {
                 try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {}
             }
         }
@@ -2218,18 +2223,6 @@ function generateRangeReport() {
     h += '<button class="btn" style="width:100%;margin-top:10px" onclick="document.getElementById(\'modalOverlay\').style.display=\'none\'">Fermer</button>';
     document.getElementById('rangeReportBody').innerHTML = h;
 }
-function loadAllWeeksData() {
-    var data = {};
-    var skip = ['chantier_profile', 'chantier_logo', 'chantier_lieux', 'chantier_company', 'chantier_template', 'chantier_favs', 'chantier_adaptive', 'chantier_intelligence'];
-    for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.startsWith('chantier_') && CFG.weekKeyRe.test(k) && !skip.includes(k)) {
-            try { data[k] = JSON.parse(localStorage.getItem(k)); } catch {}
-        }
-    }
-    return data;
-}
-
 // === CONTEXT MENU ===
 function showContextMenu(ev, type, data) {
     ev.preventDefault();
@@ -2444,6 +2437,7 @@ function exportXLSX() {
     a.download = 'heures_' + formatDate(new Date()) + '.xls';
     a.click();
     URL.revokeObjectURL(url);
+    logAudit('export_xlsx', entries.length + ' journee(s)');
     showToast('Export Excel genere', 'success');
 }
 
@@ -2722,12 +2716,12 @@ function saveTemplate() {
     const entries = loadEntries();
     if (!entries.length) { setMicStatus('Aucune journee sauvegardee', 'error'); setTimeout(() => setMicStatus('',''), 2500); return; }
     const last = entries[entries.length - 1];
-    localStorage.setItem('chantier_template', JSON.stringify(last.shifts));
+    localStorage.setItem(uK('template'), JSON.stringify(last.shifts));
     setMicStatus('Modele sauvegarde', 'heard'); setTimeout(() => setMicStatus('',''), 2000);
 }
 function loadTemplate() {
     try {
-        const tpl = JSON.parse(localStorage.getItem('chantier_template'));
+        const tpl = JSON.parse(localStorage.getItem(uK('template')));
         if (!tpl || !tpl.length) { setMicStatus('Aucun modele', 'error'); setTimeout(() => setMicStatus('',''), 2500); return; }
         pushUndo();
         tpl.forEach(t => {
@@ -2799,15 +2793,14 @@ function exportBackup() {
         date: new Date().toISOString(),
         profile: loadProfile(),
         company: loadCompanyName(),
-        logo: localStorage.getItem('chantier_logo') || null,
+        logo: (function(){ var k = uK('logo'); return k ? localStorage.getItem(k) || null : null; })(),
         lieux: loadLieux(),
         favs: loadFavChantiers(),
         weeks: {}
     };
-    const skipKeys = ['chantier_profile', 'chantier_logo', 'chantier_lieux', 'chantier_company', 'chantier_template', 'chantier_favs', 'chantier_adaptive', 'chantier_intelligence'];
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key.startsWith('chantier_') && !skipKeys.includes(key)) {
+        if (isCurrentUserWeekKey(key)) {
             try { data.weeks[key] = JSON.parse(localStorage.getItem(key)); } catch {}
         }
     }
@@ -2820,6 +2813,7 @@ function exportBackup() {
     URL.revokeObjectURL(url);
     setLastBackupTime();
     renderBackupBadge();
+    logAudit('export_backup', Object.keys(data.weeks).length + ' semaine(s)');
     showToast('Backup exporte', 'success');
 }
 function importBackup(e) {
@@ -2838,7 +2832,7 @@ function importBackup(e) {
                 else { const existing = loadProfile(); saveProfile({ ...existing, ...data.profile }); }
             }
             if (data.company) { if (mode === '2') { saveCompanyName(data.company); } else { if (!getCompName() || getCompName() === 'Mon Entreprise') saveCompanyName(data.company); } }
-            if (data.logo) { if (mode === '2') { try { localStorage.setItem('chantier_logo', data.logo); } catch {} } else { if (!getLogoSrc()) try { localStorage.setItem('chantier_logo', data.logo); } catch {} } }
+            if (data.logo) { var logoK = uK('logo'); if (mode === '2') { try { localStorage.setItem(logoK, data.logo); } catch {} } else { if (!getLogoSrc()) try { localStorage.setItem(logoK, data.logo); } catch {} } }
             if (data.lieux) {
                 if (mode === '2') { saveLieux(data.lieux); }
                 else { const existingLieux = loadLieux(); saveLieux([...new Set([...existingLieux, ...data.lieux])].sort()); }
@@ -2846,28 +2840,29 @@ function importBackup(e) {
             if (mode === '1' && data.weeks) {
                 Object.keys(data.weeks).forEach(k => {
                     if (!CFG.weekKeyRe.test(k)) return;
+                    const targetKey = uK(keySuffix(k));
                     const incoming = data.weeks[k];
                     if (!Array.isArray(incoming)) return;
                     try {
-                        const existingRaw = localStorage.getItem(k);
+                        const existingRaw = localStorage.getItem(targetKey);
                         if (existingRaw) {
                             const existing = JSON.parse(existingRaw);
-                            if (!Array.isArray(existing)) { localStorage.setItem(k, JSON.stringify(incoming)); return; }
+                            if (!Array.isArray(existing)) { localStorage.setItem(targetKey, JSON.stringify(incoming)); return; }
                             const existingDates = new Set(existing.map(e => e.date));
                             const freshIncoming = incoming.filter(e => e && e.date && !existingDates.has(e.date));
                             const merged = [...existing, ...freshIncoming];
                             deduplicateEntries(merged);
-                            localStorage.setItem(k, JSON.stringify(merged));
+                            localStorage.setItem(targetKey, JSON.stringify(merged));
                         } else {
-                            localStorage.setItem(k, JSON.stringify(incoming));
+                            localStorage.setItem(targetKey, JSON.stringify(incoming));
                         }
-                    } catch { try { localStorage.setItem(k, JSON.stringify(incoming)); } catch {} }
+                    } catch { try { localStorage.setItem(targetKey, JSON.stringify(incoming)); } catch {} }
                 });
             } else if (mode === '2' && data.weeks) {
                 Object.keys(data.weeks).forEach(k => {
                     if (!CFG.weekKeyRe.test(k)) return;
                     if (!Array.isArray(data.weeks[k])) return;
-                    try { localStorage.setItem(k, JSON.stringify(data.weeks[k])); } catch {}
+                    try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(data.weeks[k])); } catch {}
                 });
             }
             if (data.favs) {
@@ -2887,6 +2882,7 @@ function importBackup(e) {
             }
             learnFromEntries();
             render();
+            logAudit('import_backup', mode === '1' ? 'fusion' : 'ecrasement');
             setMicStatus(mode === '1' ? 'Fusion intelligente terminee !' : 'Backup restaure !', 'heard'); setTimeout(() => setMicStatus('',''), 2500);
         } catch { setMicStatus('Erreur de lecture', 'error'); setTimeout(() => setMicStatus('',''), 2500); }
     };
@@ -2907,9 +2903,9 @@ async function usbConnect() {
         if (!data.version) { showToast('Fichier invalide', 'error'); return; }
         if (data.profile) { var ex = loadProfile(); saveProfile({ ...ex, ...data.profile }); }
         if (data.company) saveCompanyName(data.company);
-        if (data.logo) { try { localStorage.setItem('chantier_logo', data.logo); } catch {} }
+        if (data.logo) { try { localStorage.setItem(uK('logo'), data.logo); } catch {} }
         if (data.lieux) { var el = loadLieux(); saveLieux([...new Set([...el, ...data.lieux])].sort()); }
-        if (data.weeks) { Object.keys(data.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(data.weeks[k])) { try { localStorage.setItem(k, JSON.stringify(data.weeks[k])); } catch {} } }); }
+        if (data.weeks) { Object.keys(data.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(data.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(data.weeks[k])); } catch {} } }); }
         render();
         showToast('Donnees USB chargees', 'success');
     } catch (err) { if (err.name !== 'AbortError') showToast('Erreur lecture USB', 'error'); }
@@ -2917,9 +2913,8 @@ async function usbConnect() {
 async function usbSave() {
     if (!_usbFileHandle) { showToast('Connectez d\'abord un fichier USB', 'warning'); return; }
     try {
-        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: localStorage.getItem('chantier_logo') || null, lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
-        var skip = ['chantier_profile', 'chantier_logo', 'chantier_lieux', 'chantier_company', 'chantier_template', 'chantier_favs', 'chantier_adaptive', 'chantier_intelligence'];
-        for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith('chantier_') && !skip.includes(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
+        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
+        for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isCurrentUserWeekKey(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
         var writable = await _usbFileHandle.createWritable();
         await writable.write(JSON.stringify(data, null, 2));
         await writable.close();
@@ -2929,9 +2924,8 @@ async function usbSave() {
 async function usbAutoSave() {
     if (!_usbFileHandle) return;
     try {
-        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: localStorage.getItem('chantier_logo') || null, weeks: {} };
-        var skip = ['chantier_profile', 'chantier_logo', 'chantier_lieux', 'chantier_company', 'chantier_template', 'chantier_favs', 'chantier_adaptive', 'chantier_intelligence'];
-        for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith('chantier_') && !skip.includes(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
+        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), weeks: {} };
+        for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isCurrentUserWeekKey(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
         var writable = await _usbFileHandle.createWritable();
         await writable.write(JSON.stringify(data, null, 2));
         await writable.close();
@@ -3194,19 +3188,19 @@ function handleLogo(e) {
     if (file.size > 500000) { alert('Logo trop volumineux (max 500 Ko).'); return; }
     const reader = new FileReader();
     reader.onload = function(ev) {
-        localStorage.setItem('chantier_logo', ev.target.result);
+        localStorage.setItem(uK('logo'), ev.target.result);
         renderLogo();
     };
     reader.readAsDataURL(file);
 }
 
 function removeLogo() {
-    localStorage.removeItem('chantier_logo');
+    localStorage.removeItem(uK('logo'));
     renderLogo();
 }
 
 function renderLogo() {
-    const data = localStorage.getItem('chantier_logo');
+    const data = localStorage.getItem(uK('logo'));
     const img = document.getElementById('logoImg');
     const ph = document.getElementById('logoPlaceholder');
     const del = document.getElementById('logoDel');
@@ -3223,20 +3217,20 @@ function renderLogo() {
 }
 
 function saveCompanyName(name) {
-    localStorage.setItem('chantier_company', name || 'Nom entreprise');
+    localStorage.setItem(uK('company'), name || 'Nom entreprise');
 }
 
 function loadCompanyName() {
-    return localStorage.getItem('chantier_company') || 'Nom entreprise';
+    return localStorage.getItem(uK('company')) || 'Nom entreprise';
 }
 
 // --- Lieux ---
 function loadLieux() {
-    try { return JSON.parse(localStorage.getItem('chantier_lieux')) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(uK('lieux'))) || []; } catch { return []; }
 }
 
 function saveLieux(lieux) {
-    localStorage.setItem('chantier_lieux', JSON.stringify(lieux));
+    localStorage.setItem(uK('lieux'), JSON.stringify(lieux));
 }
 
 function addLieu(lieu) {
@@ -3557,7 +3551,7 @@ function addMinutesToTime(timeStr, minutes) {
 
 function getAdaptiveInfo(num) {
     try {
-        const raw = localStorage.getItem('chantier_adaptive');
+        const raw = localStorage.getItem(uK('adaptive'));
         if (!raw) return {};
         const db = JSON.parse(raw);
         return db[num.toUpperCase()] || db[num] || {};
@@ -3573,7 +3567,7 @@ function debouncedLearn() {
 function learnFromEntries() {
     try {
         let db = {};
-        try { db = JSON.parse(localStorage.getItem('chantier_adaptive')) || {}; } catch {}
+        try { db = JSON.parse(localStorage.getItem(uK('adaptive'))) || {}; } catch {}
         const allData = loadAllWeeksData();
         const allEntries = Object.values(allData).flat();
         allEntries.forEach(e => {
@@ -3607,7 +3601,7 @@ function learnFromEntries() {
                 db[k]._avgWorkMin = Math.round(db[k]._workDurations.reduce((a, b) => a + b, 0) / db[k]._workDurations.length);
             }
         });
-        localStorage.setItem('chantier_adaptive', JSON.stringify(db));
+        localStorage.setItem(uK('adaptive'), JSON.stringify(db));
     } catch {}
 }
 
@@ -4195,6 +4189,7 @@ function showModal(html) {
 
 function resetWeek() {
     if (!confirm('Vider toutes les donnees ?')) return;
+    logAudit('reset_week', formatDate(currentWeekStart));
     localStorage.removeItem(getStorageKey());
     render();
 }
@@ -4236,6 +4231,7 @@ function exportCSV() {
     a.download = `chantier_${formatDate(currentWeekStart)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    logAudit('export_csv', entries.length + ' journee(s)');
     showToast('CSV exporte !', 'success');
 }
 
@@ -5087,10 +5083,10 @@ function getWeekNumber(d) {
 }
 
 // --- Intelligence Engine ---
-const INTEL_KEY = 'chantier_intelligence';
+function getIntelKey() { return uK('intelligence'); }
 
-function loadIntel() { try { return JSON.parse(localStorage.getItem(INTEL_KEY)) || { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } catch { return { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } }
-function saveIntel(d) { localStorage.setItem(INTEL_KEY, JSON.stringify(d)); }
+function loadIntel() { try { return JSON.parse(localStorage.getItem(getIntelKey())) || { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } catch { return { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } }
+function saveIntel(d) { localStorage.setItem(getIntelKey(), JSON.stringify(d)); }
 
 function learnIntelligence() {
     const allData = loadAllWeeksData();
@@ -5564,9 +5560,9 @@ function loadAllWeeksData() {
     const allData = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && CFG.weekKeyRe.test(key)) {
+        if (isCurrentUserWeekKey(key)) {
             try {
-                const weekStart = key.replace('chantier_', '');
+                const weekStart = key.replace(/^(chantier_(?:u\d+_)?)/, '');
                 const entries = JSON.parse(localStorage.getItem(key)) || [];
                 if (Array.isArray(entries) && entries.length) allData[weekStart] = entries;
             } catch {}
@@ -5853,8 +5849,8 @@ function showAnnualRecap() {
 }
 
 // --- RELEVE D'HEURES ---
-function getCompName() { try { return localStorage.getItem('chantier_company') || 'Mon Entreprise'; } catch { return 'Mon Entreprise'; } }
-function getLogoSrc() { try { return localStorage.getItem('chantier_logo') || ''; } catch { return ''; } }
+function getCompName() { try { return localStorage.getItem(uK('company')) || 'Mon Entreprise'; } catch { return 'Mon Entreprise'; } }
+function getLogoSrc() { try { return localStorage.getItem(uK('logo')) || ''; } catch { return ''; } }
 function fmtH(mins) { if (!mins) return '0:00'; const h = Math.floor(mins / 60); const m = mins % 60; return h + ':' + String(m).padStart(2, '0'); }
 function fmtDateFR(dateStr) { const d = new Date(dateStr + 'T00:00:00'); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
 function openRelevePanel(html) { const body = document.getElementById('recapBody'); body.innerHTML = html; document.getElementById('recapPanel').style.display = ''; scrollPanelIntoView('recapPanel'); }
@@ -6738,8 +6734,8 @@ function computeSalary(totalWorkMin, overtimeMin) {
 }
 
 // --- Favorite chantiers ---
-function loadFavChantiers() { try { return JSON.parse(localStorage.getItem('chantier_favs')) || []; } catch { return []; } }
-function saveFavChantiers(favs) { localStorage.setItem('chantier_favs', JSON.stringify(favs)); }
+function loadFavChantiers() { try { return JSON.parse(localStorage.getItem(uK('favs'))) || []; } catch { return []; } }
+function saveFavChantiers(favs) { localStorage.setItem(uK('favs'), JSON.stringify(favs)); }
 function addFavChantier(num, lieu, lieu2, lieu3, identification, adresse, priorite) {
     if (!num && !lieu) return;
     const favs = loadFavChantiers();
@@ -6900,29 +6896,464 @@ function handleRoute() {
 }
 window.addEventListener('hashchange', handleRoute);
 
-render();
-startLiveClock();
-initAutoDetect();
-restoreTimerState();
-checkBackupReminder();
-renderBackupBadge();
-handleRoute();
-initInlineValidation();
-setTimeout(runIntegrityCheck, 5000);
-setTimeout(checkAutoBackup, 8000);
-setInterval(function() { runIntegrityCheck(); checkAutoBackup(); }, 300000);
-initNotifications();
-initUsbAutoSave();
-usbTryAutoConnect();
+// === SESSION & COMPTES UTILISATEURS ===
+var _sessionUser = null;
+var _sessionLockTimer = null;
+
+function uK(suffix) {
+    if (_sessionUser && _sessionUser.id !== 'u1') return 'chantier_' + _sessionUser.id + '_' + suffix;
+    return 'chantier_' + suffix;
+}
+function isCurrentUserWeekKey(k) {
+    if (!k || !CFG.weekKeyRe.test(k)) return false;
+    if (/^chantier_u\d+_/.test(k)) {
+        var m = /^chantier_(u\d+)_/.exec(k);
+        if (!_sessionUser || !m) return false;
+        if (m[1] === 'u1') return true;
+        return m[1] === _sessionUser.id;
+    }
+    return !_sessionUser || _sessionUser.id === 'u1';
+}
+
+var SESSION_CFG_KEY = 'chantier_session_cfg';
+function loadSessionCfg() { try { return JSON.parse(localStorage.getItem(SESSION_CFG_KEY)) || { idleMinutes: 30 }; } catch { return { idleMinutes: 30 }; } }
+function saveSessionCfg(c) { try { localStorage.setItem(SESSION_CFG_KEY, JSON.stringify(c)); } catch {} }
+
+function loadUsersList() { try { return JSON.parse(localStorage.getItem('chantier_users')) || []; } catch { return []; } }
+function saveUsersList(users) { try { localStorage.setItem('chantier_users', JSON.stringify(users)); } catch {} }
+function loadAuditLog() { try { return JSON.parse(localStorage.getItem('chantier_audit')) || []; } catch { return []; } }
+
+function logAudit(action, detail) {
+    try {
+        var log = loadAuditLog();
+        log.push({ ts: Date.now(), userId: _sessionUser ? _sessionUser.id : null, username: _sessionUser ? _sessionUser.username : (action === 'create_user' && detail ? detail.split(' ')[0] : 'invite'), action: action, detail: detail || '' });
+        if (log.length > 300) log = log.slice(-300);
+        localStorage.setItem('chantier_audit', JSON.stringify(log));
+    } catch {}
+}
+var _auditThrottle = {};
+function logAuditThrottled(action, detail, minGapMs) {
+    var gap = minGapMs || 60000;
+    var now = Date.now();
+    if (_auditThrottle[action] && now - _auditThrottle[action] < gap) return;
+    _auditThrottle[action] = now;
+    logAudit(action, detail);
+}
+
+function formatSessionTs(ts) {
+    if (!ts) return '-';
+    var d = new Date(ts);
+    var p = function(n) { return String(n).padStart(2, '0'); };
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+async function hashPassword(pw, salt) {
+    try {
+        var data = new TextEncoder().encode(salt + ':' + pw);
+        if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+            var buf = await crypto.subtle.digest('SHA-256', data);
+            var arr = new Uint8Array(buf);
+            var hex = '';
+            for (var i = 0; i < arr.length; i++) hex += arr[i].toString(16).padStart(2, '0');
+            return hex;
+        }
+    } catch (err) {}
+    var s = salt + ':' + pw, h = 5381;
+    for (var j = 0; j < s.length; j++) { h = ((h * 33) ^ s.charCodeAt(j)) >>> 0; }
+    return 'fnv_' + h.toString(16);
+}
+function makeSalt() {
+    try {
+        var arr = new Uint8Array(16);
+        crypto.getRandomValues(arr);
+        var hex = '';
+        for (var i = 0; i < arr.length; i++) hex += arr[i].toString(16).padStart(2, '0');
+        return hex;
+    } catch { return String(Date.now()) + Math.random().toString(36).slice(2); }
+}
+
+function nextUserId(users) {
+    var max = 0;
+    users.forEach(function(u) { var m = /^u(\d+)$/.exec(u.id || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+    return 'u' + (max + 1);
+}
+
+async function createUser(username, password, nom, prenom, isAdmin) {
+    username = (username || '').trim().toLowerCase();
+    if (!/^[a-z0-9_.-]{3,}$/.test(username)) { showToast('Identifiant invalide (min 3 car., lettres/chiffres)', 'error'); return null; }
+    if (!password || password.length < 4) { showToast('Mot de passe trop court (min 4)', 'error'); return null; }
+    var users = loadUsersList();
+    if (users.some(function(u) { return u.username === username; })) { showToast('Identifiant deja utilise', 'error'); return null; }
+    var salt = makeSalt();
+    var hash = await hashPassword(password, salt);
+    var user = { id: nextUserId(users), username: username, nom: nom || '', prenom: prenom || '', salt: salt, hash: hash, isAdmin: !!isAdmin, createdAt: Date.now(), disabled: false, lastLogin: null };
+    users.push(user);
+    saveUsersList(users);
+    logAudit('create_user', user.id + ' ' + username);
+    return user;
+}
+
+async function authLogin(username, password) {
+    username = (username || '').trim().toLowerCase();
+    var users = loadUsersList();
+    var user = users.find(function(u) { return u.username === username; });
+    if (!user) { logAudit('login_fail', username); showToast('Identifiant ou mot de passe incorrect', 'error'); return false; }
+    if (user.disabled) { logAudit('login_blocked', user.username); showToast('Compte desactive', 'error'); return false; }
+    var hash = await hashPassword(password, user.salt);
+    if (hash !== user.hash) { logAudit('login_fail', username); showToast('Identifiant ou mot de passe incorrect', 'error'); return false; }
+    user.lastLogin = Date.now();
+    saveUsersList(users);
+    var session = { userId: user.id, username: user.username, loginTime: Date.now(), lastActivity: Date.now() };
+    try { localStorage.setItem('chantier_session', JSON.stringify(session)); } catch {}
+    _sessionUser = user;
+    window._lastActivity = Date.now();
+    logAudit('login', user.id + ' ' + user.username);
+    if (window._booted) { render(); renderSessionBtn(); }
+    return true;
+}
+
+function loadSession() {
+    try { return JSON.parse(localStorage.getItem('chantier_session')) || null; } catch { return null; }
+}
+
+function restoreSession() {
+    var session = loadSession();
+    if (!session) return false;
+    var user = loadUsersList().find(function(u) { return u.id === session.userId; });
+    if (!user || user.disabled) {
+        try { localStorage.removeItem('chantier_session'); } catch {}
+        return false;
+    }
+    _sessionUser = user;
+    window._lastActivity = session.lastActivity || Date.now();
+    return true;
+}
+
+function authLogout() {
+    if (_sessionUser) logAudit('logout', _sessionUser.id + ' ' + _sessionUser.username);
+    try { localStorage.removeItem('chantier_session'); } catch {}
+    _sessionUser = null;
+    renderSessionBtn();
+    showLoginOverlay();
+}
+
+function touchActivity() {
+    var s = loadSession();
+    if (s && window._booted) {
+        s.lastActivity = Date.now();
+        try { localStorage.setItem('chantier_session', JSON.stringify(s)); } catch {}
+    }
+    window._lastActivity = Date.now();
+}
+function setupActivityTracking() {
+    var throttle = null;
+    var evt = function() {
+        if (throttle) return;
+        throttle = setTimeout(function() { throttle = null; }, 30000);
+        touchActivity();
+    };
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function(name) { window.addEventListener(name, evt, { passive: true }); });
+    window._lastActivity = Date.now();
+}
+function lockNow() {
+    if (_sessionUser) logAudit('manual_lock', _sessionUser.id + ' ' + _sessionUser.username);
+    try { localStorage.removeItem('chantier_session'); } catch {}
+    _sessionUser = null;
+    renderSessionBtn();
+    showLoginOverlay();
+    showToast('Session verrouillee', 'info');
+}
+
+function checkSessionLock() {
+    if (!_sessionUser) return;
+    var cfg = loadSessionCfg();
+    var idleMin = Math.max(1, parseInt(cfg.idleMinutes, 10) || 30);
+    var sess = loadSession();
+    var last = window._lastActivity || (sess ? sess.lastActivity : 0) || Date.now();
+    if (Date.now() - last > idleMin * 60000) {
+        logAudit('auto_lock', _sessionUser.id + ' ' + _sessionUser.username);
+        try { localStorage.removeItem('chantier_session'); } catch {}
+        _sessionUser = null;
+        renderSessionBtn();
+        showLoginOverlay();
+        showToast('Session verrouillee (inactivite ' + idleMin + ' min)', 'warning');
+    }
+}
+
+// --- UI session ---
+function renderSessionBtn() {
+    var btn = document.getElementById('sessionBtn');
+    if (!btn) return;
+    if (_sessionUser) {
+        var label = (_sessionUser.prenom || _sessionUser.nom) ? (_sessionUser.prenom + ' ' + _sessionUser.nom).trim() : _sessionUser.username;
+        var role = _sessionUser.isAdmin ? ' (admin)' : '';
+        btn.textContent = '\uD83D\uDC64 ' + label + role;
+        btn.title = 'Session active - gerer le compte';
+    } else {
+        btn.textContent = 'Compte';
+        btn.title = 'Se connecter / creer un compte';
+    }
+}
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function showLoginOverlay() {
+    var users = loadUsersList();
+    var ov = document.getElementById('loginOverlay');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'loginOverlay';
+        ov.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
+        document.body.appendChild(ov);
+    }
+    var card = '';
+    if (users.length === 0) {
+        card += '<h2 style="margin:0 0 6px;color:var(--accent);font-size:1.25rem">Bienvenue !</h2>';
+        card += '<p style="margin:0 0 18px;color:var(--text-dim);font-size:.8rem">Creez le premier compte pour proteger vos donnees.<br>Ce compte sera l\'<b>administrateur</b> et recuperera les donnees existantes.</p>';
+    } else {
+        card += '<h2 style="margin:0 0 18px;color:var(--accent);font-size:1.25rem">Connexion</h2>';
+    }
+    card += '<div style="display:flex;flex-direction:column;gap:10px">';
+    card += '<input id="loginUser" placeholder="Identifiant" style="padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem" autocomplete="username">';
+    card += '<input id="loginPass" type="password" placeholder="Mot de passe" style="padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem" autocomplete="current-password">';
+    card += '<div id="loginErr" style="color:var(--red);font-size:.78rem;min-height:1em"></div>';
+    card += '<button class="btn primary" id="loginGo" style="justify-content:center;font-size:.95rem;padding:10px">' + (users.length === 0 ? 'Creer ce compte' : 'Se connecter') + '</button>';
+    card += '</div>';
+    if (users.length === 0) {
+        card += '<button class="btn" id="loginSkip" style="justify-content:center;font-size:.85rem;padding:8px;margin-top:4px">Continuer sans compte</button>';
+    }
+    ov.innerHTML = '<div style="width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px;box-shadow:var(--glow-accent)">' + card + '<p style="margin:14px 0 0;font-size:.68rem;color:var(--text-dim);text-align:center">Heures Chantier - donnees locales securisees par session</p></div>';
+    ov.style.display = 'flex';
+    var skipBtn = document.getElementById('loginSkip');
+    if (skipBtn) {
+        skipBtn.onclick = function() {
+            hideLoginOverlay();
+            if (window._booted) { render(); renderSessionBtn(); return; }
+            bootApp();
+        };
+    }
+    var doLogin = function() {
+        var u = document.getElementById('loginUser');
+        var p = document.getElementById('loginPass');
+        var errEl = document.getElementById('loginErr');
+        if (!u || !p) return;
+        var afterLogin = function(ok) {
+            if (!ok) return;
+            hideLoginOverlay();
+            if (window._booted) { render(); renderSessionBtn(); return; }
+            bootApp();
+        };
+        if (users.length === 0) {
+            createUser(u.value, p.value, '', '', true).then(function(created) {
+                if (created) {
+                    var c = loadUsersList().find(function(x) { return x.id === created.id; });
+                    authLogin(c.username, p.value).then(afterLogin);
+                }
+            });
+        } else {
+            authLogin(u.value, p.value).then(afterLogin);
+        }
+    };
+    var btn = document.getElementById('loginGo');
+    if (btn) {
+        btn.onclick = doLogin;
+        btn.onkeydown = function(e) { if (e.key === 'Enter') doLogin(); };
+    }
+    setTimeout(function() {
+        var focusUser = document.getElementById('loginUser');
+        if (focusUser) focusUser.focus();
+    }, 100);
+}
+function hideLoginOverlay() {
+    var ov = document.getElementById('loginOverlay');
+    if (ov) ov.style.display = 'none';
+}
+
+function openSessionPanel() {
+    if (!_sessionUser) { showLoginOverlay(); return; }
+    var users = loadUsersList();
+    var s = loadSession();
+    var html = '<div style="padding:4px 0">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><h2 style="margin:0;font-size:1.05rem;color:var(--accent)">Compte &amp; session</h2><button class="btn sm" onclick="document.getElementById(\'modalOverlay\').style.display=\'none\'" style="padding:4px 10px">X</button></div>';
+    html += '<div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:12px;font-size:.8rem">';
+    html += '<div><span style="color:var(--text-dim)">Utilisateur :</span> <b>' + escapeHtml((_sessionUser.prenom + ' ' + _sessionUser.nom).trim() || _sessionUser.username) + '</b></div>';
+    html += '<div><span style="color:var(--text-dim)">Identifiant :</span> <b>' + escapeHtml(_sessionUser.username) + '</b></div>';
+    html += '<div><span style="color:var(--text-dim)">Role :</span> ' + (_sessionUser.isAdmin ? '<b style="color:var(--accent)">Administrateur</b>' : 'Utilisateur') + '</div>';
+    if (s) {
+        html += '<div><span style="color:var(--text-dim)">Connecte le :</span> ' + formatSessionTs(s.loginTime) + '</div>';
+        html += '<div><span style="color:var(--text-dim)">Derniere activite :</span> ' + formatSessionTs(s.lastActivity) + '</div>';
+    }
+    html += '<div style="display:flex;gap:6px;margin-top:10px">';
+    html += '<button class="btn sm" onclick="authLogout()" style="padding:4px 10px;background:rgba(255,107,107,.12);color:var(--red)">Deconnexion</button>';
+    html += '<button class="btn sm" onclick="lockNow()" style="padding:4px 10px">Verrouiller maintenant</button>';
+    html += '<button class="btn sm" onclick="openSessionIdleSettings()" style="padding:4px 10px">Verrouillage auto</button>';
+    html += '</div></div>';
+    html += '<div class="session-tabs" style="display:flex;gap:6px;margin-bottom:10px">';
+    html += '<button class="btn sm" id="tabAudit" onclick="showAuditInPanel()">Activite</button>';
+    if (_sessionUser.isAdmin) html += '<button class="btn sm" id="tabUsers" onclick="showUsersInPanel()">Comptes</button>';
+    html += '</div>';
+    html += '<div id="sessionPanelBody"></div>';
+    html += '</div>';
+    var overlay = document.getElementById('modalOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'modalOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px';
+        overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:480px;width:100%;max-height:85vh;overflow:auto">' + html + '</div>';
+    overlay.style.display = 'flex';
+    showAuditInPanel();
+}
+function showAuditInPanel() {
+    var body = document.getElementById('sessionPanelBody');
+    if (!body) return;
+    var log = loadAuditLog().slice(-60).reverse();
+    var h = '<div style="font-size:.72rem;color:var(--text-dim);margin-bottom:6px">Traces d\'activite (60 dernieres) :</div><div style="max-height:40vh;overflow:auto;border:1px solid var(--border);border-radius:8px">';
+    if (!log.length) h += '<div style="padding:10px;color:var(--text-dim)">Aucune activite enregistree</div>';
+    log.forEach(function(e) {
+        var who = e.username || '-';
+        h += '<div style="padding:6px 10px;border-bottom:1px solid var(--border);display:flex;gap:8px;font-size:.72rem"><span style="color:var(--text-dim);white-space:nowrap">' + formatSessionTs(e.ts) + '</span><b style="color:var(--accent2);white-space:nowrap">' + escapeHtml(who) + '</b><span>' + escapeHtml(e.action) + (e.detail ? ' <span style="color:var(--text-dim)">' + escapeHtml(e.detail) + '</span>' : '') + '</span></div>';
+    });
+    h += '</div>';
+    body.innerHTML = h;
+    var a = document.getElementById('tabAudit'); if (a) a.style.background = 'var(--surface2)';
+    var u = document.getElementById('tabUsers'); if (u) u.style.background = '';
+}
+function showUsersInPanel() {
+    var body = document.getElementById('sessionPanelBody');
+    if (!body) return;
+    var users = loadUsersList();
+    var h = '<div style="font-size:.72rem;color:var(--text-dim);margin-bottom:6px">Gestion des comptes (admin) :</div>';
+    h += '<div style="display:flex;gap:6px;margin-bottom:10px">';
+    h += '<input id="nuUser" placeholder="Identifiant (min 3)" style="flex:1;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem">';
+    h += '<input id="nuPass" placeholder="Mdp" type="password" style="flex:1;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem">';
+    h += '<button class="btn sm primary" onclick="adminCreateUser()" style="padding:4px 10px">Ajouter</button>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:6px;margin-bottom:12px">';
+    h += '<input id="nuNom" placeholder="Nom (optionnel)" style="flex:1;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem">';
+    h += '<input id="nuPre" placeholder="Prenom (optionnel)" style="flex:1;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.78rem">';
+    h += '</div>';
+    h += '<label style="display:flex;align-items:center;gap:6px;font-size:.75rem;margin-bottom:10px"><input type="checkbox" id="nuAdmin"> Administrateur</label>';
+    users.forEach(function(u) {
+        var isSelf = _sessionUser && _sessionUser.id === u.id;
+        h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:.75rem">';
+        h += '<div><b>' + escapeHtml((u.prenom + ' ' + u.nom).trim() || u.username) + '</b> <span style="color:var(--text-dim)">(' + escapeHtml(u.username) + (u.isAdmin ? ', admin' : '') + (u.disabled ? ', desactive' : '') + ')</span><div style="color:var(--text-dim);font-size:.68rem">Conn.: ' + (u.lastLogin ? formatSessionTs(u.lastLogin) : 'jamais') + '</div></div>';
+        h += '<div style="display:flex;gap:4px">';
+        h += '<button class="btn sm" onclick="adminResetPass(\'' + u.id + '\')" style="padding:3px 8px">Mdp</button>';
+        if (u.id !== 'u1' && !isSelf) h += '<button class="btn sm" onclick="adminToggleUser(\'' + u.id + '\')" style="padding:3px 8px">' + (u.disabled ? 'Activer' : 'Desactiver') + '</button>';
+        if (u.id !== 'u1' && !isSelf) h += '<button class="btn sm danger" onclick="adminDeleteUser(\'' + u.id + '\')" style="padding:3px 8px">Suppr.</button>';
+        h += '</div></div>';
+    });
+    body.innerHTML = h;
+    var a = document.getElementById('tabAudit'); if (a) a.style.background = '';
+    var b = document.getElementById('tabUsers'); if (b) b.style.background = 'var(--surface2)';
+}
+function adminCreateUser() {
+    var uEl = document.getElementById('nuUser'), pEl = document.getElementById('nuPass');
+    var nEl = document.getElementById('nuNom'), prEl = document.getElementById('nuPre'), adEl = document.getElementById('nuAdmin');
+    if (!uEl || !pEl) return;
+    createUser(uEl.value, pEl.value, nEl ? nEl.value : '', prEl ? prEl.value : '', adEl ? adEl.checked : false).then(function(created) {
+        if (created) { showToast('Compte cree : ' + created.username, 'success'); showUsersInPanel(); }
+    });
+}
+async function adminResetPass(userId) {
+    var user = loadUsersList().find(function(u) { return u.id === userId; });
+    if (!user) return;
+    var np = prompt('Nouveau mot de passe pour ' + user.username + ' :');
+    if (!np || np.length < 4) { showToast('Mdp invalide (min 4)', 'error'); return; }
+    var salt = makeSalt();
+    var hash = await hashPassword(np, salt);
+    var users = loadUsersList();
+    var u = users.find(function(x) { return x.id === userId; });
+    u.salt = salt; u.hash = hash;
+    saveUsersList(users);
+    logAudit('reset_pass', u.id + ' ' + u.username);
+    showToast('Mot de passe reinitialise', 'success');
+}
+function adminToggleUser(userId) {
+    var users = loadUsersList();
+    var u = users.find(function(x) { return x.id === userId; });
+    if (!u) return;
+    u.disabled = !u.disabled;
+    saveUsersList(users);
+    logAudit(u.disabled ? 'disable_user' : 'enable_user', u.id + ' ' + u.username);
+    showUsersInPanel();
+}
+function adminDeleteUser(userId) {
+    if (!confirm('Supprimer ce compte ? Ses donnees seront orphelines.')) return;
+    var users = loadUsersList();
+    var u = users.find(function(x) { return x.id === userId; });
+    if (!u) return;
+    logAudit('delete_user', u.id + ' ' + u.username);
+    users = users.filter(function(x) { return x.id !== userId; });
+    saveUsersList(users);
+    showUsersInPanel();
+}
+function openSessionIdleSettings() {
+    var cfg = loadSessionCfg();
+    var mins = prompt('Verrouillage automatique apres inactivite (minutes) :', String(cfg.idleMinutes));
+    if (mins === null) return;
+    var m = parseInt(mins, 10);
+    if (!m || m < 1) { showToast('Valeur invalide', 'error'); return; }
+    cfg.idleMinutes = m;
+    saveSessionCfg(cfg);
+    showToast('Verrouillage : ' + m + ' min', 'success');
+}
+
+var window_booted_backup = window._booted;
+function bootApp() {
+    if (window._booted) return;
+    window._booted = true;
+    window_booted_backup = true;
+    render();
+    startLiveClock();
+    initAutoDetect();
+    restoreTimerState();
+    checkBackupReminder();
+    renderBackupBadge();
+    handleRoute();
+    initInlineValidation();
+    setTimeout(runIntegrityCheck, 5000);
+    setTimeout(checkAutoBackup, 8000);
+    setInterval(function() { runIntegrityCheck(); checkAutoBackup(); }, 300000);
+    initNotifications();
+    initUsbAutoSave();
+    usbTryAutoConnect();
 fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     if (d && d.version && d.weeks) {
         var hasData = false;
         for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith('chantier_') && CFG.weekKeyRe.test(k)) { hasData = true; break; } }
-        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { try { localStorage.setItem('chantier_logo', d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(k, JSON.stringify(d.weeks[k])); } catch {} } }); render(); showToast('Donnees data.json importees', 'success'); }
+        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(d.weeks[k])); } catch {} } }); render(); showToast('Donnees data.json importees', 'success'); }
     }
 }).catch(function() {});
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(function(){});
+}
+}
+
+// --- AMORCAGE SESSION GATE ---
+setupActivityTracking();
+setInterval(checkSessionLock, 60000);
+renderSessionBtn();
+hideLoginOverlay();
+var _startupUsers = loadUsersList();
+if (_startupUsers.length === 0) {
+    if (loadSession() && restoreSession()) {
+        hideLoginOverlay();
+        bootApp();
+        renderSessionBtn();
+    } else {
+        showLoginOverlay();
+    }
+} else {
+    if (loadSession() && restoreSession()) {
+        hideLoginOverlay();
+        bootApp();
+        renderSessionBtn();
+    } else {
+        showLoginOverlay();
+    }
 }
 </script>
 
