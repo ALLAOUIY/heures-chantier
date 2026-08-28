@@ -1095,6 +1095,7 @@
             <button class="btn" id="sessionBtn" onclick="openSessionPanel()" title="Comptes, session et activite">Compte</button>
             <button class="btn" onclick="toggleFullscreen()" title="Plein ecran saisie" id="btnFullscreen">&#x26F6;</button>
             <button class="btn" onclick="toggleShortcutsModal()" title="Raccourcis clavier">?</button>
+            <button class="btn" onclick="openHelpModal()" title="Guide de demarrage et premiere utilisation">Aide</button>
         </div>
     </header>
     <div id="bulkToolbar" style="display:none;padding:6px 10px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;margin-bottom:8px;display:none;align-items:center;gap:6px;flex-wrap:wrap;font-size:0.75rem"></div>
@@ -5453,6 +5454,12 @@ function toggleShortcutsModal() {
     modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
 }
 
+// --- Help Modal ---
+function openHelpModal() {
+    const modal = document.getElementById('helpModal');
+    modal.style.display = 'flex';
+}
+
 // --- Recap by chantier ---
 function showRecap() {
     const entries = loadEntries();
@@ -7407,6 +7414,42 @@ if (_startupUsers.length === 0) {
         </div>
         <div style="margin-top:12px;font-size:0.72rem;color:var(--text-dim);text-align:center">
             <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">?</kbd> ou <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">Escape</kbd> pour fermer
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+<div id="helpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:620px;width:100%;max-height:85vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3 style="font-size:1rem;color:var(--accent)">Guide de demarrage</h3>
+            <button class="btn sm" onclick="document.getElementById('helpModal').style.display='none'" style="padding:4px 10px">X</button>
+        </div>
+        <div style="font-size:0.8rem;line-height:1.5;display:flex;flex-direction:column;gap:14px">
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">1. Premiere utilisation</strong><br>
+                Au premier lancement, creez votre compte administrateur (identifiant + mot de passe). Ce compte recupere automatiquement les donnees deja presentes sur l'appareil et donne acces a la gestion des comptes (bouton <b>Compte</b> dans le menu du haut).
+            </div>
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">2. Saisir une journee</strong><br>
+                Saisissez directement dans le champ de texte en haut de la page, ex. : <code style="color:var(--accent4)">8h30-17h00</code>, ajoutez un chantier avec <code style="color:var(--accent4)">chantier CHT-042</code>, puis cliquez <b>Enregistrer la journee</b>. Utilisez <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">1</kbd> a <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">8</kbd> pour entrer depart/arrivee maison, bureaux, chantier.
+            </div>
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">3. Comptes et sessions (multi-utilisateurs)</strong><br>
+                Chaque utilisateur a ses donnees isolees (semaines, templates, favoris, logo, entreprise). L'administrateur peut ajouter des comptes via <b>Compte</b> puis l'onglet <b>Comptes</b>. La session se verrouille automatiquement apres inactivite (reglable dans <b>Compte</b> &gt; <b>Verrouillage auto</b>).
+            </div>
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">4. Sauvegardes</strong><br>
+                Les donnees sont enregistrees localement sur l'appareil. <b>Backup</b> telecharge une sauvegarde, <b>Restaurer</b> l'importe. <b>USB Sauver</b> ecrit sur une cle USB connectee. Pensez a sauvegarder regululierement.
+            </div>
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">5. Vues et export</strong><br>
+                Les onglets du haut ouvrent la vue <b>Semaine</b>, <b>Mois</b>, <b>Annee</b>, <b>Journal</b>, <b>Historique</b>, <b>Projets</b> et <b>Analytics</b>. <b>CSV</b> et <b>XLS</b> exportent vos heures au format tableur. <b>Imprimer</b> genere une feuille de temps.
+            </div>
+            <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
+                <strong style="color:var(--accent2)">6. Trucs et astuces</strong><br>
+                Le bouton <b>?</b> affiche tous les raccourcis clavier. La saisie vocale et le remplissage rapide aident a gagner du temps. En cas de probleme, utilisez <b>Copier sem. prec.</b> ou <b>Repeter veille</b> pour dupliquer une journee.
+            </div>
         </div>
     </div>
 </div>
