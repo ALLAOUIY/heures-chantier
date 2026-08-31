@@ -46,23 +46,25 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
-            gap: 12px;
-            padding: 12px 16px;
+            gap: 8px;
+            padding: 8px 14px;
             background: linear-gradient(135deg, rgba(108,122,255,0.06), rgba(78,205,196,0.04));
             border: 1px solid var(--border);
             border-radius: var(--radius);
             animation: panelSlideIn 0.3s ease backwards;
         }
         h1 {
-            font-size: 1.4rem;
+            font-size: 1.1rem;
             font-weight: 700;
+            margin: 0;
             background: linear-gradient(135deg, var(--accent), var(--accent2));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        .header-title .company-name { font-size: 0.7rem !important; }
         .week-nav {
             display: flex;
             align-items: center;
@@ -140,16 +142,19 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-            margin-bottom: 16px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
         }
         .stat-card {
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 14px 12px;
-            text-align: center;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
             transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
             position: relative;
             overflow: hidden;
@@ -166,34 +171,37 @@
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s; }
         .stat-card:hover::before { opacity: 1; }
         .stat-card .label {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             color: var(--text-dim);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            letter-spacing: 0.4px;
+            margin-bottom: 1px;
         }
-        .stat-card .icon { font-size: 1.1rem; margin-bottom: 4px; opacity: 0.8; }
-        .stat-card .value { font-size: 1.4rem; font-weight: 700; transition: color 0.3s; }
-        .stat-card .sub { font-size: 0.65rem; color: var(--text-dim); margin-top: 2px; }
+        .stat-card .icon { font-size: 1.3rem; opacity: 0.85; margin: 0; flex-shrink: 0; }
+        .stat-card .stat-text { display: flex; flex-direction: column; min-width: 0; }
+        .stat-card .value { font-size: 1.1rem; font-weight: 700; line-height: 1.1; transition: color 0.3s; }
+        .stat-card .sub { font-size: 0.6rem; color: var(--text-dim); margin-top: 1px; }
+        .stat-card.col { flex-direction: column; align-items: stretch; text-align: center; }
+        .stat-card.col .value { text-align: center; }
         .stat-card.overtime { border-color: var(--red); animation: overtimePulse 2s infinite; }
         .stat-card.overtime::before { background: linear-gradient(90deg, var(--red), var(--accent3)); opacity: 1; }
         @keyframes overtimePulse { 0%,100% { border-color: var(--red); } 50% { border-color: rgba(255,107,107,0.3); } }
         #overtimeBar { box-shadow: 0 0 6px rgba(108,122,255,0.3); }
 
-        .day-tabs { display: flex; gap: 3px; padding: 3px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 14px; overflow-x: auto; }
+        .day-tabs { display: flex; gap: 3px; padding: 3px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px; overflow-x: auto; }
         .day-tab { flex: 1; min-width: 0; padding: 6px 4px; border: none; background: transparent; color: var(--text-dim); font-size: 0.7rem; font-weight: 600; text-align: center; cursor: pointer; border-radius: 6px; transition: all 0.15s; white-space: nowrap; line-height: 1.2; touch-action: manipulation; }
         .day-tab:hover { background: var(--surface2); color: var(--text); }
         .day-tab.active { background: linear-gradient(135deg, var(--accent), #5a6aee); color: #fff; box-shadow: 0 2px 8px rgba(108,122,255,0.3); }
         .day-tab.today { box-shadow: inset 0 -2px 0 var(--accent4); }
-        .day-tab.has-data::after { content: ''; display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); margin: 2px auto 0; }
+        .day-tab.has-data::after { content: ''; display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); margin: 1px auto 0; }
         .day-tab.bulk-selected { background: var(--accent3) !important; color: #fff !important; border-color: var(--accent3) !important; box-shadow: 0 0 8px rgba(70,200,120,0.4); }
         .day-tab.active.has-data::after { background: #fff; }
         .day-tab.weekend { background: rgba(255,193,7,0.10); color: #f7b500; }
         .day-tab.weekend.active { background: linear-gradient(135deg, #f7b500, #dd8b00); color: #fff; }
         .day-tab.weekend:hover { color: #f7b500; }
-        .entry-hint { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.68rem; color: var(--text-dim); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
+        .entry-hint { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.65rem; color: var(--text-dim); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; margin-bottom: 8px; }
         .entry-hint b { color: var(--accent2); }
-        @media (max-width: 600px) { .day-tab { font-size: 0.62rem; padding: 5px 2px; } }
+        @media (max-width: 600px) { .day-tab { font-size: 0.62rem; padding: 5px 2px; } .entry-hint { display: none; } }
         .sticky-save { position: sticky; bottom: 0; z-index: 50; background: linear-gradient(to top, var(--bg) 70%, transparent); padding: 16px 0 6px 0; margin-top: -4px; }
         .save-indicator {
             position: absolute; top: 8px; right: 12px;
@@ -214,25 +222,25 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             animation: panelSlideIn 0.3s ease backwards;
             transition: border-color 0.2s;
         }
         .form-panel:hover { border-color: rgba(108,122,255,0.3); }
         @keyframes panelSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .form-header {
-            padding: 12px 16px;
+            padding: 8px 12px;
             border-bottom: 1px solid var(--border);
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(135deg, rgba(108,122,255,0.03), transparent);
         }
-        .form-body { padding: 16px; }
-        .preset-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
-        .preset-btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); white-space: nowrap; position: relative; overflow: hidden; }
+        .form-body { padding: 12px; }
+        .preset-bar { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+        .preset-btn { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); white-space: nowrap; position: relative; overflow: hidden; }
         .preset-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(108,122,255,0.1), transparent); opacity: 0; transition: opacity 0.2s; }
         .preset-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
         .preset-btn:hover::after { opacity: 1; }
@@ -240,8 +248,8 @@
         .preset-btn.active { background: linear-gradient(135deg, var(--accent), #5a6aee); color: #fff; border-color: var(--accent); }
         .preset-btn.repos-active { background: linear-gradient(135deg, var(--accent3), #e05590); color: #fff; border-color: var(--accent3); }
         .form-section {
-            margin-bottom: 16px;
-            padding-bottom: 14px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border);
         }
         .form-section.hidden-optional { display: none; }
@@ -265,7 +273,7 @@
             padding-bottom: 6px;
             border-bottom: 1px solid rgba(108,122,255,0.15);
         }
-        .form-row { display: grid; gap: 10px; margin-bottom: 10px; }
+        .form-row { display: grid; gap: 8px; margin-bottom: 8px; }
         .form-row.r2 { grid-template-columns: 1fr 1fr; }
         .form-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
         .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
@@ -362,7 +370,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .shift-header {
-            padding: 10px 14px;
+            padding: 7px 12px;
             background: linear-gradient(135deg, var(--surface2), rgba(108,122,255,0.04));
             display: flex;
             justify-content: space-between;
@@ -398,8 +406,8 @@
             background: rgba(108,122,255,0.03);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
             position: relative;
             animation: chantierFadeIn 0.2s cubic-bezier(0.4,0,0.2,1) backwards;
             transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
@@ -638,6 +646,7 @@
             .preset-btn { padding: 5px 8px; font-size: 0.65rem; }
             .view-toggle { gap: 2px; }
             .view-toggle .btn { font-size: 0.6rem; padding: 2px 6px; }
+            #liveClock, #formDate { display: none; }
         }
 
         /* Extra small (max 480) */
@@ -1100,19 +1109,19 @@
     <div id="bulkToolbar" style="display:none;padding:6px 10px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;margin-bottom:8px;display:none;align-items:center;gap:6px;flex-wrap:wrap;font-size:0.75rem"></div>
 
     <div class="stats-grid">
-        <div class="stat-card"><div class="icon" style="color:var(--accent)">&#9201;</div><div class="label">Total journee</div><div class="value" id="totalHours">0</div><div class="sub">travail + route</div></div>
-        <div class="stat-card"><div class="icon" style="color:var(--accent2)">&#9874;</div><div class="label">Heures travail</div><div class="value" id="workHours">0</div><div class="sub">sur chantier</div></div>
-        <div class="stat-card"><div class="icon" style="color:var(--accent3)">&#128663;</div><div class="label">Heures route</div><div class="value" id="routeHours">0</div><div class="sub">deplacement</div></div>
-        <div class="stat-card"><div class="icon" style="color:var(--accent4)">&#128207;</div><div class="label">Total km</div><div class="value" id="totalKm">0</div><div class="sub">vhicule</div></div>
+        <div class="stat-card"><div class="icon" style="color:var(--accent)">&#9201;</div><div class="stat-text"><div class="label">Total journee</div><div class="value" id="totalHours">0</div><div class="sub">travail + route</div></div></div>
+        <div class="stat-card"><div class="icon" style="color:var(--accent2)">&#9874;</div><div class="stat-text"><div class="label">Travail</div><div class="value" id="workHours">0</div><div class="sub">sur chantier</div></div></div>
+        <div class="stat-card"><div class="icon" style="color:var(--accent3)">&#128663;</div><div class="stat-text"><div class="label">Route</div><div class="value" id="routeHours">0</div><div class="sub">deplacement</div></div></div>
+        <div class="stat-card"><div class="icon" style="color:var(--accent4)">&#128207;</div><div class="stat-text"><div class="label">Total km</div><div class="value" id="totalKm">0</div><div class="sub">vehicule</div></div></div>
         <div class="stat-card" id="daysCard" style="display:none"><div class="icon" style="color:#ab47bc">&#128197;</div><div class="label">Jours</div><div class="value" id="activeDays">0</div><div class="sub">/ 7 jours</div></div>
         <div class="stat-card" id="shiftsCard" style="display:none"><div class="icon" style="color:var(--accent)">&#9776;</div><div class="label">Periodes</div><div class="value" id="totalShifts">0</div><div class="sub">cette semaine</div></div>
-        <div class="stat-card overtime" id="overtimeCard" style="display:none">
+        <div class="stat-card overtime col" id="overtimeCard" style="display:none">
             <div class="icon" style="color:var(--red)">&#9888;</div>
             <div class="label">Heures sup</div>
             <div class="value" id="overtimeHours" style="color:var(--red)">0</div>
             <div class="sub" id="overtimeSub">au-dela du seuil</div>
         </div>
-        <div class="stat-card" id="overtimeProgressCard" style="display:none">
+        <div class="stat-card col" id="overtimeProgressCard" style="display:none">
             <div class="label">Progression seuil</div>
             <div style="width:100%;background:var(--surface2);border-radius:4px;height:10px;margin:6px 0;overflow:hidden">
                 <div id="overtimeBar" style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width 0.6s ease,background 0.5s ease"></div>
@@ -1120,19 +1129,19 @@
             <div class="value" id="overtimePct" style="font-size:1rem">0%</div>
             <div class="sub" id="overtimeRemain">0h restantes</div>
         </div>
-        <div class="stat-card" id="dailyOtCard" style="display:none">
+        <div class="stat-card col" id="dailyOtCard" style="display:none">
             <div class="icon" style="color:var(--red)">&#128336;</div>
             <div class="label">Sup journalieres</div>
             <div class="value" id="dailyOtHours" style="color:var(--red)">0</div>
             <div class="sub" id="dailyOtDays">0 jour(s) au-dela</div>
         </div>
-        <div class="stat-card" id="forecastCard" style="display:none">
+        <div class="stat-card col" id="forecastCard" style="display:none">
             <div class="icon" style="color:var(--accent3)">&#128200;</div>
             <div class="label">Prevision semaine</div>
             <div class="value" id="forecastValue" style="color:var(--accent3)">0</div>
             <div class="sub" id="forecastSub">Analyse tendance</div>
         </div>
-        <div class="stat-card" id="salaryCard" style="display:none">
+        <div class="stat-card col" id="salaryCard" style="display:none">
             <div class="icon" style="color:var(--accent4)">&#128176;</div>
             <div class="label">Salaire estime</div>
             <div class="value" id="salaryTotal" style="color:var(--accent4)">0 ?,?</div>
