@@ -5,38 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0f1117">
+    <meta name="theme-color" content="#0b0d14">
     <meta name="description" content="Suivi d'heures chantier - Releve hebdomadaire">
     <link rel="apple-touch-icon" href="icon-180.png">
     <link rel="manifest" href="manifest.json">
     <title>Relev&#233; d&#39;heures hebdomadaire</title>
     <style>
         :root {
-            --bg: #0f1117;
-            --surface: #1a1d27;
-            --surface2: #232735;
-            --border: #2e3348;
-            --text: #e4e6f0;
-            --text-dim: #8b8fa3;
-            --accent: #6c7aff;
-            --accent2: #4ecdc4;
-            --accent3: #ff6b9d;
-            --accent4: #ffa726;
-            --green: #4ecdc4;
-            --red: #ff6b6b;
-            --radius: 10px;
-            --glow-accent: 0 0 20px rgba(108,122,255,0.15);
-            --glow-green: 0 0 20px rgba(78,205,196,0.15);
-            --glow-red: 0 0 20px rgba(255,107,107,0.15);
+            --bg: #0b0d14;
+            --bg-2: #0f1220;
+            --surface: #151927;
+            --surface2: #1d2336;
+            --surface3: #262e49;
+            --border: #2b3350;
+            --border-hi: #3a4470;
+            --text: #eef0fa;
+            --text-dim: #9aa1bd;
+            --accent: #7b8cff;
+            --accent2: #3fe0c0;
+            --accent3: #ff7aa8;
+            --accent4: #ffc24d;
+            --green: #3fe0c0;
+            --red: #ff6b81;
+            --radius: 14px;
+            --radius-sm: 10px;
+            --glow-accent: 0 0 24px rgba(123,140,255,0.22);
+            --glow-green: 0 0 24px rgba(63,224,192,0.22);
+            --glow-red: 0 0 24px rgba(255,107,129,0.22);
+            --shadow-1: 0 2px 12px rgba(0,0,0,0.35);
+            --shadow-2: 0 10px 40px rgba(0,0,0,0.5);
+            --font: 'Segoe UI', system-ui, -apple-system, 'Inter', 'Helvetica Neue', sans-serif;
+            --mono: 'Cascadia Code', 'Segoe UI', 'Consolas', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: var(--bg);
+            font-family: var(--font);
+            background:
+                radial-gradient(1200px 600px at 100% -10%, rgba(123,140,255,0.10), transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, rgba(63,224,192,0.07), transparent 55%),
+                var(--bg);
             color: var(--text);
             min-height: 100vh;
             padding: 16px;
+            -webkit-font-smoothing: antialiased;
             animation: bodyFadeIn 0.3s ease;
+            background-attachment: fixed;
         }
         @keyframes bodyFadeIn { from { opacity: 0; } to { opacity: 1; } }
         html { scroll-behavior: smooth; }
@@ -112,9 +125,9 @@
         .btn {
             padding: 7px 14px;
             border: 1px solid var(--border);
-            background: var(--surface);
+            background: linear-gradient(180deg, var(--surface), var(--surface2));
             color: var(--text);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 0.8rem;
             touch-action: manipulation;
@@ -124,12 +137,13 @@
             align-items: center;
             gap: 5px;
             position: relative;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
         }
-        .btn:hover { background: var(--surface2); border-color: var(--accent); transform: translateY(-1px); }
+        .btn:hover { background: var(--surface2); border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-1); }
         .btn:active { transform: translateY(0) scale(0.98); }
-        .btn.primary { background: linear-gradient(135deg, var(--accent), #5a6aee); border-color: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(108,122,255,0.25); }
-        .btn.primary:hover { background: linear-gradient(135deg, #5a6aee, #4a59dd); box-shadow: 0 4px 16px rgba(108,122,255,0.35); }
-        .btn.primary:active { box-shadow: 0 1px 6px rgba(108,122,255,0.2); }
+        .btn.primary { background: linear-gradient(135deg, var(--accent), #5a6aee); border-color: rgba(123,140,255,0.6); color: #fff; box-shadow: 0 4px 16px rgba(123,140,255,0.3); }
+        .btn.primary:hover { background: linear-gradient(135deg, #8a99ff, #5a6aee); box-shadow: 0 6px 22px rgba(123,140,255,0.42); }
+        .btn.primary:active { box-shadow: 0 1px 6px rgba(123,140,255,0.2); }
         .btn.danger { border-color: var(--red); color: var(--red); }
         .btn.danger:hover { background: rgba(255,107,107,0.1); }
         .btn.sm { padding: 4px 10px; font-size: 0.72rem; }
@@ -147,7 +161,7 @@
             margin-bottom: 12px;
         }
         .stat-card {
-            background: var(--surface);
+            background: linear-gradient(160deg, var(--surface), var(--surface2));
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 8px 10px;
@@ -167,7 +181,7 @@
         .stat-card:nth-child(5) { animation-delay: 0.16s; }
         .stat-card:nth-child(6) { animation-delay: 0.2s; }
         @keyframes cardFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); border-color: var(--accent); }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: var(--accent); }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s; }
         .stat-card:hover::before { opacity: 1; }
         .stat-card .label {
@@ -219,14 +233,15 @@
         .sticky-save .btn:active { transform: translateY(0) scale(0.99); }
 
         .form-panel {
-            background: var(--surface);
+            background: linear-gradient(180deg, var(--surface), var(--bg-2));
             border: 1px solid var(--border);
             border-radius: var(--radius);
             margin-bottom: 12px;
             animation: panelSlideIn 0.3s ease backwards;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: var(--shadow-1);
         }
-        .form-panel:hover { border-color: rgba(108,122,255,0.3); }
+        .form-panel:hover { border-color: var(--border-hi); box-shadow: var(--shadow-2); }
         @keyframes panelSlideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .form-header {
             padding: 8px 12px;
@@ -1098,6 +1113,7 @@
         <div class="actions">
             <button class="btn" onclick="goToToday()">Aujourd'hui</button>
             <button class="btn primary" onclick="scrollPanelIntoView('mainFormPanel')">Saisie</button>
+            <button class="btn" onclick="toggleOrchestrator()" title="Vue d'ensemble orchestrateur" style="border-color:rgba(63,224,192,0.5);color:var(--accent2)">Vue d'ensemble</button>
             <div class="dropdown" id="mainMenu">
                 <button class="btn" onclick="toggleMainMenu(event)" id="mainMenuBtn" title="Toutes les fonctions">Menu &#9776;</button>
                 <div class="dropdown-content" id="mainMenuContent" style="display:none"></div>
@@ -1147,6 +1163,15 @@
             <div class="value" id="salaryTotal" style="color:var(--accent4)">0 ?,?</div>
             <div class="sub" id="salarySub">base + sup</div>
         </div>
+    </div>
+
+    <!-- Orchestrateur - Tableau de bord professionnel -->
+    <div class="form-panel" id="orchestratorPanel" style="display:none">
+        <div class="form-header" style="cursor:pointer" onclick="toggleOrchestrator()">
+            <span style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;align-items:center;justify-content:center;font-size:0.8rem">&#9673;</span> Orchestrateur <span style="color:var(--text-dim);font-weight:400;font-size:0.72rem">- vue d'ensemble</span></span>
+            <span style="font-size:0.72rem;color:var(--text-dim);font-weight:400">Aujourd'hui <span id="orchDate"></span></span>
+        </div>
+        <div class="form-body" id="orchestratorBody" style="padding:14px"></div>
     </div>
 
     <!-- Chart -->
@@ -5523,6 +5548,7 @@ function renderMainMenu() {
     const G = '<div class="dd-group">';
     const I = (fn, label, danger) => '<button class="dd-item' + (danger ? ' danger' : '') + '" onclick="' + fn + ';hideMainMenu()">' + label + '</button>';
     let h = G + 'Vues et releves</div>';
+    h += I('toggleOrchestrator()', 'Vue d\'ensemble');
     h += I('showRecap()', 'Semaine');
     h += I('showMonthlyRecap()', 'Mois');
     h += I('showAnnualRecap()', 'Annee');
@@ -6690,6 +6716,163 @@ function toggleIntel() {
     const isHidden = panel.style.display === 'none' || !panel.style.display;
     panel.style.display = isHidden ? '' : 'none';
     if (isHidden) setTimeout(() => renderIntelligencePanel(), 50);
+}
+
+// --- Orchestrator : tableau de bord professionnel ---
+function toggleOrchestrator() {
+    const panel = document.getElementById('orchestratorPanel');
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none' || !panel.style.display;
+    panel.style.display = isHidden ? '' : 'none';
+    if (isHidden) { renderOrchestrator(); }
+    else {
+        const b = document.getElementById('orchestratorBody');
+        if (b) b.innerHTML = '';
+    }
+}
+
+function renderOrchestrator() {
+    const body = document.getElementById('orchestratorBody');
+    if (!body) return;
+    document.getElementById('orchDate').textContent = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const a = computeAnalytics();
+    const profile = loadProfile();
+    const entries = loadEntries();
+    const todayKey = formatDate(new Date());
+    const todayEntry = entries.find(e => e.date === todayKey);
+    const isReposToday = todayEntry && todayEntry.isRepos;
+    const todayWork = todayEntry ? todayEntry.totalWork : 0;
+    const todayRoute = todayEntry ? todayEntry.totalRoute || 0 : 0;
+    const dailyTarget = profile.overtimeDaily || 8;
+    const pctDay = dailyTarget > 0 ? Math.min(100, todayWork / dailyTarget * 100) : 0;
+
+    const weekKey = getWeekStart(new Date());
+    let weekWork = 0, weekRoute = 0, weekDays = 0;
+    const weekDates = getWeekDates();
+    entries.forEach(e => { if (weekDates.some(d => formatDate(d) === e.date)) { weekWork += e.totalWork; weekRoute += e.totalRoute; weekDays++; } });
+    const weekTarget = (profile.overtime || 40) || 40;
+    const pctWeek = weekTarget > 0 ? Math.min(100, weekWork / weekTarget * 100) : 0;
+
+    const topProjects = (a.topProjects || []).slice(0, 5);
+    const totalWorkAll = a.thisMonth ? a.thisMonth.work : 0;
+
+    let html = '';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+    html += orchKpi('Aujourd\'hui', (isReposToday ? 'Repos' : formatMinutes(todayWork + todayRoute)), 'var(--accent)', isReposToday ? 'jour ouvert' : '(travail + route)');
+    html += orchKpi('Heures travail', formatMinutes(todayWork), 'var(--accent2)', 'sur chantier');
+    html += orchKpi('Cette semaine', formatMinutes(weekWork) + ' / ' + weekTarget + 'h', 'var(--green)', weekDays + ' jour(s) de saisi');
+    html += orchKpi('Ce mois', fmtH(totalWorkAll), 'var(--accent4)', a.thisMonth ? a.thisMonth.days + ' jours' : '');
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px">';
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
+    html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent);margin-bottom:10px">Aujourd\'hui</div>';
+    html += '<div style="display:flex;align-items:center;gap:16px">';
+    html += orchRing(pctDay, formatMinutes(todayWork), 'Journee');
+    html += '<div style="flex:1;font-size:0.8rem;line-height:2;color:var(--text-dim)">';
+    if (isReposToday) html += '<div style="color:var(--accent2);font-weight:600">Jour de repos enregistre</div>';
+    else if (todayWork === 0) {
+        html += '<div>Aucune saisie pour aujourd\'hui.</div>';
+        html += '<button class="btn sm primary" onclick="goNext(0);scrollPanelIntoView(\'mainFormPanel\')" style="margin-top:6px">Saisir maintenant</button>';
+        html += ' <button class="btn sm" onclick="applyDayPreset(\'repos\',true)">Marquer repos</button>';
+    } else {
+        html += '<div>Objectif journalier : <strong style="color:var(--accent2)">' + dailyTarget + 'h</strong></div>';
+        html += '<div>Restant : <strong>' + (todayWork >= dailyTarget ? 'depasse' : formatMinutes(dailyTarget * 60 - todayWork)) + '</strong></div>';
+        html += '<button class="btn sm accent2" onclick="toggleOrchestrator()">Continu</button>';
+    }
+    html += '</div>';
+    html += '</div></div>';
+
+    html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
+    html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent3);margin-bottom:10px">Actions rapides</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    html += orchBtn("applyDayPreset('bureau',true)", 'Bureau 8h', 'var(--accent)');
+    html += orchBtn("applyDayPreset('chantier',true)", 'Chantier', 'var(--accent2)');
+    html += orchBtn("applyDayPreset('long',true)", 'Long 11h', 'var(--accent3)');
+    html += orchBtn("applyDayPreset('repos',true)", 'Repos', 'var(--red)');
+    html += orchBtn("toggleOrchestrator();showAnalytics()", 'Analytics', 'var(--accent4)');
+    html += orchBtn("toggleOrchestrator();openSessionPanel()", 'Comptes', 'var(--text-dim)');
+    html += '</div></div>';
+    html += '</div>';
+
+    if (topProjects.length) {
+        html += '<div style="margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
+        html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent);margin-bottom:10px">Top projets du mois</div>';
+        const maxW = topProjects[0].work || 1;
+        topProjects.forEach(function(p) {
+            const wp = Math.round((p.work / maxW) * 100);
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:3px 0">';
+            html += '<div style="width:90px;font-size:0.72rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(p.num || '?') + '</div>';
+            html += '<div style="flex:1;height:7px;background:var(--surface3);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + wp + '%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px"></div></div>';
+            html += '<div style="width:52px;text-align:right;font-size:0.72rem;color:var(--accent2);font-weight:600">' + fmtH(p.work) + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    if (a.monthlyHours && a.monthlyHours.length) {
+        html += '<div style="margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
+        html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent);margin-bottom:10px">Tendance 12 mois</div>';
+        html += '<canvas id="orchTrend" height="90" style="width:100%;max-height:90px"></canvas>';
+        html += '</div>';
+    }
+    body.innerHTML = html;
+    setTimeout(function() { renderOrchTrend(a.monthlyHours || [], a.dayOfWeekHours || []); }, 100);
+}
+
+function orchKpi(label, value, color, sub) {
+    return '<div style="background:linear-gradient(160deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center">'
+        + '<div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-dim)">' + label + '</div>'
+        + '<div style="font-size:1.25rem;font-weight:700;margin-top:3px;color:' + color + '">' + value + '</div>'
+        + '<div style="font-size:0.6rem;color:var(--text-dim);margin-top:2px">' + (sub || '') + '</div></div>';
+}
+function orchBtn(fn, label, color) {
+    return '<button class="btn" style="justify-content:center;border-color:' + color + ';color:' + color + '" onclick="' + fn + '">' + label + '</button>';
+}
+function orchRing(pct, centerText, cap) {
+    const r = 32, c = 2 * Math.PI * r;
+    const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100);
+    return '<svg width="84" height="84" viewBox="0 0 84 84">'
+        + '<circle cx="42" cy="42" r="' + r + '" fill="none" stroke="var(--surface3)" stroke-width="8"></circle>'
+        + '<circle cx="42" cy="42" r="' + r + '" fill="none" stroke="url(#gr)' + '" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 42 42)"></circle>'
+        + '<defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="var(--accent2)"/></linearGradient></defs>'
+        + '<text x="42" y="40" text-anchor="middle" fill="var(--text)" font-size="13" font-weight="700">' + centerText + '</text>'
+        + '<text x="42" y="56" text-anchor="middle" fill="var(--text-dim)" font-size="9">' + cap + '</text></svg>';
+}
+function renderOrchTrend(monthly, dow) {
+    const canvas = document.getElementById('orchTrend');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr; canvas.height = 90 * dpr;
+    ctx.scale(dpr, dpr);
+    const W = rect.width, H = 90;
+    ctx.clearRect(0, 0, W, H);
+    if (!monthly.length) return;
+    const maxVal = Math.max(1, ...monthly.map(function(m) { return m.work; }));
+    const stepX = W / monthly.length;
+    const base = H - 16;
+    ctx.font = '9px Segoe UI';
+    monthly.forEach(function(m, i) {
+        const x = i * stepX + stepX / 2;
+        const h = (m.work / maxVal) * (H - 28);
+        const g = ctx.createLinearGradient(0, base - h, 0, base);
+        g.addColorStop(0, 'rgba(123,140,255,0.95)'); g.addColorStop(1, 'rgba(63,224,192,0.55)');
+        ctx.fillStyle = g;
+        const bw = Math.max(6, stepX * 0.5);
+        roundRect(ctx, x - bw / 2, base - h, bw, h, 3); ctx.fill();
+        if (i % 2 === 0) { ctx.fillStyle = '#9aa1bd'; ctx.textAlign = 'center'; ctx.fillText(m.label, x, H - 3); }
+    });
+}
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
 }
 
 // --- Weekly bar chart ---
