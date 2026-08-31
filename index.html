@@ -91,7 +91,22 @@
             text-align: center;
             font-size: 0.88rem;
         }
-        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .dropdown { position: relative; }
+        .dropdown-content {
+            position: absolute; top: calc(100% + 4px); right: 0; z-index: 400;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.4); min-width: 220px; max-height: 70vh; overflow-y: auto;
+            padding: 8px;
+        }
+        .dropdown-content .dd-group { font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 6px 4px; }
+        .dropdown-content .dd-group:first-child { margin-top: 2px; }
+        .dropdown-content .dd-item {
+            display: block; width: 100%; font-size: 0.78rem; text-align: left;
+            padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text);
+        }
+        .dropdown-content .dd-item:hover { background: var(--surface2); }
+        .dropdown-content .dd-item.danger { color: var(--red); }
         .btn {
             padding: 7px 14px;
             border: 1px solid var(--border);
@@ -173,6 +188,11 @@
         .day-tab.has-data::after { content: ''; display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); margin: 2px auto 0; }
         .day-tab.bulk-selected { background: var(--accent3) !important; color: #fff !important; border-color: var(--accent3) !important; box-shadow: 0 0 8px rgba(70,200,120,0.4); }
         .day-tab.active.has-data::after { background: #fff; }
+        .day-tab.weekend { background: rgba(255,193,7,0.10); color: #f7b500; }
+        .day-tab.weekend.active { background: linear-gradient(135deg, #f7b500, #dd8b00); color: #fff; }
+        .day-tab.weekend:hover { color: #f7b500; }
+        .entry-hint { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.68rem; color: var(--text-dim); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
+        .entry-hint b { color: var(--accent2); }
         @media (max-width: 600px) { .day-tab { font-size: 0.62rem; padding: 5px 2px; } }
         .sticky-save { position: sticky; bottom: 0; z-index: 50; background: linear-gradient(to top, var(--bg) 70%, transparent); padding: 16px 0 6px 0; margin-top: -4px; }
         .save-indicator {
@@ -1068,34 +1088,13 @@
         </div>
         <div class="actions">
             <button class="btn" onclick="goToToday()">Aujourd'hui</button>
-            <button class="btn" onclick="exportCSV()">CSV</button>
-            <button class="btn" onclick="showRecap()">Semaine</button>
-            <button class="btn" onclick="showMonthlyRecap()">Mois</button>
-            <button class="btn" onclick="showAnnualRecap()">Annee</button>
-            <button class="btn" onclick="showReleveDay()" title="Releve journalier">Journal</button>
-            <button class="btn" onclick="showReleveWeek()" title="Releve hebdomadaire">Releve</button>
-            <button class="btn" onclick="showReleveYear()" title="Releve annuel">Annuel</button>
-            <button class="btn" onclick="showHistory()">Historique</button>
-            <button class="btn" onclick="showProjectTracker()">Projets</button>
-            <button class="btn" id="btnFeuille" onclick="toggleFeuille()">Feuille</button>
-            <button class="btn" onclick="showGlobalSearch()" title="Recherche globale">Recherche</button>
-            <button class="btn" onclick="renderTemplatesPanel()" title="Gerer les templates">Templates</button>
-            <button class="btn" onclick="showAnalytics()" title="Analytics avance">Analytics</button>
-            <button class="btn" onclick="showReleveRange()" title="Releve multi-semaines">Plage</button>
-            <button class="btn" onclick="exportXLSX()" title="Export Excel">XLS</button>
-            <button class="btn" onclick="exportBackup()" title="Exporter backup JSON">Backup</button>
-            <button class="btn" onclick="usbConnect()" title="Ouvrir fichier USB">USB Ouvrir</button>
-            <button class="btn" onclick="usbSave()" title="Sauvegarder sur USB">USB Sauver</button>
+            <button class="btn primary" onclick="scrollPanelIntoView('mainFormPanel')">Saisie</button>
+            <div class="dropdown" id="mainMenu">
+                <button class="btn" onclick="toggleMainMenu(event)" id="mainMenuBtn" title="Toutes les fonctions">Menu &#9776;</button>
+                <div class="dropdown-content" id="mainMenuContent" style="display:none"></div>
+            </div>
             <span id="backupBadge" style="display:none;font-size:0.6rem;padding:2px 6px;background:rgba(220,38,38,0.15);color:#dc2626;border-radius:4px;font-weight:600;cursor:pointer" onclick="exportBackup();setLastBackupTime();renderBackupBadge()" title="Cliquez pour backup"></span>
-            <label class="btn" title="Importer backup JSON" style="cursor:pointer">
-                Restaurer<input type="file" accept=".json" onchange="importBackup(event)" style="display:none">
-            </label>
-            <button class="btn" onclick="window.print()">Imprimer</button>
-            <button class="btn danger" onclick="resetWeek()">Vider</button>
             <button class="btn" id="sessionBtn" onclick="openSessionPanel()" title="Comptes, session et activite">Compte</button>
-            <button class="btn" onclick="toggleFullscreen()" title="Plein ecran saisie" id="btnFullscreen">&#x26F6;</button>
-            <button class="btn" onclick="toggleShortcutsModal()" title="Raccourcis clavier">?</button>
-            <button class="btn" onclick="openHelpModal()" title="Guide de demarrage et premiere utilisation">Aide</button>
         </div>
     </header>
     <div id="bulkToolbar" style="display:none;padding:6px 10px;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;margin-bottom:8px;display:none;align-items:center;gap:6px;flex-wrap:wrap;font-size:0.75rem"></div>
@@ -1105,8 +1104,8 @@
         <div class="stat-card"><div class="icon" style="color:var(--accent2)">&#9874;</div><div class="label">Heures travail</div><div class="value" id="workHours">0</div><div class="sub">sur chantier</div></div>
         <div class="stat-card"><div class="icon" style="color:var(--accent3)">&#128663;</div><div class="label">Heures route</div><div class="value" id="routeHours">0</div><div class="sub">deplacement</div></div>
         <div class="stat-card"><div class="icon" style="color:var(--accent4)">&#128207;</div><div class="label">Total km</div><div class="value" id="totalKm">0</div><div class="sub">vhicule</div></div>
-        <div class="stat-card"><div class="icon" style="color:#ab47bc">&#128197;</div><div class="label">Jours</div><div class="value" id="activeDays">0</div><div class="sub">/ 7 jours</div></div>
-        <div class="stat-card"><div class="icon" style="color:var(--accent)">&#9776;</div><div class="label">Periodes</div><div class="value" id="totalShifts">0</div><div class="sub">cette semaine</div></div>
+        <div class="stat-card" id="daysCard" style="display:none"><div class="icon" style="color:#ab47bc">&#128197;</div><div class="label">Jours</div><div class="value" id="activeDays">0</div><div class="sub">/ 7 jours</div></div>
+        <div class="stat-card" id="shiftsCard" style="display:none"><div class="icon" style="color:var(--accent)">&#9776;</div><div class="label">Periodes</div><div class="value" id="totalShifts">0</div><div class="sub">cette semaine</div></div>
         <div class="stat-card overtime" id="overtimeCard" style="display:none">
             <div class="icon" style="color:var(--red)">&#9888;</div>
             <div class="label">Heures sup</div>
@@ -1194,19 +1193,20 @@
         <div class="form-body" id="formContent">
             <!-- Preset bar -->
             <div class="preset-bar">
-                <button class="preset-btn" onclick="applyDayPreset('bureau')" title="Jour type: bureau 8h-16h30">Bureau 8h</button>
-                <button class="preset-btn" onclick="applyDayPreset('chantier')" title="Jour type: chantier 7h30-16h30">Chantier</button>
-                <button class="preset-btn" onclick="applyDayPreset('long')" title="Jour long: 7h-18h">Long 11h</button>
-                <button class="preset-btn" onclick="applyDayPreset('demijour')" title="Demi-journee: 8h-12h ou 13h-17h">Demi-jour</button>
-                <button class="preset-btn" onclick="applyDayPreset('repos')" title="Jour de repos">Repos</button>
+                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit ET enregistre la journee : bureau 8h-16h30">Bureau 8h</button>
+                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Remplit ET enregistre la journee : chantier 7h30-16h30">Chantier</button>
+                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Remplit ET enregistre la journee : jour long 7h-18h">Long 11h</button>
+                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Remplit ET enregistre la journee : demi-journee 8h-12h ou 13h-17h">Demi-jour</button>
+                <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (un clic)">Repos</button>
                 <button class="preset-btn" onclick="fillFromLastSameDay()" title="Reprendre le meme jour de la semaine precedente">Copier sem. prec.</button>
                 <button class="preset-btn" onclick="fillFromYesterday()" title="Reprendre toutes les donnees d hier (horaires + chantiers)">Reprendre hier</button>
                 <button class="preset-btn" onclick="repeatYesterday()" title="Copier la journee precedente">Copier hier</button>
             </div>
             <!-- Day Tabs -->
+            <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Entrez vos horaires, ou <b>1 clic</b> sur Bureau / Chantier / Repos (enregistre)</span><span><b>3.</b> Enregistrer</span></div>
             <div class="day-tabs" id="dayTabs"></div>
             <!-- Identity -->
-            <div class="form-section">
+            <div class="form-section collapsed" id="identitySection">
                 <div class="form-section-title">Identite</div>
                 <div class="form-row r3">
                     <div class="form-group optional-field"><label>Nom</label><input type="text" id="fNom" placeholder="Dupont"></div>
@@ -1324,9 +1324,9 @@
 
             <div style="display:flex;gap:10px;margin-top:14px">
                 <button class="btn primary" style="flex:1;justify-content:center" onclick="saveDay()">Enregistrer la journee</button>
-                <button class="btn" onclick="fillSample()">Exemple</button>
+                <button class="btn" onclick="fillSample()" id="exempleBtn">Exemple</button>
             </div>
-            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center" id="shiftsToolbar">
                 <button class="btn sm" onclick="undo()" title="Annuler (Ctrl+Z)">&larr; Annuler</button>
                 <button class="btn sm" onclick="redo()" title="Refaire (Ctrl+Y)">&rarr; Refaire</button>
                 <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
@@ -1336,7 +1336,7 @@
                 <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
                 <button class="btn sm accent3" onclick="toggleIntel()" title="Tableau de bord intelligent">[I] Intel</button>
             </div>
-            <div style="display:flex;gap:6px;margin-top:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px">
+            <div style="display:flex;gap:6px;margin-top:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px" id="timerZone">
                 <span style="font-size:0.72rem;color:var(--text-dim);font-weight:600;white-space:nowrap">[T] Timer</span>
                 <span id="timerValue" style="font-family:monospace;font-size:1rem;font-weight:700;color:var(--accent2);min-width:70px">00:00:00</span>
                 <div style="flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;min-width:60px">
@@ -1356,9 +1356,9 @@
                 <button class="btn sm accent3" onclick="applyTimerToField(document.getElementById('timerTarget').value)">Appliquer</button>
             </div>
             <!-- Voice / quick input -->
-            <div style="margin-top:10px">
-                <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Remplissage rapide</div>
-                <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">
+            <div style="margin-top:10px" id="quickInputZone">
+                <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <button class="btn sm" onclick="toggleNlLegend()" title="Afficher / masquer la liste des commandes">Aide commandes</button></div>
+                <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px" id="quickGrid">
                     <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>
                     <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>
                     <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>
@@ -1368,7 +1368,7 @@
                     <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>
                     <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>
                 </div>
-                <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+                <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap" id="shiftActionsZone">
                     <button class="btn sm accent3" onclick="if(lastShift()){addChantierToShift(lastShift().id);renderShifts();updateCalcs();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">+ Chantier</button>
                     <button class="btn sm accent3" onclick="if(lastShift()){addChantierToShift(lastShift().id,'Bureaux');renderShifts();updateCalcs();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">+ Bureaux</button>
                     <button class="btn sm" onclick="if(lastShift()){setShiftField(lastShift().id,'deplacement','petit');renderShifts();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">Petit</button>
@@ -1382,7 +1382,7 @@
                     <button class="btn accent2" onclick="parseMicInput()" style="padding:10px 16px;font-weight:700">Valider</button>
                 </div>
                 <div class="mic-status" id="micStatus"></div>
-                <div style="font-size:0.6rem;color:var(--text-dim);text-align:center;margin-top:6px;line-height:1.8">
+                <div style="font-size:0.6rem;color:var(--text-dim);text-align:center;margin-top:6px;line-height:1.8;display:none" id="nlLegend">
                     <strong>Periode :</strong> matin, aprem, nuit  
                     <strong>Depart :</strong> pars, depart, depart maison  
                     <strong>Arrivee :</strong> arrive, j'arrive, arrivee chantier/bureau/maison, retour  
@@ -1553,11 +1553,12 @@ function saveEntries(e) {
         showToast('Erreur de sauvegarde', 'error');
         return;
     }
+    markUsbDirty();
     logAuditThrottled('save_day', formatDate(currentWeekStart) + ' (' + e.length + ' entree(s))');
     debouncedLearn();
 }
 function loadProfile() { try { return JSON.parse(localStorage.getItem(uK('profile'))) || {}; } catch { return {}; } }
-function saveProfile(p) { try { localStorage.setItem(uK('profile'), JSON.stringify(p)); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
+function saveProfile(p) { try { localStorage.setItem(uK('profile'), JSON.stringify(p)); markUsbDirty(); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
 let _isDirty = false;
 function changeWeek(dir) { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
 function goToToday() { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart = getWeekStart(new Date()); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
@@ -2053,18 +2054,6 @@ function validateEntry(e) {
     }
     return { valid: issues.length === 0, issues: issues };
 }
-function recalcEntryTotals(e) {
-    let tw = 0, tr = 0, tk = 0;
-    (e.shifts || []).forEach(function(s) {
-        tr += s.route || calcDiff(s.departMaison, s.arriveeMaison);
-        tk += s.km || 0;
-        (s.chantiers || []).forEach(function(c) { tw += c.work || calcDiff(c.debut, c.fin); });
-    });
-    e.totalWork = tw;
-    e.totalRoute = tr;
-    e.total = tw + tr;
-    e.totalKm = tk;
-}
 function runIntegrityCheck() {
     let fixed = 0, issues = 0;
     const keys = [];
@@ -2116,7 +2105,8 @@ function checkAutoBackup() {
     const now = new Date();
     if (now.getDay() !== 0) return;
     const lastKey = 'chantier_auto_backup';
-    const last = localStorage.getItem(lastKey);
+    let last = null;
+    try { last = localStorage.getItem(lastKey); } catch {}
     const today = formatDate(now);
     if (last === today) return;
     try {
@@ -2358,9 +2348,11 @@ function checkDailyReminder() {
     var entries = loadEntries();
     var hasToday = entries.some(function(e) { return e.date === todayStr && !e.isRepos; });
     if (hasToday) return;
-    var lastRemind = localStorage.getItem('chantier_last_remind');
-    if (lastRemind === todayStr) return;
-    localStorage.setItem('chantier_last_remind', todayStr);
+    try {
+        var lastRemind = localStorage.getItem('chantier_last_remind');
+        if (lastRemind === todayStr) return;
+        localStorage.setItem('chantier_last_remind', todayStr);
+    } catch {}
     if (Notification.permission === 'granted') {
         try { new Notification('Releve d\'heures', { body: 'Vous n\'avez pas encore saisi vos heures d\'aujourd\'hui' }); } catch {}
     } else if (Notification.permission !== 'denied') {
@@ -2402,7 +2394,7 @@ function exportXLSX() {
                     var routeMin = s.route || calcDiff(s.departMaison, s.arriveeMaison);
                     var km = s.km || Math.max(0, (parseFloat(s.kmArrivee) || 0) - (parseFloat(s.kmDepart) || 0));
                     tw += workMin; tr += routeMin; tk += km;
-                    xml += '<Row><Cell><Data ss:Type="String">' + ds + '</Data></Cell><Cell><Data ss:Type="String">' + (DAY_NAMES[dates.indexOf(d)] || '') + '</Data></Cell><Cell><Data ss:Type="String">' + (s.periode || '') + '</Data></Cell><Cell><Data ss:Type="String">' + (s.departMaison || '') + '</Data></Cell><Cell><Data ss:Type="String">' + (s.arriveeMaison || '') + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (workMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (routeMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + ((workMin + routeMin) / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + km + '</Data></Cell></Row>';
+                    xml += '<Row><Cell><Data ss:Type="String">' + ds + '</Data></Cell><Cell><Data ss:Type="String">' + (DAY_NAMES[dates.indexOf(d)] || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.periode || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.departMaison || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.arriveeMaison || '') + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (workMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (routeMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + ((workMin + routeMin) / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + km + '</Data></Cell></Row>';
                 });
             });
         }
@@ -2685,7 +2677,7 @@ function resetTimer() {
     document.getElementById('timerBtn').classList.remove('recording');
 }
 function updateTimerDisplay() {
-    const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+    const elapsed = Math.floor((Date.now() - timerStart - timerPaused) / 1000);
     const h = String(Math.floor(elapsed / 3600)).padStart(2,'0');
     const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2,'0');
     const s = String(elapsed % 60).padStart(2,'0');
@@ -2717,7 +2709,7 @@ function saveTemplate() {
     const entries = loadEntries();
     if (!entries.length) { setMicStatus('Aucune journee sauvegardee', 'error'); setTimeout(() => setMicStatus('',''), 2500); return; }
     const last = entries[entries.length - 1];
-    localStorage.setItem(uK('template'), JSON.stringify(last.shifts));
+    try { localStorage.setItem(uK('template'), JSON.stringify(last.shifts)); } catch (e) { if (e && e.name === 'QuotaExceededError') { setMicStatus('Stockage plein', 'error'); setTimeout(() => setMicStatus('',''), 2500); return; } }
     setMicStatus('Modele sauvegarde', 'heard'); setTimeout(() => setMicStatus('',''), 2000);
 }
 function loadTemplate() {
@@ -2932,9 +2924,15 @@ async function usbAutoSave() {
         await writable.close();
     } catch {}
 }
+let _usbAutoTimer = null;
+let _usbDirty = false;
 function initUsbAutoSave() {
-    setInterval(function() { usbAutoSave(); }, 10000);
+    if (_usbAutoTimer) return;
+    _usbAutoTimer = setInterval(function() {
+        if (_usbDirty) { _usbDirty = false; usbAutoSave(); }
+    }, 10000);
 }
+function markUsbDirty() { if (_usbFileHandle) _usbDirty = true; }
 async function usbTryAutoConnect() {
     if (!('showOpenFilePicker' in window)) return;
     try {
@@ -2958,14 +2956,14 @@ function toggleFeuille() {
         if (tablePanel) tablePanel.style.display = 'none';
         if (chartPanel) chartPanel.style.display = 'none';
         if (formPanel) formPanel.style.display = 'none';
-        btn.classList.add('primary');
+        if (btn) btn.classList.add('primary');
         renderFeuille();
     } else {
         panel.classList.remove('active');
         if (tablePanel) tablePanel.style.display = '';
         if (chartPanel) chartPanel.style.display = '';
         if (formPanel) formPanel.style.display = '';
-        btn.classList.remove('primary');
+        if (btn) btn.classList.remove('primary');
         render();
     }
 }
@@ -3189,14 +3187,15 @@ function handleLogo(e) {
     if (file.size > 500000) { alert('Logo trop volumineux (max 500 Ko).'); return; }
     const reader = new FileReader();
     reader.onload = function(ev) {
-        localStorage.setItem(uK('logo'), ev.target.result);
+        try { localStorage.setItem(uK('logo'), ev.target.result); }
+        catch (e) { if (e && e.name === 'QuotaExceededError') { alert('Logo trop volumineux pour le stockage local.'); return; } }
         renderLogo();
     };
     reader.readAsDataURL(file);
 }
 
 function removeLogo() {
-    localStorage.removeItem(uK('logo'));
+    try { localStorage.removeItem(uK('logo')); } catch {}
     renderLogo();
 }
 
@@ -3218,7 +3217,7 @@ function renderLogo() {
 }
 
 function saveCompanyName(name) {
-    localStorage.setItem(uK('company'), name || 'Nom entreprise');
+    try { localStorage.setItem(uK('company'), name || 'Nom entreprise'); } catch {}
 }
 
 function loadCompanyName() {
@@ -3231,7 +3230,7 @@ function loadLieux() {
 }
 
 function saveLieux(lieux) {
-    localStorage.setItem(uK('lieux'), JSON.stringify(lieux));
+    try { localStorage.setItem(uK('lieux'), JSON.stringify(lieux)); } catch {}
 }
 
 function addLieu(lieu) {
@@ -3411,6 +3410,24 @@ function autoAdjustShift(s, field, value) {
         if (routeMin > 0) {
             const avgKm = getAvgDailyKm();
             s.kmArrivee = Math.round(parseFloat(s.kmDepart) + (avgKm > 0 ? avgKm : routeMin * 0.8));
+        }
+    }
+    // Auto-derive chantier work times from home/office times to avoid double entry.
+    // Standard flow: user fills departMaison + arriveeMaison (or deplacement timestamps),
+    // and the chantier debut/fin are deduced so no separate entry is required.
+    const mainChantier = s.chantiers.length ? s.chantiers[0] : null;
+    if (mainChantier) {
+        const workStart = mainChantier.debut || mainChantier.arriveeChantier || s.arriveeBureaux || s.departMaison;
+        const hasWorkTime = mainChantier.debut || mainChantier.fin;
+        if (field === 'arriveeMaison' && value && s.departMaison && !hasWorkTime) {
+            const routeMin = calcDiff(s.departMaison, value);
+            if (workStart && !mainChantier.debut) mainChantier.debut = workStart;
+            if (workStart && !mainChantier.arriveeChantier) mainChantier.arriveeChantier = workStart;
+            if (!mainChantier.fin) {
+                let fin = addMinutesToTime(value, -Math.max(0, routeMin - 15));
+                if (fin) mainChantier.fin = fin;
+            }
+            if (!mainChantier.departChantier && mainChantier.fin) mainChantier.departChantier = mainChantier.fin;
         }
     }
     if (field === 'departChantier' && value && !s.arriveeMaison) {
@@ -3717,7 +3734,7 @@ function renderShifts() {
                 if (chanSmart.fin && !c.fin) parts.push({f:'fin',v:chanSmart.fin});
                 if (chanSmart.lieu && !c.lieu) parts.push({f:'lieu',v:chanSmart.lieu});
                 if (chanSmart.identification && !c.identification) parts.push({f:'identification',v:chanSmart.identification});
-                if (parts.length) chanSuggestionHtml = '<div style="display:flex;gap:3px;align-items:center;margin:4px 0;flex-wrap:wrap"><span style="font-size:0.58rem;color:var(--accent4)">Auto:</span>' + parts.map(p => '<button class="btn sm" onclick="setChantierField(' + s.id + ',' + c.id + ',\'' + p.f + '\',\'' + p.v + '\');renderShifts();updateCalcs();" style="font-size:0.58rem;padding:2px 5px">' + p.f + ':' + p.v + '</button>').join('') + '</div>';
+                if (parts.length) chanSuggestionHtml = '<div style="display:flex;gap:3px;align-items:center;margin:4px 0;flex-wrap:wrap"><span style="font-size:0.58rem;color:var(--accent4)">Auto:</span>' + parts.map(p => '<button class="btn sm" onclick="setChantierField(' + s.id + ',' + c.id + ',\'' + p.f + '\',decodeURIComponent(\'' + encodeURIComponent(p.v) + '\'));renderShifts();updateCalcs();" style="font-size:0.58rem;padding:2px 5px">' + p.f + ':' + esc(p.v) + '</button>').join('') + '</div>';
             }
             return `
             <div class="chantier-row" draggable="true" ondragstart="chantierDragStart(event,${s.id},${c.id})" ondragover="chantierDragOver(event)" ondragleave="chantierDragLeave(event)" ondrop="chantierDrop(event,${s.id})" oncontextmenu="showContextMenu(event,'chantier',{sid:${s.id},cid:${c.id}})">
@@ -3956,16 +3973,18 @@ function updateCalcs() {
 }
 
 // --- Save ---
-function saveDay() {
+function saveDay(opts) {
     const dates = getWeekDates();
     const dayIdx = parseInt(document.getElementById('fDay').value);
     const isRepos = pendingShifts.length === 0;
+    const silent = !!(opts && opts.silent);
 
     if (!isRepos) {
         for (const s of pendingShifts) {
-            if (!s.chantiers.length) { alert('Chaque periode doit avoir au moins un chantier.'); return; }
+            if (!s.chantiers.length) { if (silent) continue; alert('Chaque periode doit avoir au moins un chantier.'); return; }
             const warnings = validateTimeSequence(s);
             if (warnings.length) {
+                if (silent) continue;
                 const proceed = confirm('Attention - incoherences detectees :\n\n' + warnings.join('\n') + '\n\nEnregistrer quand meme ?');
                 if (!proceed) return;
             }
@@ -3974,7 +3993,7 @@ function saveDay() {
 
     const now = new Date();
     const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
-    if (dayIdx !== todayIdx) {
+    if (!silent && dayIdx !== todayIdx) {
         const targetDay = DAY_NAMES[dayIdx];
         const msg = isRepos ? 'Marquer ' + targetDay + ' comme jour de repos ?' : 'Attention : vous enregistrez pour ' + targetDay + ' mais aujourd\'hui c\'est ' + DAY_NAMES[todayIdx] + '.\n\nVoulez-vous quand meme enregistrer pour ' + targetDay + ' ?';
         if (!confirm(msg)) return;
@@ -4147,7 +4166,7 @@ function moveEntryModal(entryId) {
     html += '<div style="font-size:0.82rem;font-weight:600;margin-bottom:10px">Deplacer <strong>' + oldDayName + ' ' + oldDate.getDate() + '</strong> vers :</div>';
     html += '<div style="display:flex;flex-direction:column;gap:6px">';
     dates.forEach((d, i) => {
-        const isCurrent = d.toISOString().slice(0, 10) === entry.date;
+        const isCurrent = formatDate(d) === entry.date;
         const isToday = formatDate(d) === formatDate(new Date());
         const label = DAY_NAMES[i] + ' ' + d.getDate() + (isToday ? ' (auj.)' : '');
         html += '<button class="btn" style="text-align:left;padding:8px 12px;' + (isCurrent ? 'opacity:0.4;pointer-events:none' : '') + '" onclick="moveEntryTo(' + entryId + ',' + i + ')">' + label + (isCurrent ? ' [actuel]' : '') + '</button>';
@@ -4191,7 +4210,7 @@ function showModal(html) {
 function resetWeek() {
     if (!confirm('Vider toutes les donnees ?')) return;
     logAudit('reset_week', formatDate(currentWeekStart));
-    localStorage.removeItem(getStorageKey());
+    try { localStorage.removeItem(getStorageKey()); } catch {}
     render();
 }
 
@@ -4263,7 +4282,7 @@ function fillSample() {
 }
 
 // --- Day presets (one-click) ---
-function applyDayPreset(type) {
+function applyDayPreset(type, quick) {
     pushUndo();
     pendingShifts = [];
     shiftIdCounter = 0;
@@ -4293,6 +4312,7 @@ function applyDayPreset(type) {
             btn.classList.add(type === 'repos' ? 'repos-active' : 'active');
         }
     } catch(e) {}
+    if (quick) { saveDay({ silent: true }); return; }
     showToast(type === 'repos' ? 'Jour de repos' : 'Preset applique !', 'info');
 }
 
@@ -4452,6 +4472,11 @@ function setFormView(mode) {
     } else {
         sections.forEach(s => s.classList.remove('collapsed-optional'));
     }
+    const adv = ['quickGrid', 'timerZone', 'shiftActionsZone', 'shiftsToolbar', 'exempleBtn'];
+    adv.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = mode === 'simple' ? 'none' : '';
+    });
 }
 
 // --- Text input ---
@@ -4499,6 +4524,10 @@ function getFieldStatusSummary() {
     return (l.chantiers.length) + ' chantier(s), ' + missing.length + ' champs vides';
 }
 
+function toggleNlLegend() {
+    const el = document.getElementById('nlLegend');
+    if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
 function parseMicInput() {
     const input = document.getElementById('micInput');
     const raw = input.value.trim();
@@ -4837,6 +4866,7 @@ function render() {
         const shortName = DAY_NAMES[i].substring(0, 3) + '.' + d.getDate();
         btn.textContent = shortName;
         btn.title = DAY_NAMES[i] + ' ' + d.getDate();
+        if (i >= 5) btn.classList.add('weekend');
         btn.oncontextmenu = (function(idx) { return function(ev) { showContextMenu(ev, 'day', { idx: idx }); }; })(i);
         if (isToday) btn.classList.add('today');
         if (i === parseInt(prevDay)) btn.classList.add('active');
@@ -4956,7 +4986,7 @@ function render() {
                         <td>${esc(c.fin) || '?'}</td>
                         <td>${esc(c.departChantier) || '?'}</td>
                         <td class="td-total">${formatMinutes(c.work)}</td>
-                        ${ci === 0 ? `<td ${rsShift()}>${s.arriveeMaison || '?'}</td>` : ''}
+                        ${ci === 0 ? `<td ${rsShift()}>${esc(s.arriveeMaison) || '?'}</td>` : ''}
                         ${ci === 0 ? `<td ${rsShift()} class="td-route">${formatMinutes(s.route)}</td>` : ''}
                         ${ci === 0 ? `<td ${rsShift()} class="td-km">${s.km > 0 ? s.km + ' km' : '?'}</td>` : ''}
                         ${isFirstShift && ci === 0 ? `<td rowspan="${e.shifts.reduce((a,sh) => a + sh.chantiers.length, 0)}" style="white-space:nowrap"><button class="del-row" onclick="moveEntryModal(${e.id})" title="Deplacer vers un autre jour" style="font-size:0.65rem;padding:2px 6px;margin-right:3px">[&uarr;]</button><button class="del-row" onclick="deleteEntry(${e.id})">[x]</button></td>` : ''}
@@ -5087,7 +5117,7 @@ function getWeekNumber(d) {
 function getIntelKey() { return uK('intelligence'); }
 
 function loadIntel() { try { return JSON.parse(localStorage.getItem(getIntelKey())) || { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } catch { return { timePatterns: {}, lieuPatterns: {}, itineraires: [], commentaires: {}, stats: {} }; } }
-function saveIntel(d) { localStorage.setItem(getIntelKey(), JSON.stringify(d)); }
+function saveIntel(d) { try { localStorage.setItem(getIntelKey(), JSON.stringify(d)); } catch {} }
 
 function learnIntelligence() {
     const allData = loadAllWeeksData();
@@ -5335,14 +5365,16 @@ function applySingleSmartTime(shiftId, field, value) {
 function toggleFullscreen() {
     document.body.classList.toggle('fullscreen');
     const btn = document.getElementById('btnFullscreen');
-    if (document.body.classList.contains('fullscreen')) {
-        btn.innerHTML = '&#x2716;';
-        btn.title = 'Quitter plein ecran';
-        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
-    } else {
-        btn.innerHTML = '&#x26F6;';
-        btn.title = 'Plein ecran saisie';
-        if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+    if (btn) {
+        if (document.body.classList.contains('fullscreen')) {
+            btn.innerHTML = '&#x2716;';
+            btn.title = 'Quitter plein ecran';
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+        } else {
+            btn.innerHTML = '&#x26F6;';
+            btn.title = 'Plein ecran saisie';
+            if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+        }
     }
 }
 document.addEventListener('fullscreenchange', () => {
@@ -5357,6 +5389,10 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('form-section-title')) {
         e.target.parentElement.classList.toggle('collapsed');
+    }
+    const menu = document.getElementById('mainMenuContent');
+    if (menu && menu.style.display === 'block' && !e.target.closest('#mainMenu')) {
+        menu.style.display = 'none';
     }
 });
 
@@ -5433,6 +5469,7 @@ document.addEventListener('keydown', function(e) {
     }
     if (!inInput) {
         if (e.key === '?') { toggleShortcutsModal(); return; }
+        if (e.key === 'Escape') { hideMainMenu(); }
         if (e.key === '1') { quickAction('depart_maison'); }
         if (e.key === '2') { quickAction('arrivee_bureaux'); }
         if (e.key === '3') { quickAction('depart_bureaux'); }
@@ -5458,6 +5495,53 @@ function toggleShortcutsModal() {
 function openHelpModal() {
     const modal = document.getElementById('helpModal');
     modal.style.display = 'flex';
+}
+
+// --- Main menu (dropdown) ---
+function toggleMainMenu(e) {
+    if (e) e.stopPropagation();
+    const content = document.getElementById('mainMenuContent');
+    if (!content) return;
+    if (content.style.display === 'block') { hideMainMenu(); return; }
+    content.style.display = 'block';
+    content.innerHTML = renderMainMenu();
+}
+function hideMainMenu() {
+    const content = document.getElementById('mainMenuContent');
+    if (content) content.style.display = 'none';
+}
+function renderMainMenu() {
+    const G = '<div class="dd-group">';
+    const I = (fn, label, danger) => '<button class="dd-item' + (danger ? ' danger' : '') + '" onclick="' + fn + ';hideMainMenu()">' + label + '</button>';
+    let h = G + 'Vues et releves</div>';
+    h += I('showRecap()', 'Semaine');
+    h += I('showMonthlyRecap()', 'Mois');
+    h += I('showAnnualRecap()', 'Annee');
+    h += I('showReleveDay()', 'Journal');
+    h += I('showReleveWeek()', 'Releve semaine');
+    h += I('showReleveYear()', 'Releve annuel');
+    h += I('showReleveRange()', 'Releve multi-semaines');
+    h += I('showHistory()', 'Historique');
+    h += I('showProjectTracker()', 'Projets');
+    h += I('showGlobalSearch()', 'Recherche');
+    h += I('renderTemplatesPanel()', 'Templates');
+    h += I('showAnalytics()', 'Analytics');
+    h += I('toggleFeuille()', 'Feuille de temps');
+    h += G + 'Exports</div>';
+    h += I('exportCSV()', 'Exporter CSV');
+    h += I('exportXLSX()', 'Exporter Excel');
+    h += I('exportBackup()', 'Backup JSON');
+    h += I('window.print()', 'Imprimer');
+    h += G + 'Donnees</div>';
+    h += I('usbConnect()', 'USB : ouvrir');
+    h += I('usbSave()', 'USB : sauver');
+    h += '<label class="dd-item" style="cursor:pointer">Restaurer backup<input type="file" accept=".json" style="display:none" onchange="importBackup(event);setTimeout(hideMainMenu,50)"></label>';
+    h += G + 'Systeme et aide</div>';
+    h += I('toggleFullscreen()', 'Plein ecran saisie');
+    h += I('toggleShortcutsModal()', 'Raccourcis clavier');
+    h += I('openHelpModal()', 'Guide de demarrage');
+    h += I('resetWeek()', 'Vider la semaine', true);
+    return h;
 }
 
 // --- Recap by chantier ---
@@ -6209,7 +6293,7 @@ function showHistory() {
         const dayName = DAY_NAMES[dayIdx];
         const isSunday = dayIdx === 6;
         const work = e.totalWork || 0;
-        html += '<span onclick="selectDateToCorrect(\'' + e.date + '\')" style="cursor:pointer;font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid ' + (isSunday ? 'var(--red)' : 'var(--border)') + ';background:' + (isSunday ? 'rgba(255,70,70,0.1)' : 'var(--surface)') + ';color:' + (isSunday ? 'var(--red)' : 'var(--text)') + '">' + dayName.substring(0,3) + ' ' + d.getDate() + '/' + (d.getMonth()+1) + ' <strong>' + formatMinutes(work) + '</strong></span>';
+        html += '<span onclick="selectDateToCorrect(decodeURIComponent(\'' + encodeURIComponent(e.date) + '\'))" style="cursor:pointer;font-size:0.68rem;padding:3px 8px;border-radius:4px;border:1px solid ' + (isSunday ? 'var(--red)' : 'var(--border)') + ';background:' + (isSunday ? 'rgba(255,70,70,0.1)' : 'var(--surface)') + ';color:' + (isSunday ? 'var(--red)' : 'var(--text)') + '">' + dayName.substring(0,3) + ' ' + d.getDate() + '/' + (d.getMonth()+1) + ' <strong>' + formatMinutes(work) + '</strong></span>';
     });
     html += '</div>';
 
@@ -6742,7 +6826,7 @@ function computeSalary(totalWorkMin, overtimeMin) {
 
 // --- Favorite chantiers ---
 function loadFavChantiers() { try { return JSON.parse(localStorage.getItem(uK('favs'))) || []; } catch { return []; } }
-function saveFavChantiers(favs) { localStorage.setItem(uK('favs'), JSON.stringify(favs)); }
+function saveFavChantiers(favs) { try { localStorage.setItem(uK('favs'), JSON.stringify(favs)); } catch {} }
 function addFavChantier(num, lieu, lieu2, lieu3, identification, adresse, priorite) {
     if (!num && !lieu) return;
     const favs = loadFavChantiers();
@@ -7440,15 +7524,15 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">4. Sauvegardes</strong><br>
-                Les donnees sont enregistrees localement sur l'appareil. <b>Backup</b> telecharge une sauvegarde, <b>Restaurer</b> l'importe. <b>USB Sauver</b> ecrit sur une cle USB connectee. Pensez a sauvegarder regululierement.
+                Les donnees sont enregistrees localement sur l'appareil. Dans le <b>Menu</b> : <b>Backup</b> telecharge une sauvegarde, <b>Restaurer</b> l'importe, <b>USB Sauver</b> ecrit sur une cle USB connectee. Pensez a sauvegarder regululierement.
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">5. Vues et export</strong><br>
-                Les onglets du haut ouvrent la vue <b>Semaine</b>, <b>Mois</b>, <b>Annee</b>, <b>Journal</b>, <b>Historique</b>, <b>Projets</b> et <b>Analytics</b>. <b>CSV</b> et <b>XLS</b> exportent vos heures au format tableur. <b>Imprimer</b> genere une feuille de temps.
+                Le bouton <b>Menu</b> du haut regroupe toutes les vues (<b>Semaine</b>, <b>Mois</b>, <b>Annee</b>, <b>Journal</b>, <b>Historique</b>, <b>Projets</b>, <b>Analytics</b>...), les exports <b>CSV</b> et <b>XLS</b>, ainsi que <b>Imprimer</b>. Les boutons du haut (<b>Aujourd'hui</b>, <b>Saisie</b>, <b>Compte</b>) donnent acces aux actions les plus frequentes.
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">6. Trucs et astuces</strong><br>
-                Le bouton <b>?</b> affiche tous les raccourcis clavier. La saisie vocale et le remplissage rapide aident a gagner du temps. En cas de probleme, utilisez <b>Copier sem. prec.</b> ou <b>Repeter veille</b> pour dupliquer une journee.
+                Le raccourci clavier <kbd>?</kbd> ou l'option <b>Raccourcis clavier</b> du Menu affiche tous les raccourcis. La saisie vocale et le remplissage rapide aident a gagner du temps. En cas de probleme, utilisez <b>Copier sem. prec.</b> ou <b>Repeter veille</b> pour dupliquer une journee.
             </div>
         </div>
     </div>
