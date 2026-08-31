@@ -361,12 +361,14 @@
             border-radius: 8px;
             padding: 8px 12px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1px;
         }
         .calc-box + .calc-box { margin-top: 5px; }
-        .calc-box .calc-label { font-size: 0.75rem; color: var(--text-dim); }
+        .calc-box .calc-label { font-size: 0.72rem; color: var(--text-dim); }
         .calc-box .calc-val { font-size: 1rem; font-weight: 700; color: var(--accent2); }
+        .calc-box .calc-sub { font-size: 0.6rem; color: var(--text-dim); opacity: 0.8; }
 
         /* Shift block */
         .shift-block {
@@ -1226,12 +1228,16 @@
         </div>
         <div class="form-body" id="formContent">
             <!-- Preset bar -->
+            <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Modeles rapides — 1 clic remplit et enregistre</div>
             <div class="preset-bar">
-                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit ET enregistre la journee : bureau 8h-16h30">Bureau 8h</button>
                 <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Remplit ET enregistre la journee : chantier 7h30-16h30">Chantier</button>
+                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit ET enregistre la journee : bureau 8h-16h30">Bureau 8h</button>
                 <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Remplit ET enregistre la journee : jour long 7h-18h">Long 11h</button>
                 <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Remplit ET enregistre la journee : demi-journee 8h-12h ou 13h-17h">Demi-jour</button>
                 <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (un clic)">Repos</button>
+            </div>
+            <div style="font-size:0.68rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px">Reprendre une journee deja saisie</div>
+            <div class="preset-bar">
                 <button class="preset-btn" onclick="fillFromLastSameDay()" title="Reprendre le meme jour de la semaine precedente">Copier sem. prec.</button>
                 <button class="preset-btn" onclick="fillFromYesterday()" title="Reprendre toutes les donnees d hier (horaires + chantiers)">Reprendre hier</button>
                 <button class="preset-btn" onclick="repeatYesterday()" title="Copier la journee precedente">Copier hier</button>
@@ -1241,7 +1247,8 @@
             <div class="day-tabs" id="dayTabs"></div>
             <!-- Identity -->
             <div class="form-section collapsed" id="identitySection">
-                <div class="form-section-title">Identite</div>
+                <div class="form-section-title">Identite <span style="color:var(--text-dim);font-weight:400;font-size:0.65rem">(optionnel, reutilise pour les exports)</span></div>
+                <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.5">Vos coordonnees et votre vehicule sont reutilises automatiquement a chaque saisie et sur les documents exportes (factures, releves). Saisissez-les une fois ici.</div>
                 <div class="form-row r3">
                     <div class="form-group optional-field"><label>Nom</label><input type="text" id="fNom" placeholder="Dupont"></div>
                     <div class="form-group optional-field"><label>Prenom</label><input type="text" id="fPrenom" placeholder="Jean"></div>
@@ -1321,10 +1328,13 @@
 
             <!-- Shifts -->
             <div class="form-section">
-                <div class="form-section-title">Periodes de la journee <span id="shiftCount" style="color:var(--text-dim);font-weight:400;font-size:0.65rem">(0)</span></div>
+                <div class="form-section-title">Horaires de la journee <span id="shiftCount" style="color:var(--text-dim);font-weight:400;font-size:0.65rem">(0 periode)</span></div>
+                <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.5">
+                    Cliquez sur <b style="color:var(--accent2)">+ Matin</b>, <b style="color:var(--accent2)">+ Apres-midi</b> ou <b style="color:var(--accent2)">+ Nuit</b> pour decouper votre journee. Chaque periode a ses horaires de deplacement et son chantier.
+                </div>
                 <div id="shiftList">
-                    <div style="color:var(--text-dim);font-size:0.78rem;text-align:center;padding:12px">
-                        Ajoutez au moins une periode (matin, apres-midi, nuit).
+                    <div style="color:var(--text-dim);font-size:0.78rem;text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">
+                        Aucune periode pour l'instant.<br>Ajoutez une periode ci-dessous, ou utilisez un modele en haut (<b>Bureau 8h</b>, <b>Chantier</b>...) pour tout remplir en 1 clic.
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -1336,28 +1346,33 @@
 
             <!-- Totals -->
             <div class="form-section">
+                <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.5">Total calcule automatiquement pour cette journee. Chaque periode contribue a sa route et son travail.</div>
                 <div class="form-row r3">
                     <div class="calc-box" style="border-color:var(--accent3)">
                         <span class="calc-label">Route totale</span>
                         <span class="calc-val" style="color:var(--accent3)" id="calcRoute">0h00</span>
+                        <span class="calc-sub">temps de trajet</span>
                     </div>
                     <div class="calc-box" style="border-color:var(--accent)">
                         <span class="calc-label">Travail total</span>
                         <span class="calc-val" style="color:var(--accent)" id="calcWork">0h00</span>
+                        <span class="calc-sub">sur les chantiers</span>
                     </div>
                     <div class="calc-box" style="border-color:var(--accent2)">
                         <span class="calc-label" style="font-weight:700;color:var(--accent2)">Total journee</span>
                         <span class="calc-val" style="color:var(--accent2)" id="calcTotal">0h00</span>
+                        <span class="calc-sub">travail + route</span>
                     </div>
                 </div>
                 <div class="calc-box" style="margin-top:5px;border-color:var(--accent4)">
                     <span class="calc-label">Km total</span>
                     <span class="calc-val" style="color:var(--accent4)" id="calcKm">0 km</span>
+                    <span class="calc-sub">arrivee - depart</span>
                 </div>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:14px">
-                <button class="btn primary" style="flex:1;justify-content:center" onclick="saveDay()">Enregistrer la journee</button>
+                <button class="btn primary" style="flex:1;justify-content:center" onclick="saveDay()" id="mainSaveBtn">Enregistrer la journee</button>
                 <button class="btn" onclick="fillSample()" id="exempleBtn">Exemple</button>
             </div>
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center" id="shiftsToolbar">
@@ -3712,12 +3727,16 @@ function markDirty() {
     _isDirty = true;
     var el = document.getElementById('saveIndicator');
     if (el) { el.className = 'save-indicator dirty'; }
+    var sb = document.getElementById('mainSaveBtn');
+    if (sb && sb.textContent.indexOf('modifs') === -1) { sb.textContent = 'Enregistrer (modifs non sauvees)'; }
     triggerAutoSave();
 }
 function markSaved() {
     _isDirty = false;
     var el = document.getElementById('saveIndicator');
     if (el) { el.className = 'save-indicator saved'; setTimeout(function() { el.className = 'save-indicator'; }, 1500); }
+    var sb = document.getElementById('mainSaveBtn');
+    if (sb) { sb.textContent = 'Enregistrer la journee'; }
 }
 
 function renderShifts() {
@@ -3725,7 +3744,7 @@ function renderShifts() {
     document.getElementById('shiftCount').textContent = `(${pendingShifts.length})`;
 
     if (!pendingShifts.length) {
-        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.78rem;text-align:center;padding:12px">Ajoutez au moins une periode (matin, apres-midi, nuit).</div>';
+        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Utilisez un modele en haut (Bureau 8h, Chantier...) pour tout remplir en 1 clic, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
         return;
     }
 
@@ -3755,6 +3774,15 @@ function renderShifts() {
             const total = fields.length;
             const dots = fields.map(f => '<span title="'+f.l+'" style="display:inline-block;width:6px;height:6px;border-radius:50%;margin:0 1px;background:' + (f.v ? 'var(--accent2)' : 'var(--border)') + '"></span>').join('');
             return '<span style="display:inline-flex;align-items:center;gap:2px;margin-left:6px" title="' + filled + '/' + total + ' champs remplis">' + dots + '</span>';
+        };
+
+        const favsHtml = sid => {
+            const favs = loadFavChantiers();
+            if (!favs || !favs.length) return '';
+            return '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px">' +
+                '<span style="font-size:0.6rem;color:var(--accent);opacity:0.9">Favoris:</span>' +
+                favs.map((f, i) => '<button type="button" class="btn sm" onclick="applyFavToShift(' + i + ',' + sid + ')" title="Ajouter ' + esc(f.num || f.lieu) + '" style="font-size:0.6rem;padding:2px 6px">' + esc(f.num || f.lieu) + '</button>').join('') +
+                '</div>';
         };
 
         const chantiersHtml = s.chantiers.length ? s.chantiers.map((c, ci) => {
@@ -3968,6 +3996,7 @@ function renderShifts() {
 
                 <div style="margin-top:10px">
                     <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Chantiers (${s.chantiers.length})</div>
+                    ${favsHtml(s.id)}
                     ${chantiersHtml}
                 </div>
                 <div style="margin-top:8px">
@@ -4103,8 +4132,11 @@ function saveDay(opts) {
     renderShifts();
     updateCalcs();
     render();
-    showToast(merged ? 'Fusion intelligente effectuee !' : 'Journee enregistree !', 'success');
+    const dayName = DAY_NAMES[dayIdx];
+    const savedTotal = formatMinutes((totalWork || 0) + (totalRoute || 0));
+    showToast(dayName + ' enregistre (' + savedTotal + ')', 'success');
     markSaved();
+    localStorage.setItem(uK('lastSavedDay'), formatDate(dates[dayIdx]));
 }
 
 function recalcEntryTotals(entry) {
@@ -7047,6 +7079,17 @@ function applyFavChantier(idx) {
     renderShifts(); updateCalcs();
     setMicStatus('+ ' + (fav.num || fav.lieu || 'Chantier favori'), 'heard');
     setTimeout(() => setMicStatus('',''), 2000);
+}
+function applyFavToShift(idx, sid) {
+    const fav = loadFavChantiers()[idx];
+    const sf = pendingShifts.find(x => x.id === sid);
+    if (!fav || !sf) return;
+    pushUndo();
+    sf.chantiers.push({
+        id: ++chantierIdCounter, num: fav.num, lieu: fav.lieu, lieu2: fav.lieu2 || '', lieu3: fav.lieu3 || '', adresse: fav.adresse || '', identification: fav.identification || '', priorite: fav.priorite || '', desc: fav.desc || '',
+        arriveeChantier: '', debut: '', fin: '', departChantier: '', notes: ''
+    });
+    renderShifts(); updateCalcs();
 }
 function renderFavChantiers() {
     const el = document.getElementById('favChantiers');
