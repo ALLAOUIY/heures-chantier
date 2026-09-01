@@ -4793,25 +4793,49 @@ function parseMicInput() {
     updateCalcs();
     if (matched > 0) {
         input.value = '';
-        const summary = reports.length ? reports.join('. ') + '.' : (matched + ' commande(s) appliquee(s)');
+        var summary;
+        if (reports.length) {
+            summary = reports.join('. ') + '.';
+            var extra = daySummary();
+            if (extra) summary += ' ' + extra;
+        } else {
+            summary = (matched + ' commande(s) appliquee(s)');
+        }
         setMicStatus(summary, 'heard');
-        setTimeout(function() { setMicStatus('',''); }, 4000);
+        setTimeout(function() { setMicStatus('',''); }, 5000);
     } else {
         setMicStatus('Non compris: "' + raw + '"', 'error');
         setTimeout(function() { setMicStatus('',''); }, 3500);
     }
 }
 
+function daySummary() {
+    if (!pendingShifts || !pendingShifts.length) return '';
+    var minAll = 0, minWork = 0, sites = 0, names = [];
+    pendingShifts.forEach(function(s){
+        minAll += s.total || 0; minWork += s.totalWork || 0;
+        (s.chantiers || []).forEach(function(ch){
+            sites++;
+            if (ch.num) names.push(ch.num);
+        });
+    });
+    var parts = [];
+    parts.push(formatMinutes(minAll) + ' au total');
+    parts.push(formatMinutes(minWork) + ' de travail');
+    if (sites) parts.push(sites + ' chantier(s)' + (names.length ? ' (' + names.join(', ') + ')' : ''));
+    return parts.join(', ');
+}
+
 function cleanSpeech(t) {
     return t
         .toLowerCase()
-        .replace(/\b(euh|hum|en fait|voila|voilà|heu|ben|bon alors|alors|du coup|donc|je vais|je vous|j'ai)\b/g, ' ')
+        .replace(/\b(euh|hum|hmm|en fait|voila|voilà|heu|ben|bon alors|alors|du coup|donc|je vais|je vous|j'ai|tres bien|d accord|okay|ok)\b/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
 
 function splitSpeech(t) {
-    const parts = t.split(/\s*[,;.:!?]\s*|\s+\bet\b\s+|\s+(?:puis|ensuite|apres|alors|donc|et\s+ensuite)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    const parts = t.split(/\s*[,;.:!?]\s*|\s+et\s+(?!demie|demi|quart|trente)\s*|\s+(?:puis|ensuite|apres(?!\s*(?:midi|m[ée]di))|après|alors|donc|et\s+ensuite|et\s+puis|apres\s+ca|cela\s+etant|ensuite\s+je)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
     return parts.length ? parts : [t];
 }
 
@@ -4874,6 +4898,51 @@ function applyCommand(cmd) {
         return true;
     }
 
+    // ==========================================
+    // ACTIONS GENERALES (etat du jour / navigation)
+    // ==========================================
+    if (/enregistre|sauve|sauvegarde|valide|enregistrer|entregistre/.test(cmd) && !/tu\s+vas|pris/.test(cmd)) {
+        if (pendingShifts.length) { saveDay(); setMicStatus('Jour enregistre', 'heard'); }
+        else { setMicStatus('Rien a enregistrer', 'error'); }
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
+    if (/annule|annuler|efface\s+(?:tout|la|le)\s+(?:journee|journée|jour)|supprime\s+(?:tout|la|le)\s+(?:journee|journée|jour)|reinitialise|reinitialiser|raz|remise\s+a\s+zero/.test(cmd)) {
+        pendingShifts = [];
+        renderShifts(); updateCalcs();
+        setMicStatus('Periodes effacees', 'heard');
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
+    if (/combien.*(?:heures|de\s+temps|total)|total.*heures|resume|recap|tableau/.test(cmd)) {
+        let minAll = 0, minWork = 0;
+        pendingShifts.forEach(function(s){ minAll += s.total || 0; minWork += s.totalWork || 0; });
+        const d = formatMinutes(minAll);
+        setMicStatus('Jour: ' + d + ' (travail ' + formatMinutes(minWork) + ')', 'heard');
+        setTimeout(() => setMicStatus('',''), 4000);
+        return true;
+    }
+    const dayNavM = cmd.match(/^(?:va\s+(?:a|sur|au)?\s*)?(aujourd\s*hui|demain|hier|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)$/);
+    if (dayNavM) {
+        const DAYS = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+        const dates = getWeekDates();
+        let idx = -1;
+        const lw = dayNavM[1];
+        if (lw === 'aujourd hui' || lw === "aujourd'hui") { const d=new Date(); idx = d.getDay()===0?6:d.getDay()-1; }
+        else if (lw === 'demain') { const d=new Date(); d.setDate(d.getDate()+1); idx = d.getDay()===0?6:d.getDay()-1; if(dates[idx] !== formatDate(d)){} }
+        else if (lw === 'hier') { const d=new Date(); d.setDate(d.getDate()-1); idx = d.getDay()===0?6:d.getDay()-1; }
+        else { for (let i=0;i<7;i++){ if (DAY_NAMES[i].toLowerCase() === lw) idx = i; } }
+        if (idx >= 0 && idx < 7) {
+            selectedDayIdx = idx;
+            const fDay = document.getElementById('fDay');
+            if (fDay) fDay.value = idx;
+            onDayChange();
+            setMicStatus('Jour choisi: ' + DAY_NAMES[idx], 'heard');
+            setTimeout(() => setMicStatus('',''), 2500);
+            return true;
+        }
+    }
+
     if (!l) {
         if (/ajoute|nouveau|matin|aprem|nuit/.test(cmd)) {
             if (/matin/.test(cmd)){addShift('matin');setMicStatus('+ Matin','heard');return true;}
@@ -4899,26 +4968,50 @@ function applyCommand(cmd) {
 
     function extractTime(text) {
         let m;
-        if (/\b(midi|minuit)\b/.test(text)) return /midi/.test(text) ? '12:00' : '00:00';
+        let pm = /de\s+l[' ]apr[ée]s[- ]?midi\b/.test(text) || /du\s+soir\b/.test(text) || /de\s+l[' ]apres[- ]midi\b/.test(text);
+        const noon = /\bmidi\b/.test(text) && !/apr[ée]s\s*[- ]?midi|de\s+l[' ]?apr[ée]s/.test(text);
+        if (noon) {
+            if (/midi\s+moins\s+le\s+quart/i.test(text)) return '11:45';
+            if (/midi\s+et\s+(?:demie|demi)/i.test(text)) return '12:30';
+            if (/midi\s+et\s+quart/i.test(text)) return '12:15';
+            const m2 = text.match(/midi\s+moins\s+(\d+|dix|cinq|vingt)/i);
+            if (m2) { const mm = {dix:10,cinq:5,vingt:20}[m2[1].toLowerCase()] || parseInt(m2[1]); return '11:' + String(60 - Math.min(mm,59)).padStart(2,'0'); }
+            return '12:00';
+        }
+        if (/\bminuit\b/.test(text)) {
+            if (/minuit\s+moins\s+le\s+quart/i.test(text)) return '23:45';
+            if (/minuit\s+et\s+(?:demie|demi)/i.test(text)) return '00:30';
+            if (/minuit\s+et\s+quart/i.test(text)) return '00:15';
+            return '00:00';
+        }
         m = text.match(/(\d{1,2})\s*h\s*(\d{1,2})?/i) || text.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
         if (m) {
             let h=parseInt(m[1]),mn=m[2]?parseInt(m[2]):0;
-            // spoken fractions: "huit heures et quart/demie", "neuf heures moins le quart"
             const fracTxt = text.slice(m.index).match(/(?:et\s+(?:le\s+)?)?(quart|demie|demi|trente|moins\s+le\s+quart|moins\s+(\d+|dix|cinq|vingt))/);
             if (fracTxt) {
                 const f = fracTxt[1];
                 if (f === 'quart') mn = 15;
                 else if (f === 'demie' || f === 'demi' || f === 'trente') mn = 30;
                 else if (f === 'moins le quart') { mn = 45; if (m[1] === '12') { h = 11; } }
-                else if (/^moins\s+/.test(f)) { mn = (60 - parseInt(fracTxt[2]||'0')||0); h = h - 1 < 0 ? h : h - 1; if (h < 0) h = 23; }
+                else if (/^moins\s+/.test(f)) { const mm = {dix:10,cinq:5,vingt:20}[String(fracTxt[2]||'0').toLowerCase()]; mn = (60 - (mm || parseInt(fracTxt[2]||'0')||0)); h = h - 1 < 0 ? h : h - 1; if (h < 0) h = 23; }
             }
+            if (pm && h < 12) h += 12;
             if(h>=0&&h<=23&&mn>=0&&mn<=59) return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0');
         }
         const FR={un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50};
         const hK=Object.keys(FR).filter(k=>FR[k]<=23).join('|');
         const mK=Object.keys(FR).filter(k=>FR[k]<=59).join('|');
         m=text.match(new RegExp('('+hK+')\\s*(?:heures?|h)\\s*('+mK+')?','i'));
-        if(m){const h=FR[m[1].toLowerCase()],mn=m[2]?FR[m[2].toLowerCase()]:0;return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0');}
+        if(m){
+            let h=FR[m[1].toLowerCase()], mn=m[2]?FR[m[2].toLowerCase()]:0;
+            const afterH = text.slice(text.indexOf(m[0]) + m[0].length);
+            if (/(moins\s+le\s+quart)/i.test(afterH)) { mn=45; h = h-1<0?23:h-1; }
+            else if (/(moins\s+(\d+|dix|cinq|vingt))/i.test(afterH)) { const mm={dix:10,cinq:5,vingt:20}[RegExp.$2.toLowerCase()]||parseInt(RegExp.$2)||0; mn=60-Math.min(mm,59); h=h-1<0?23:h-1; }
+            else if (/(et\s+(?:demie|demi|trente))/i.test(afterH)) mn=30;
+            else if (/(et\s+quart)/i.test(afterH)) mn=15;
+            if (pm && h < 12) h += 12;
+            return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0');
+        }
         return null;
     }
 
