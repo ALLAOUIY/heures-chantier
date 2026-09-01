@@ -1506,10 +1506,11 @@
                     <strong>Lieux :</strong> lieu2 Bat A, lieu3 Etage 3, adresse 15 rue X, 69000 Ville  
                     <strong>Priorite :</strong> urgent, flexible, priorite normal  
                     <strong>Notes :</strong> note: truc, commentaire: remarque, remarques  
-                    <strong>Supprimer :</strong> supprime chantier/lieu/heure/note
+                    <strong>Supprimer :</strong> supprime chantier/lieu/heure/note  
+                    <strong>Systeme :</strong> semaine prochaine/precedente, ouvre la vue/historique/projets, exporte excel/csv, backup, imprime, modele bureau/chantier, plein ecran, guide
                 </div>
                 <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
-                    <strong>Vocale :</strong> cliquez sur le micro &#127908; puis dictez (ex. "depart maison", "8h30-17h00", "chantier CHT-042", "j'arrive", "c'est fini", "repos").
+                    <strong>Vocale :</strong> pilotez toute l'appli a la voix : saisie ("depart maison", "8h30-17h00", "chantier CHT-042", "c'est fini"), profil ("je m'appelle...", "mon entreprise s'appelle..."), reglages ("seuil hebdo 35", "taux horaire 25"), et systeme ("ouvre la vue d'ensemble", "exporte excel", "semaine prochaine", "modele bureau").
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;margin-top:4px;line-height:1.8;opacity:0.7">
                     <strong>Clavier :</strong> 1-8 rapide  C=chantier  B=bureaux  T=timer  R=repeter  ?=aide  
@@ -5051,6 +5052,45 @@ function applyCommand(cmd) {
             return true;
         }
     }
+
+    // ==========================================
+    // SYSTEME GLOBAL : vues, navigation semaine,
+    // exports, gabarits, affichage, aide
+    // Fonctionne dans toute l'appli, toujours.
+    // ==========================================
+    function sysMsg(msg){ setMicStatus(msg, 'heard'); setTimeout(function(){ setMicStatus('',''); }, 2500); return true; }
+    function sysErr(msg){ setMicStatus(msg, 'error'); setTimeout(function(){ setMicStatus('',''); }, 3000); return false; }
+    var sysHandled = false;
+
+    if (/^(?:semaine|aller)?\s*(?:prochaine|suivante|suivant|\+1)\s*(?:semaine|s)?\s*$/i.test(cmd) || /semaine\s+(?:prochaine|suivante)/.test(cmd)) { changeWeek(1); sysHandled = sysMsg('Semaine suivante'); }
+    if (/^(?:semaine|aller)?\s*(?:precedente|-1|moins\s+1)\s*(?:semaine|s)?\s*$/i.test(cmd) || /semaine\s+(?:precedente)/.test(cmd)) { changeWeek(-1); sysHandled = sysMsg('Semaine precedente'); }
+
+    if (/^vue\s+d\s?ensemble$|ouvre\s+(?:la\s+)?vue\s+d\s?ensemble|dashboard|tableau\s+de\s+bord|orchestrateur/.test(cmd)) { toggleOrchestrator(); sysHandled = sysMsg('Vue d\'ensemble'); }
+    if (/ouvre.*(?:historique|multi\s*semaines?)|historique\s+multi/.test(cmd)) { showHistory(); sysHandled = sysMsg('Historique'); }
+    if (/ouvre.*projets?|suivi\s+des\s+projets|gestion\s+des\s+projets/.test(cmd)) { showProjectTracker(); sysHandled = sysMsg('Projets'); }
+    if (/ouvre.*(?:analyse|statistiques|analytics)|analytics|statistiques/.test(cmd)) { showAnalytics(); sysHandled = sysMsg('Analytics'); }
+    if (/ouvre.*(?:template|modele|gabarit)|gestion\s+des\s+modeles/.test(cmd)) { renderTemplatesPanel(); sysHandled = sysMsg('Templates'); }
+    if (/ouvre.*recherche|recherche\s+globale|rechercher/.test(cmd)) { showGlobalSearch(); sysHandled = sysMsg('Recherche'); }
+    if (/feuille\s+de\s+temps|feuille\s+hebdo?|ouvre.*feuille/.test(cmd)) { toggleFeuille(); sysHandled = sysMsg('Feuille de temps'); }
+    if (/releve\s+(?:de\s+)?(?:la\s+)?semaine|releve\s+hebdo/.test(cmd)) { showReleveWeek(); sysHandled = sysMsg('Releve semaine'); }
+    if (/releve\s+(?:de\s+)?(?:l[' ]annee|annuel|de\s+l[' ]an)/.test(cmd)) { showReleveYear(); sysHandled = sysMsg('Releve annuel'); }
+
+    if (/exporte\s*(?:en\s*)?excel|xlsx|exporte?.*excel/.test(cmd)) { exportXLSX(); sysHandled = sysMsg('Export Excel'); }
+    if (/exporte\s*(?:en\s*)?csv|exporte?.*csv/.test(cmd)) { exportCSV(); sysHandled = sysMsg('Export CSV'); }
+    if (/backup|sauvegarde\s+(?:json|complete)|exporte?.*backup/.test(cmd)) { exportBackup(); sysHandled = sysMsg('Backup JSON'); }
+    if (/imprime|impression|imprimer/.test(cmd)) { window.print(); sysHandled = sysMsg('Impression'); }
+
+    if (/(?:modele|gabarit)\s*bureau\b|ajoute\s+bureau\b/.test(cmd)) { applyDayPreset('bureau', true); sysHandled = sysMsg('Gabarit bureau'); }
+    if (/(?:modele|gabarit)\s*chantier\b|gabarit\s+chantier/.test(cmd)) { applyDayPreset('chantier', true); sysHandled = sysMsg('Gabarit chantier'); }
+    if (/gabarit\s+long|jour\s+long\b/.test(cmd)) { applyDayPreset('long', true); sysHandled = sysMsg('Gabarit jour long'); }
+    if (/demi\s*(?:-\s*)?jour(?:nee)?\b/.test(cmd)) { applyDayPreset('demijour', true); sysHandled = sysMsg('Gabarit demi-journee'); }
+
+    if (/plein\s+ecran|plein\s+ecran\s+saisie|toggle\s+fullscreen/.test(cmd)) { toggleFullscreen(); sysHandled = sysMsg('Plein ecran'); }
+    if (/raccourcis|raccourci\s+clavier|aide\s+clavier|shortcuts/.test(cmd)) { toggleShortcutsModal(); sysHandled = sysMsg('Raccourcis'); }
+    if (/guide\s+de\s+demarrage|guide\s+debut|aide\s+globale|demarrage/.test(cmd)) { openHelpModal(); sysHandled = sysMsg('Guide de demarrage'); }
+    if (/vider\s+la\s+semaine|supprime\s+(?:toute\s+)?la\s+semaine|raz\s+semaine|reinitialise\s+la\s+semaine/.test(cmd)) { resetWeek(); sysHandled = sysMsg('Semaine videe'); }
+
+    if (sysHandled) return true;
 
     if (!l) {
         if (/ajoute|nouveau|matin|aprem|nuit/.test(cmd)) {
