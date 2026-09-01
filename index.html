@@ -4706,19 +4706,75 @@ function parseMicInput() {
     const raw = input.value.trim();
     if (!raw) return;
 
-    const commands = raw.split(/[,;]|\bet\b/).map(s => s.trim()).filter(Boolean);
-    let matched = false;
-    for (const cmd of commands) {
-        if (applyCommand(cmd)) matched = true;
+    const text = cleanSpeech(raw);
+    if (!pendingShifts.length && !/repos|repas/.test(text) && !/\b(matin|matinée|matin ee|aprem|apres|après|apres midi|nuit)\b/.test(text)) {
+        const h = new Date().getHours();
+        addShift(h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
     }
-    if (matched) {
+
+    const segments = splitSpeech(text);
+    let matched = 0;
+    const reports = [];
+    for (const seg of segments) {
+        const before = filledCount();
+        let ok = false;
+        try { ok = applyCommand(seg); } catch (e) { ok = false; }
+        if (ok) {
+            matched++;
+            const after = filledCount();
+            const added = diffReport(before, after);
+            if (added) reports.push(added);
+        }
+    }
+    renderShifts();
+    updateCalcs();
+    if (matched > 0) {
         input.value = '';
-        renderShifts();
-        updateCalcs();
+        const summary = reports.length ? reports.join('. ') + '.' : (matched + ' commande(s) appliquee(s)');
+        setMicStatus(summary, 'heard');
+        setTimeout(function() { setMicStatus('',''); }, 4000);
     } else {
         setMicStatus('Non compris: "' + raw + '"', 'error');
-        setTimeout(() => setMicStatus('',''), 3000);
+        setTimeout(function() { setMicStatus('',''); }, 3500);
     }
+}
+
+function cleanSpeech(t) {
+    return t
+        .toLowerCase()
+        .replace(/\b(euh|hum|en fait|voila|voilà|heu|ben|bon alors|alors|du coup|donc|je vais|je vous|j'ai)\b/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+function splitSpeech(t) {
+    const parts = t.split(/\s*[,;.:!?]\s*|\s+\bet\b\s+|\s+(?:puis|ensuite|apres|alors|donc|et\s+ensuite)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    return parts.length ? parts : [t];
+}
+
+function filledCount() {
+    let c = 0;
+    (pendingShifts || []).forEach(function(sh){
+        if (sh.departMaison) c++;
+        if (sh.arriveeBureaux) c++;
+        if (sh.departBureaux) c++;
+        if (sh.arriveeMaison) c++;
+        (sh.chantiers || []).forEach(function(ch){
+            if (ch.num) c++;
+            if (ch.lieu) c++;
+            if (ch.arriveeChantier) c++;
+            if (ch.debut) c++;
+            if (ch.fin) c++;
+            if (ch.departChantier) c++;
+        });
+    });
+    return c;
+}
+
+function diffReport(before, after) {
+    if (after <= before) return '';
+    const added = after - before;
+    return '+' + added + (added === 1 ? ' champ' : ' champs');
 }
 
 function handleMicPaste(e) {
@@ -4743,9 +4799,9 @@ function handleMicPaste(e) {
 
 function applyCommand(cmd) {
     cmd = cmd.trim().toLowerCase();
-    const l = lastShift();
-    const ch = getLastChantier();
-    const s = ch ? findShiftOfChantier(ch.id) : null;
+    let l = lastShift();
+    let ch = getLastChantier();
+    let s = ch ? findShiftOfChantier(ch.id) : null;
     const now = nowStr();
 
     if (/jour de repos|marque.*repos|jours? (de )?repos?$|^repos$|^repose$/.test(cmd) && !/matin|aprem|nuit/.test(cmd)) {
@@ -4766,11 +4822,35 @@ function applyCommand(cmd) {
         return false;
     }
 
+    // Orchestration: si la dictée mentionne un chantier mais qu'aucun n'existe,
+    // et qu'il ne s'agit pas de la commande d'ajout explicite, on en crée un automatiquement.
+    const mentionsChantier = /chantier|sur\s+le|au\s+site/.test(cmd);
+    const targetsChantier = /(?:arrivee|arrive|depart|debut|\bfin\b|numero|num|lieu|adresse|batiment|zone|metier|type|note|desc)/.test(cmd);
+    const chantierIntent = mentionsChantier && targetsChantier;
+    if (!ch && chantierIntent && !/^chantier\s|^\+ ?chantier$|^suivant$|^autre$|^prochain$/.test(cmd)) {
+        addChantierToShift(l.id);
+        ch = getLastChantier();
+        s = ch ? findShiftOfChantier(ch.id) : null;
+    }
+    let chJustCreated = ch && !ch.num && chantierIntent;
+
     function extractTime(text) {
         let m;
         if (/\b(midi|minuit)\b/.test(text)) return /midi/.test(text) ? '12:00' : '00:00';
         m = text.match(/(\d{1,2})\s*h\s*(\d{1,2})?/i) || text.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
-        if (m) { const h=parseInt(m[1]),mn=m[2]?parseInt(m[2]):0; if(h>=0&&h<=23&&mn>=0&&mn<=59) return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0'); }
+        if (m) {
+            let h=parseInt(m[1]),mn=m[2]?parseInt(m[2]):0;
+            // spoken fractions: "huit heures et quart/demie", "neuf heures moins le quart"
+            const fracTxt = text.slice(m.index).match(/(?:et\s+(?:le\s+)?)?(quart|demie|demi|trente|moins\s+le\s+quart|moins\s+(\d+|dix|cinq|vingt))/);
+            if (fracTxt) {
+                const f = fracTxt[1];
+                if (f === 'quart') mn = 15;
+                else if (f === 'demie' || f === 'demi' || f === 'trente') mn = 30;
+                else if (f === 'moins le quart') { mn = 45; if (m[1] === '12') { h = 11; } }
+                else if (/^moins\s+/.test(f)) { mn = (60 - parseInt(fracTxt[2]||'0')||0); h = h - 1 < 0 ? h : h - 1; if (h < 0) h = 23; }
+            }
+            if(h>=0&&h<=23&&mn>=0&&mn<=59) return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0');
+        }
         const FR={un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50};
         const hK=Object.keys(FR).filter(k=>FR[k]<=23).join('|');
         const mK=Object.keys(FR).filter(k=>FR[k]<=59).join('|');
@@ -4845,18 +4925,30 @@ function applyCommand(cmd) {
     // ==========================================
     
     // DEPART + LIEU
-    if (/depart\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
-    if (/depart\s*bureau/.test(cmd)) { if(l){setShiftField(l.id,'departBureaux',time||now);setMicStatus('Depart bureaux: '+(time||now),'heard');return true;} }
-    if (/depart\s*chantier/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'departChantier',time||now);setMicStatus('Depart chantier: '+(time||now),'heard');return true;} }
+    if (/depart\s*maison|je\s+(?:suis\s+)?(?:parti|partie|pars)\s*(?:a|a|du)?\s*(?:de\s+)?(?:la\s+)?maison|^je\s+pars$/.test(cmd) || /depart\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
+    if (/depart\s*bureaux|je\s+(?:suis\s+)?parti\s*(?:a|a)\s*(?:au|aux)?\s*bureaux|^je\s+pars\s*au\s*bureau$/.test(cmd)) { if(l){setShiftField(l.id,'departBureaux',time||now);setMicStatus('Depart bureaux: '+(time||now),'heard');return true;} }
+    if (/depart\s*chantier|je\s+(?:suis\s+)?parti\s*(?:a|a|du|de)\s*(?:au|aux|le|la)?\s*chantier/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'departChantier',time||now);setMicStatus('Depart chantier: '+(time||now),'heard');return true;} }
 
     // ARRIVEE + LIEU
-    if (/arrivee\s*maison/.test(cmd) || /retour/.test(cmd) || /rentre/.test(cmd)) { if(l){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
-    if (/arrivee\s*bureau/.test(cmd)) { if(l){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;} }
-    if (/arrivee\s*chantier/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'arriveeChantier',time||now);setMicStatus('Arrivee chantier: '+(time||now),'heard');return true;} }
+    if (/arrivee\s*maison|arrive\s*(?:a|a|au|aux|sur|dan?s|chez)\s*(?:la\s+)?maison|je\s+suis\s+arrive\s*(?:a|a|au|aux|sur)?\s*maison|^rentre$|retour\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
+    if (/arrivee\s*bureaux|arrive\s*(?:a|a|au|aux|sur|dan?s)?\s*(?:au|aux|les)?\s*bureaux?/.test(cmd)) { if(l){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;} }
+    if (/arrivee\s*chantier|arrive\s*(?:au|a|sur|a|dan?s|aux)\s+(?:le\s+|la\s+)?chantier/.test(cmd)) {
+        if (ch && s) {
+            setChantierField(s.id, ch.id, 'arriveeChantier', time || now);
+            const numM = cmd.match(/(?:au|sur|a|au|pour)\s+chantier\s+([A-Za-z0-9\-\/]+)/i) || cmd.match(/chantier\s+([A-Za-z0-9\-\/]+)/i);
+            if (numM && !ch.num) setChantierField(s.id, ch.id, 'num', numM[1].toUpperCase());
+            const lieuM = cmd.match(/(?:a|a|sur|dan?s|aux|pres\s+de)\s+([a-zA-Z][a-zA-Z \-]{2,})$/i);
+            if (lieuM && !ch.lieu && !/chantier|heure|h\s*\d/.test(lieuM[1])) setChantierField(s.id, ch.id, 'lieu', lieuM[1].trim());
+            const adrM = cmd.match(/(\d{1,4})\s*(?:rue|avenue|av|bd|boulevard|chemin|route|impasse)\s+([a-zA-Z0-9 \-]+)/i);
+            if (adrM && !ch.adresse) setChantierField(s.id, ch.id, 'adresse', (adrM[1] + ' ' + adrM[2]).trim());
+            setMicStatus('Arrivee chantier: ' + (time || now), 'heard');
+            return true;
+        }
+    }
 
     // DEBUT / FIN + LIEU
-    if (/debut|commence|demarre/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
-    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
+    if (/debut|commence|demarre|je\s+(?:commence|demarre)|on\s+(?:commence|demarre)|c'est\s+parti/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
+    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse|fini\s*(?:a|a)?|j[' ']?ai\s+(?:fini|arrete|termine)/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
 
     // ==========================================
     // COMMANDES COURTES (sans lieu)
