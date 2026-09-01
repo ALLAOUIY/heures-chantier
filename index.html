@@ -7656,6 +7656,28 @@ function openSessionIdleSettings() {
 }
 
 var window_booted_backup = window._booted;
+function maybeShowFirstRun() {
+    try {
+        var dontShow = localStorage.getItem(uK('firstRunDismiss')) === '1';
+        if (dontShow) return;
+        var modal = document.getElementById('firstRunModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+    } catch (e) {}
+}
+function closeFirstRun() {
+    var modal = document.getElementById('firstRunModal');
+    if (modal) modal.style.display = 'none';
+    try {
+        var cb = document.getElementById('firstRunDontShow');
+        if (cb && cb.checked) localStorage.setItem(uK('firstRunDismiss'), '1');
+    } catch (e) {}
+}
+function showFirstRunSaisie() {
+    closeFirstRun();
+    scrollPanelIntoView('mainFormPanel');
+}
+
 function bootApp() {
     if (window._booted) return;
     window._booted = true;
@@ -7674,6 +7696,7 @@ function bootApp() {
     initNotifications();
     initUsbAutoSave();
     usbTryAutoConnect();
+    setTimeout(maybeShowFirstRun, 1200);
 fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     if (d && d.version && d.weeks) {
         var hasData = false;
@@ -7822,5 +7845,36 @@ if (_startupUsers.length === 0) {
     <button class="btn primary" onclick="fabAction('sauver')">Enregistrer</button>
 </div>
 <button class="fab" id="fabBtn" onclick="toggleFabMenu()">+</button>
+
+<div id="firstRunModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:610;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeFirstRun()">
+    <div style="background:linear-gradient(160deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:16px;padding:26px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <h3 style="font-size:1.05rem;color:var(--accent)">Bienvenue</h3>
+            <button class="btn sm" onclick="closeFirstRun()" style="padding:4px 10px">X</button>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:16px">Voici comment saisir et suivre vos heures en 3 etapes.</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
+                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#5a6aee);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">1</div>
+                <div><strong style="color:var(--accent2)">Choisissez le jour</strong><br>Cliquez sur un onglet en haut (lun. a dim. — week-end compris) ou sur <b>Aujourd'hui</b>.</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
+                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),#2fbfa0);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</div>
+                <div><strong style="color:var(--accent2)">Remplissez vos horaires</strong><br>1 clic sur un modele (<b>Bureau 8h</b>, <b>Chantier</b>, <b>Repos</b>) remplit et enregistre. Ou ajoutez une periode (<b>+ Matin</b>) et vos chantiers favoris.</div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
+                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent3),#f06a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</div>
+                <div><strong style="color:var(--accent2)">Consultez &amp; exportez</strong><br>Le <b>Menu</b> (en haut a droite) ouvre toutes les vues, exports, backups et le guide complet.</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px;align-items:center">
+            <button class="btn primary" style="flex:1;justify-content:center" onclick="showFirstRunSaisie()">Commencer a saisir</button>
+            <button class="btn" onclick="openHelpModal()">Guide demarrage</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:12px;font-size:0.72rem;color:var(--text-dim);cursor:pointer">
+            <input type="checkbox" id="firstRunDontShow" checked> Ne plus afficher a l'ouverture
+        </label>
+    </div>
+</div>
 </body>
 </html>
