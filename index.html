@@ -122,6 +122,15 @@
         }
         .dropdown-content .dd-item:hover { background: var(--surface2); }
         .dropdown-content .dd-item.danger { color: var(--red); }
+        .dropdown-content .dd-item { display: block; width: 100%; font-size: 0.78rem; text-align: left; }
+        .dropdown-content .dd-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+        .dd-search { padding: 2px 4px 8px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+        .dd-search input {
+            width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--surface2); color: var(--text); font-size: 0.8rem; outline: none;
+            transition: border-color 0.2s;
+        }
+        .dd-search input:focus { border-color: var(--accent); }
         .btn {
             padding: 7px 14px;
             border: 1px solid var(--border);
@@ -624,8 +633,11 @@
             .form-row.r2, .form-row.r3, .form-row.r4, .form-row.r5 { grid-template-columns: 1fr; }
             h1 { font-size: 1.1rem; }
             header { flex-direction: column; align-items: stretch; gap: 8px; }
-            header .actions { justify-content: center; flex-wrap: wrap; }
-            header .actions .btn { flex: 1; justify-content: center; min-height: 40px; }
+            header .actions { justify-content: center; flex-wrap: wrap; gap: 6px; }
+            header .actions .btn { flex: 1 1 31%; justify-content: center; min-height: 42px; }
+            header .actions #mainMenuBtn { flex: 1 1 100%; background: linear-gradient(135deg, var(--accent), #5a6aee); border-color: var(--accent); color: #fff; font-weight: 700; }
+            header .actions #sessionBtn { flex: 1 1 31%; }
+            .dropdown-content { min-width: auto; max-height: 72vh; position: fixed; top: 56px; left: 8px; right: 8px; width: auto; }
             .form-group input, .form-group select { padding: 12px 10px; font-size: 1rem; }
             .form-group label { font-size: 0.78rem; }
             .time-input input { padding: 12px 10px; font-size: 1rem; }
@@ -6025,23 +6037,17 @@ function openHelpModal() {
 }
 
 // --- Main menu (dropdown) ---
-function toggleMainMenu(e) {
-    if (e) e.stopPropagation();
-    const content = document.getElementById('mainMenuContent');
-    if (!content) return;
-    if (content.style.display === 'block') { hideMainMenu(); return; }
-    content.style.display = 'block';
-    content.innerHTML = renderMainMenu();
-}
-function hideMainMenu() {
-    const content = document.getElementById('mainMenuContent');
-    if (content) content.style.display = 'none';
-}
 function renderMainMenu() {
     const G = '<div class="dd-group">';
-    const I = (fn, label, danger) => '<button class="dd-item' + (danger ? ' danger' : '') + '" onclick="' + fn + ';hideMainMenu()">' + label + '</button>';
-    let h = G + 'Vues et releves</div>';
-    h += I('toggleOrchestrator()', 'Vue d\'ensemble');
+    const I = (fn, label, danger, hint) => '<button class="dd-item' + (danger ? ' danger' : '') + '" onclick="' + fn + ';hideMainMenu()" data-search="' + label.toLowerCase() + '" title="' + (hint || label) + '">' + label + '</button>';
+    let h = '<div class="dd-search"><input id="ddFilter" type="text" placeholder="Rechercher une fonction..." oninput="filterMainMenu(this.value)"></div>';
+    h += G + 'Actions rapides</div>';
+    h += I('goToToday()', '&#127757; Aujourd\'hui', false, 'Revenir a la semaine et jour courants');
+    h += I('scrollPanelIntoView(\'mainFormPanel\')', '&#9998; Saisie des horaires');
+    h += I('toggleOrchestrator()', '&#9673; Vue d\'ensemble', false, 'Tableau de bord orchestrateur');
+    h += I('saveDay()', '&#10004; Enregistrer la journee');
+    h += I('toggleVoice()', '&#127908; Dictee vocale (F8)');
+    h += G + 'Vues et releves</div>';
     h += I('showRecap()', 'Semaine');
     h += I('showMonthlyRecap()', 'Mois');
     h += I('showAnnualRecap()', 'Annee');
@@ -6063,13 +6069,51 @@ function renderMainMenu() {
     h += G + 'Donnees</div>';
     h += I('usbConnect()', 'USB : ouvrir');
     h += I('usbSave()', 'USB : sauver');
-    h += '<label class="dd-item" style="cursor:pointer">Restaurer backup<input type="file" accept=".json" style="display:none" onchange="importBackup(event);setTimeout(hideMainMenu,50)"></label>';
+    h += '<label class="dd-item" style="cursor:pointer" data-search="restaurer import backup">Restaurer backup<input type="file" accept=".json" style="display:none" onchange="importBackup(event);setTimeout(hideMainMenu,50)"></label>';
     h += G + 'Systeme et aide</div>';
     h += I('toggleFullscreen()', 'Plein ecran saisie');
     h += I('toggleShortcutsModal()', 'Raccourcis clavier');
     h += I('openHelpModal()', 'Guide de demarrage');
     h += I('resetWeek()', 'Vider la semaine', true);
     return h;
+}
+function filterMainMenu(q) {
+    const content = document.getElementById('mainMenuContent');
+    if (!content) return;
+    q = (q || '').toLowerCase().trim();
+    const nodes = content.children;
+    Array.prototype.forEach.call(nodes, function(node) {
+        if (node.classList.contains('dd-group')) {
+            node.style.display = 'none';
+        } else {
+            const t = (node.getAttribute && node.getAttribute('data-search') || node.textContent || '').toLowerCase();
+            node.style.display = (q === '' || t.indexOf(q) !== -1) ? '' : 'none';
+        }
+    });
+    let visibleGroup = false;
+    Array.prototype.forEach.call(nodes, function(node) {
+        if (node.classList.contains('dd-group')) {
+            visibleGroup = false;
+            node.style.display = 'none';
+        } else if (node.style.display !== 'none') {
+            visibleGroup = true;
+            let g = node.previousElementSibling;
+            while (g && !g.classList.contains('dd-group')) g = g.previousElementSibling;
+            if (g) g.style.display = '';
+        }
+    });
+    const box = document.getElementById('ddFilter');
+    if (box) box.focus();
+}
+function toggleMainMenu(e) {
+    if (e) e.stopPropagation();
+    const content = document.getElementById('mainMenuContent');
+    if (!content) return;
+    if (content.style.display === 'block') { hideMainMenu(); return; }
+    content.style.display = 'block';
+    content.innerHTML = renderMainMenu();
+    const box = document.getElementById('ddFilter');
+    if (box) { box.value = ''; box.focus(); }
 }
 
 // --- Recap by chantier ---
