@@ -4835,7 +4835,7 @@ function cleanSpeech(t) {
 }
 
 function splitSpeech(t) {
-    const parts = t.split(/\s*[,;.:!?]\s*|\s+et\s+(?!demie|demi|quart|trente)\s*|\s+(?:puis|ensuite|apres(?!\s*(?:midi|m[ée]di))|après|alors|donc|et\s+ensuite|et\s+puis|apres\s+ca|cela\s+etant|ensuite\s+je)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    const parts = t.split(/\s*[,;!?]\s*|\s*(?<![0-9])[.:](?![0-9])\s*|\s+et\s+(?!demie|demi|quart|trente)\s*|\s+(?:puis|ensuite|apres(?!\s*(?:midi|m[ée]di))|après|alors|donc|et\s+ensuite|et\s+puis|apres\s+ca|cela\s+etant|ensuite\s+je)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
     return parts.length ? parts : [t];
 }
 
@@ -4894,6 +4894,103 @@ function applyCommand(cmd) {
     if (/jour de repos|marque.*repos|jours? (de )?repos?$|^repos$|^repose$/.test(cmd) && !/matin|aprem|nuit/.test(cmd)) {
         applyDayPreset('repos', true);
         setMicStatus('Jour marque comme repos', 'heard');
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
+
+    // ==========================================
+    // REMPLISSAGE UNIVERSEL (profil, entreprise,
+    // reglages, lieux, favoris) - toute l'appli
+    // ==========================================
+    const NW = {un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,quinze:15,vingt:20,trente:30,quarante:40,cinquante:50,soixante:60,quatrevingt:80,quatrevingtdix:90,cent:100};
+    function parseNum(str) {
+        str = (str || '').trim().toLowerCase().replace(/%|pourcent|pourcents|euros|eur|euro|\s+heures?|\s+l\b|\s+km\b|\s+par\s+(?:heure|jour|semaine|an)|l\/100km/g, ' ').replace(/,/g, '.').replace(/\s+/g, ' ');
+        const m = str.match(/(\d+(?:[.,]\d+)?)/);
+        if (m) return parseFloat(m[1].replace(',', '.'));
+        str = str.replace(/quatre\s+vingt\s+dix/g, 'quatrevingtdix').replace(/quatre\s+vingt/g, 'quatrevingt');
+        const nn = str.split(' ').map(w => NW[w]).filter(v => v !== undefined);
+        let total = 0;
+        nn.forEach(v => { total = v === 100 && total ? total * 100 + (v - 100) : total + v; });
+        return total || null;
+    }
+    const profMatch = {
+        nom: cmd.match(/^(?:je\s+m[' ]?appelle|je\s+suis|mon\s+nom(?:,\s*)?(?:est|,\s*)?|le\s+nom(?:,\s*)?(?:est|,\s*)?)\s+(.+)$/i),
+        prenom: cmd.match(/^(?:mon\s+prenom(?:,\s*)?(?:est|,\s*)?|le\s+prenom(?:,\s*)?(?:est|,\s*)?)\s+(.+)$/i),
+        vehicule: cmd.match(/^(?:mon\s+vehicule\s+est\s+une|ma\s+voiture\s+est\s+une|mon\s+vehicule\s+est|ma\s+voiture\s+est|je\s+roule\s+en|avec\s+mon\s+vehicule)\s+(.+)$/i)
+    };
+    if (profMatch.nom || profMatch.prenom || profMatch.vehicule) {
+        const p = loadProfile() || {};
+        let changed = false;
+        if (profMatch.nom) { p.nom = profMatch.nom[1].trim(); changed = true; }
+        if (profMatch.prenom) { p.prenom = profMatch.prenom[1].trim(); changed = true; }
+        if (profMatch.vehicule) { p.vehicule = profMatch.vehicule[1].trim(); changed = true; }
+        if (changed) {
+            saveProfile(p);
+            const inp = document.getElementById('fNom'); if (inp && p.nom) inp.value = p.nom;
+            const inp2 = document.getElementById('fPrenom'); if (inp2 && p.prenom) inp2.value = p.prenom;
+            const inp3 = document.getElementById('fVehicule'); if (inp3 && p.vehicule) inp3.value = p.vehicule;
+            setMicStatus('Profil mis a jour', 'heard');
+            setTimeout(() => setMicStatus('',''), 2500);
+            return true;
+        }
+    }
+    const compM = cmd.match(/^(?:mon\s+entreprise\s+s[' ]?appelle|mon\s+entreprise(?:,\s*)?(?:est|,\s*)?|j[e']?\s+travaille\s+(?:chez|pour)\s+|l['e]ntreprise(?:,\s*)?(?:est|,\s*)?)\s+(.+)$/i);
+    if (compM) {
+        const cn = compM[1].trim().replace(/\s+/g, ' ').toUpperCase();
+        if (cn) { saveCompanyName(cn); const cl = document.getElementById('companyName'); if (cl) cl.textContent = cn; setMicStatus('Entreprise: ' + cn, 'heard'); }
+        else setMicStatus('Nom entreprise manquant', 'error');
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
+    const lieuDefM = cmd.match(/^(?:lieu\s+par\s+defaut|mon\s+lieu\s+de\s+travail|ma\s+virgule\s+de\s+rattachement|lieu\s+de\s+rattachement)\s*(?:est|:|de\s+)?\s*(.+)$/i);
+    if (lieuDefM) {
+        const ld = lieuDefM[1].trim().replace(/est\s*$/, '').trim();
+        if (ld) {
+            addLieu(ld);
+            const p = loadProfile() || {};
+            p.lieuDefault = ld;
+            saveProfile(p);
+            const inp = document.getElementById('fLieuCustom'); if (inp) inp.value = ld;
+            const sel = document.getElementById('fLieuDefault'); if (sel) sel.value = '';
+            updateLieuPreview();
+            setMicStatus('Lieu defaut: ' + ld, 'heard');
+        } else setMicStatus('Lieu manquant', 'error');
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
+    const setM = cmd.match(/^(?:(?:mon|mon\s+seuil|je\s+(?:mets|regle|fixe))\s+)?(?:seuil\s+hebdo(?:madaire)?|seuil\s+hebdomadaire|seuil\s+journalier|seuil\s+par\s+jour|seuil\s+annuel|taux\s+horaire|tarif\s+horaire|majoration\s+sup(?:erieurs?)?|majoration|prix\s+du\s+carburant|prix\s+carburant|carburant|consommation|conso)\s*(?:a\s+|a\s+de\s+|de\s+|est\s+de\s+|est\s+|\s+)?\s*(.+)$/i);
+    if (setM) {
+        const val = parseNum(setM[1]);
+        const p = loadProfile() || {};
+        const k = /seuil\s+hebdo|seuil\s+hebdomadaire/.test(cmd) ? 'overtime' :
+                 /seuil\s+journalier|seuil\s+par\s+jour/.test(cmd) ? 'overtimeDaily' :
+                 /seuil\s+annuel/.test(cmd) ? 'overtimeAnnual' :
+                 /taux\s+horaire|tarif\s+horaire/.test(cmd) ? 'hourlyRate' :
+                 /majoration/.test(cmd) ? 'overtimeMultiplier' :
+                 /prix\s+(?:du\s+)?carburant|carburant/.test(cmd) ? 'fuelPrice' :
+                 /consommation|conso/.test(cmd) ? 'fuelConsumption' : null;
+        if (k && val !== null) {
+            const defaults = { overtime: 40, overtimeDaily: 8, overtimeAnnual: 0, hourlyRate: 0, overtimeMultiplier: 50, fuelPrice: 1.80, fuelConsumption: 7.5 };
+            p[k] = val || defaults[k];
+            saveProfile(p);
+            const idMap = { overtime: 'fOvertime', overtimeDaily: 'fOvertimeDaily', overtimeAnnual: 'fOvertimeAnnual', hourlyRate: 'fHourlyRate', overtimeMultiplier: 'fOvertimeMultiplier', fuelPrice: 'fFuelPrice', fuelConsumption: 'fFuelConsumption' };
+            const labelMap = { overtime: 'Seuil hebdo', overtimeDaily: 'Seuil journalier', overtimeAnnual: 'Seuil annuel', hourlyRate: 'Taux horaire', overtimeMultiplier: 'Majoration', fuelPrice: 'Prix carburant', fuelConsumption: 'Conso' };
+            const inp = document.getElementById(idMap[k]);
+            if (inp) inp.value = val || defaults[k];
+            setMicStatus((labelMap[k] || k) + ' = ' + p[k], 'heard');
+            renderTableStatsOnly();
+        } else { setMicStatus('Valeur manquante ou non reconnue', 'error'); }
+        setTimeout(() => setMicStatus('',''), 3000);
+        return true;
+    }
+    const favM = cmd.match(/^(?:ajoute\s+(?:aux\s+)?(?:favori|favoris)|favori|favoris|mets\s+en\s+favori)\s+(?:chantier\s+)?(.+)$/i);
+    if (favM && (/chantier/.test(cmd) || /favori/.test(cmd))) {
+        const rest = favM[1].trim();
+        const fm = rest.match(/^([A-Za-z0-9\-\/]+)\s+(?:a|a|sur|dan?s|aux|lieu)\s+(.+)$/i);
+        let num = rest, lieu = '';
+        if (fm) { num = fm[1]; lieu = fm[2].trim(); }
+        addFavChantier(num.toUpperCase(), lieu);
+        setMicStatus('Favori ajoute: ' + num + (lieu ? ' (' + lieu + ')' : ''), 'heard');
         setTimeout(() => setMicStatus('',''), 2500);
         return true;
     }
