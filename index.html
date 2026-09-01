@@ -1428,12 +1428,14 @@
                     <button class="btn sm" onclick="if(lastShift()){setShiftField(lastShift().id,'deplacement','grand');renderShifts();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">Grand</button>
                 </div>
                 <div style="display:flex;gap:6px;align-items:center">
-                    <input type="text" id="micInput" placeholder="Tapez: 8h30, depart maison, lieu Paris, num 42..." 
+                    <input type="text" id="micInput" placeholder="Parlez ou tapez: 8h30, depart maison, lieu Paris, num 42... " 
                         style="flex:1;font-size:0.9rem;padding:10px 12px;border:2px solid var(--accent)"
                         onkeydown="if(event.key==='Enter'){parseMicInput();event.preventDefault();}"
                         onpaste="handleMicPaste(event)">
+                    <button class="mic-btn btn" id="voiceBtn" onclick="toggleVoice()" title="Dicter au micro (echantillons: 'depart maison', '8h30-17h00', 'chantier CHT-042', 'fin')" style="padding:10px 14px;font-weight:700;border-color:var(--accent3);color:var(--accent3)">&#127908;</button>
                     <button class="btn accent2" onclick="parseMicInput()" style="padding:10px 16px;font-weight:700">Valider</button>
                 </div>
+                <div class="mic-status" id="voiceStatus" style="display:none"></div>
                 <div class="mic-status" id="micStatus"></div>
                 <div style="font-size:0.6rem;color:var(--text-dim);text-align:center;margin-top:6px;line-height:1.8;display:none" id="nlLegend">
                     <strong>Periode :</strong> matin, aprem, nuit  
@@ -1447,6 +1449,9 @@
                     <strong>Priorite :</strong> urgent, flexible, priorite normal  
                     <strong>Notes :</strong> note: truc, commentaire: remarque, remarques  
                     <strong>Supprimer :</strong> supprime chantier/lieu/heure/note
+                </div>
+                <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
+                    <strong>Vocale :</strong> cliquez sur le micro &#127908; puis dictez (ex. "depart maison", "8h30-17h00", "chantier CHT-042", "j'arrive", "c'est fini", "repos").
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;margin-top:4px;line-height:1.8;opacity:0.7">
                     <strong>Clavier :</strong> 1-8 rapide  C=chantier  B=bureaux  T=timer  R=repeter  ?=aide  
@@ -4622,6 +4627,80 @@ function toggleNlLegend() {
     const el = document.getElementById('nlLegend');
     if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
 }
+
+var _voiceRecognition = null;
+var _voiceListening = false;
+var _voiceTimer = null;
+function toggleVoice() {
+    if (_voiceListening) { stopVoice(); return; }
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        setMicStatus('Micro non supporte par ce navigateur', 'error');
+        setTimeout(function() { setMicStatus('', ''); }, 3000);
+        return;
+    }
+    try {
+        var r = new SR();
+        _voiceRecognition = r;
+        r.lang = 'fr-FR';
+        r.continuous = false;
+        r.interimResults = true;
+        r.maxAlternatives = 1;
+        var voiceStatus = document.getElementById('voiceStatus');
+        var voiceBtn = document.getElementById('voiceBtn');
+        var input = document.getElementById('micInput');
+        var setListening = function(on) {
+            _voiceListening = on;
+            if (voiceBtn) { voiceBtn.classList.toggle('recording', on); }
+            if (voiceStatus) {
+                voiceStatus.style.display = on ? 'block' : 'none';
+                voiceStatus.textContent = on ? 'Ecoute... parlez' : '';
+                voiceStatus.className = 'mic-status ' + (on ? 'listening' : '');
+            }
+        };
+        r.onstart = function() {
+            setListening(true);
+            if (input) input.value = '';
+            if (voiceStatus) voiceStatus.textContent = 'Ecoute... parlez';
+        };
+        r.onresult = function(event) {
+            var transcript = '';
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) transcript += event.results[i][0].transcript;
+            }
+            if (input) input.value = transcript.trim();
+        };
+        r.onerror = function(event) {
+            setListening(false);
+            var msg = event && event.error === 'not-allowed' ? 'Acces micro refuse' : 'Erreur reconnaissance vocale';
+            setMicStatus(msg, 'error');
+            setTimeout(function() { setMicStatus('', ''); }, 3000);
+            if (voiceStatus) voiceStatus.style.display = 'none';
+        };
+        r.onend = function() {
+            clearTimeout(_voiceTimer);
+            var wasListening = _voiceListening;
+            setListening(false);
+            var val = input ? input.value.trim() : '';
+            if (wasListening && val) {
+                if (voiceStatus) { voiceStatus.style.display = 'block'; voiceStatus.textContent = 'Analyse: "' + val + '"'; voiceStatus.className = 'mic-status heard'; }
+                parseMicInput();
+            }
+        };
+        r.start();
+        _voiceTimer = setTimeout(function() {
+            try { if (_voiceRecognition) _voiceRecognition.stop(); } catch (e) {}
+        }, 8000);
+    } catch (e) {
+        setMicStatus('Micro indisponible', 'error');
+        setTimeout(function() { setMicStatus('', ''); }, 3000);
+    }
+}
+function stopVoice() {
+    try { if (_voiceRecognition) _voiceRecognition.stop(); } catch (e) {}
+    var voiceStatus = document.getElementById('voiceStatus');
+    if (voiceStatus) { voiceStatus.style.display = 'none'; }
+}
 function parseMicInput() {
     const input = document.getElementById('micInput');
     const raw = input.value.trim();
@@ -4668,6 +4747,13 @@ function applyCommand(cmd) {
     const ch = getLastChantier();
     const s = ch ? findShiftOfChantier(ch.id) : null;
     const now = nowStr();
+
+    if (/jour de repos|marque.*repos|jours? (de )?repos?$|^repos$|^repose$/.test(cmd) && !/matin|aprem|nuit/.test(cmd)) {
+        applyDayPreset('repos', true);
+        setMicStatus('Jour marque comme repos', 'heard');
+        setTimeout(() => setMicStatus('',''), 2500);
+        return true;
+    }
 
     if (!l) {
         if (/ajoute|nouveau|matin|aprem|nuit/.test(cmd)) {
@@ -5562,6 +5648,7 @@ document.addEventListener('keydown', function(e) {
         const fabMenu = document.getElementById('fabMenu');
         if (fabMenu && fabMenu.classList.contains('show')) { toggleFabMenu(); return; }
     }
+    if (e.key === 'F8') { e.preventDefault(); toggleVoice(); return; }
     if (!inInput) {
         if (e.key === '?') { toggleShortcutsModal(); return; }
         if (e.key === 'Escape') { hideMainMenu(); }
@@ -7761,6 +7848,7 @@ if (_startupUsers.length === 0) {
                 <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">B</kbd> + Bureaux<br>
                 <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">T</kbd> Start/Stop timer<br>
                 <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">R</kbd> Repeter la veille<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">F8</kbd> Dicter au micro<br>
                 <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">?</kbd> Aide raccourcis
             </div>
             <div style="background:var(--surface2);padding:8px 12px;border-radius:6px">
@@ -7781,7 +7869,8 @@ if (_startupUsers.length === 0) {
                 <code style="color:var(--accent4)">note: truc</code> Notes<br>
                 <code style="color:var(--accent4)">ferme, casse</code> = Fin<br>
                 <code style="color:var(--accent4)">lieu Paris</code> Modifier lieu<br>
-                <code style="color:var(--accent4)">supprime chantier</code> Supprimer
+                <code style="color:var(--accent4)">supprime chantier</code> Supprimer<br>
+                <code style="color:var(--accent4)">&#127908; + dictee</code> Parler (micro / F8)
             </div>
         </div>
         <div style="margin-top:12px;font-size:0.72rem;color:var(--text-dim);text-align:center">
