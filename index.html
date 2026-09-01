@@ -1245,6 +1245,8 @@
             <!-- Day Tabs -->
             <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Entrez vos horaires, ou <b>1 clic</b> sur Bureau / Chantier / Repos (enregistre)</span><span><b>3.</b> Enregistrer</span></div>
             <div class="day-tabs" id="dayTabs"></div>
+            <datalist id="datalistLieux"></datalist>
+            <datalist id="datalistChantiers"></datalist>
             <!-- Identity -->
             <div class="form-section collapsed" id="identitySection">
                 <div class="form-section-title">Identite <span style="color:var(--text-dim);font-weight:400;font-size:0.65rem">(optionnel, reutilise pour les exports)</span></div>
@@ -3333,6 +3335,30 @@ function getDefaultLieu() {
     return getCurrentLieu();
 }
 
+function refreshDatalists() {
+    var dlL = document.getElementById('datalistLieux');
+    var dlC = document.getElementById('datalistChantiers');
+    if (!dlL || !dlC) return;
+    var lieux = loadLieux();
+    dlL.innerHTML = lieux.map(function(l){ return '<option value="' + esc(l) + '"></option>'; }).join('');
+    var nums = {};
+    var favs = loadFavChantiers();
+    favs.forEach(function(f){ if (f.num) nums[f.num] = 1; });
+    var all = [];
+    try {
+        var data = loadAllWeeksData();
+        Object.values(data).forEach(function(arr){
+            arr.forEach(function(e){
+                (e.shifts || []).forEach(function(s){
+                    (s.chantiers || []).forEach(function(c){ if (c.num) nums[c.num] = 1; });
+                });
+            });
+        });
+    } catch (e) {}
+    var keys = Object.keys(nums).sort();
+    dlC.innerHTML = keys.map(function(n){ return '<option value="' + esc(n) + '"></option>'; }).join('');
+}
+
 // --- Shifts ---
 function addShift(periode) {
     pushUndo();
@@ -3812,12 +3838,12 @@ function renderShifts() {
                 <div class="form-row r4">
                     <div class="form-group">
                         <label>N Chantier</label>
-                        <input type="text" value="${esc(c.num)}" placeholder="CHT-001"
+                        <input type="text" value="${esc(c.num)}" placeholder="CHT-001" list="datalistChantiers"
                             oninput="setChantierField(${s.id},${c.id},'num',this.value)">
                     </div>
                     <div class="form-group">
                         <label>Lieu / Ville</label>
-                        <input type="text" value="${esc(c.lieu)}" placeholder="Ville / Commune"
+                        <input type="text" value="${esc(c.lieu)}" placeholder="Ville / Commune" list="datalistLieux"
                             oninput="setChantierField(${s.id},${c.id},'lieu',this.value)">
                     </div>
                     ${formViewMode === 'full' ? `
@@ -3933,10 +3959,10 @@ function renderShifts() {
             <div class="shift-body">
                 <div class="form-row r3">
                     <div class="form-group">
-                        <label>Deplacement</label>
+                        <label>Deplacement <span style="font-size:0.6rem;color:var(--text-dim)" title="Petit = proximite (chantier en ville, route courte). Grand = long trajet (chantier eloigne).">?</span></label>
                         <div class="radio-group">
-                            <label><input type="radio" name="dep_${s.id}" value="petit" ${s.deplacement==='petit'?'checked':''} onchange="setShiftField(${s.id},'deplacement','petit')"><span>Petit</span></label>
-                            <label><input type="radio" name="dep_${s.id}" value="grand" ${s.deplacement==='grand'?'checked':''} onchange="setShiftField(${s.id},'deplacement','grand')"><span>Grand</span></label>
+                            <label title="Proximite, trajet court"><input type="radio" name="dep_${s.id}" value="petit" ${s.deplacement==='petit'?'checked':''} onchange="setShiftField(${s.id},'deplacement','petit')"><span>Court</span></label>
+                            <label title="Long trajet, chantier eloigne"><input type="radio" name="dep_${s.id}" value="grand" ${s.deplacement==='grand'?'checked':''} onchange="setShiftField(${s.id},'deplacement','grand')"><span>Long</span></label>
                         </div>
                     </div>
                     <div class="form-group">
@@ -3974,11 +4000,11 @@ function renderShifts() {
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Km depart / arrivee</label>
+                        <label>Kilometrage <span style="font-size:0.6rem;color:var(--text-dim)">(compteur du vehicule, en km)</span></label>
                         <div class="form-row r2" style="margin-bottom:0">
-                            <input type="number" value="${s.kmDepart}" placeholder="Km dep" min="0"
+                            <input type="number" value="${s.kmDepart}" placeholder="Au depart (km)" min="0"
                                 oninput="setShiftField(${s.id},'kmDepart',this.value)">
-                            <input type="number" value="${s.kmArrivee}" placeholder="Km arr" min="0"
+                            <input type="number" value="${s.kmArrivee}" placeholder="Au retour (km)" min="0"
                                 oninput="setShiftField(${s.id},'kmArrivee',this.value)">
                         </div>
                     </div>
@@ -4914,6 +4940,7 @@ function render() {
     if (profile.nom) document.getElementById('fNom').value = profile.nom;
     if (profile.prenom) document.getElementById('fPrenom').value = profile.prenom;
     if (profile.vehicule) document.getElementById('fVehicule').value = profile.vehicule;
+    refreshDatalists();
 
     document.getElementById('weekLabel').textContent = `${formatShortDate(dates[0])} - ${formatShortDate(dates[6])}`;
         document.getElementById('weekRange').textContent = getWeekNumber(dates[0]);
@@ -7094,6 +7121,7 @@ function applyFavToShift(idx, sid) {
 function renderFavChantiers() {
     const el = document.getElementById('favChantiers');
     if (!el) return;
+    refreshDatalists();
     const favs = loadFavChantiers();
     el.innerHTML = favs.map((f, i) =>
         '<span class="badge badge-petit" style="cursor:pointer;padding:3px 8px;font-size:0.68rem;display:inline-flex;gap:4px;align-items:center" onclick="applyFavChantier(' + i + ')" title="Cliquez pour ajouter">' + esc(f.num || f.lieu) + ' <span onclick="event.stopPropagation();removeFavChantier(' + i + ')" style="color:var(--red);font-weight:700;cursor:pointer">&#10005;</span></span>'
