@@ -977,6 +977,52 @@
         .fab-menu.show { display: flex; }
         .fab-menu .btn { width: 100%; justify-content: flex-start; min-height: 44px; }
 
+        /* Floating persistent mic button */
+        .mic-fab {
+            display: flex;
+            position: fixed;
+            bottom: 98px;
+            right: 20px;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: #fff;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(255,107,107,0.45);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .mic-fab:hover { box-shadow: 0 6px 28px rgba(255,107,107,0.6); }
+        .mic-fab:active { transform: scale(0.9); }
+        .mic-fab.recording { background: linear-gradient(135deg, #ff3b30, #d70015); animation: micPulse 1.1s infinite; }
+        @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.6); } 50% { box-shadow: 0 0 0 16px rgba(255,59,48,0); } }
+        .mic-fab-status {
+            display: none;
+            position: fixed;
+            bottom: 158px;
+            right: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 12px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            max-width: 70vw;
+            z-index: 100;
+            box-shadow: 0 6px 22px rgba(0,0,0,0.4);
+        }
+        .mic-fab-status.show { display: block; }
+        .mic-fab-status.listening { border-color: var(--red); color: var(--red); }
+        .mic-fab-status.heard { border-color: var(--accent2); color: var(--accent2); }
+        body.fullscreen .mic-fab, body.fullscreen .mic-fab-status { display: none !important; }
+        @media (prefers-reduced-motion: reduce) { .mic-fab.recording { animation: none; } }
+
         /* Timer widget */
         .timer-active #timerValue { color: var(--red); animation: timerBlink 1s infinite; }
         @keyframes timerBlink { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
@@ -4648,7 +4694,16 @@ function toggleVoice() {
         r.maxAlternatives = 1;
         var voiceStatus = document.getElementById('voiceStatus');
         var voiceBtn = document.getElementById('voiceBtn');
+        var micFab = document.getElementById('micFab');
+        var micFabStatus = document.getElementById('micFabStatus');
         var input = document.getElementById('micInput');
+        var setFab = function(on, cls, msg) {
+            if (micFab) micFab.classList.toggle('recording', on);
+            if (micFabStatus) {
+                if (msg) { micFabStatus.classList.add('show'); micFabStatus.textContent = msg; micFabStatus.className = 'mic-fab-status show ' + (cls || ''); }
+                else { micFabStatus.classList.remove('show'); micFabStatus.className = 'mic-fab-status'; micFabStatus.textContent = ''; }
+            }
+        };
         var setListening = function(on) {
             _voiceListening = on;
             if (voiceBtn) { voiceBtn.classList.toggle('recording', on); }
@@ -4657,6 +4712,8 @@ function toggleVoice() {
                 voiceStatus.textContent = on ? 'Ecoute... parlez' : '';
                 voiceStatus.className = 'mic-status ' + (on ? 'listening' : '');
             }
+            if (on) setFab(true, 'listening', 'Ecoute... parlez');
+            else setFab(false);
         };
         r.onstart = function() {
             setListening(true);
@@ -4674,7 +4731,8 @@ function toggleVoice() {
             setListening(false);
             var msg = event && event.error === 'not-allowed' ? 'Acces micro refuse' : 'Erreur reconnaissance vocale';
             setMicStatus(msg, 'error');
-            setTimeout(function() { setMicStatus('', ''); }, 3000);
+            setFab(false, 'heard', msg);
+            setTimeout(function() { setFab(false); setMicStatus('', ''); }, 3000);
             if (voiceStatus) voiceStatus.style.display = 'none';
         };
         r.onend = function() {
@@ -4684,6 +4742,7 @@ function toggleVoice() {
             var val = input ? input.value.trim() : '';
             if (wasListening && val) {
                 if (voiceStatus) { voiceStatus.style.display = 'block'; voiceStatus.textContent = 'Analyse: "' + val + '"'; voiceStatus.className = 'mic-status heard'; }
+                setFab(true, 'heard', 'Analyse: "' + val + '"');
                 parseMicInput();
             }
         };
@@ -4700,6 +4759,10 @@ function stopVoice() {
     try { if (_voiceRecognition) _voiceRecognition.stop(); } catch (e) {}
     var voiceStatus = document.getElementById('voiceStatus');
     if (voiceStatus) { voiceStatus.style.display = 'none'; }
+    var micFab = document.getElementById('micFab');
+    var micFabStatus = document.getElementById('micFabStatus');
+    if (micFab) micFab.classList.remove('recording');
+    if (micFabStatus) { micFabStatus.classList.remove('show'); micFabStatus.className = 'mic-fab-status'; micFabStatus.textContent = ''; }
 }
 function parseMicInput() {
     const input = document.getElementById('micInput');
@@ -8018,6 +8081,9 @@ if (_startupUsers.length === 0) {
 
 <!-- Toast notification -->
 <div id="autoSaveToast" style="position:fixed;top:12px;right:12px;background:var(--surface);color:var(--text);padding:10px 18px;border-radius:10px;font-size:0.78rem;font-weight:600;z-index:300;opacity:0;transform:translateY(-10px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1);pointer-events:none;border:1px solid var(--accent2);box-shadow:0 4px 20px rgba(0,0,0,0.3),0 0 12px rgba(78,205,196,0.15);display:flex;align-items:center;gap:8px"><span id="toastIcon">&#10003;</span><span id="toastMsg">Enregistre</span></div>
+
+<button class="mic-fab" id="micFab" onclick="toggleVoice()" title="Dictee vocale intelligente (F8)">&#127908;</button>
+<div class="mic-fab-status" id="micFabStatus"></div>
 
 <div class="fab-menu" id="fabMenu">
     <button class="btn accent4" onclick="fabAction('matin')">+ Matin</button>
