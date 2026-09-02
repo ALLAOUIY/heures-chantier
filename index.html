@@ -1286,13 +1286,13 @@
         </div>
         <div class="form-body" id="formContent">
             <!-- Preset bar -->
-            <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Modeles rapides — 1 clic remplit et enregistre</div>
+            <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Modeles rapides — 1 clic remplit (enregistrez ensuite)</div>
             <div class="preset-bar">
-                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Remplit ET enregistre la journee : chantier 7h30-16h30">Chantier</button>
-                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit ET enregistre la journee : bureau 8h-16h30">Bureau 8h</button>
-                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Remplit ET enregistre la journee : jour long 7h-18h">Long 11h</button>
-                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Remplit ET enregistre la journee : demi-journee 8h-12h ou 13h-17h">Demi-jour</button>
-                <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (un clic)">Repos</button>
+                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Remplit la journee chantier (7h30-16h30) a completer, sans enregistrer">Chantier</button>
+                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit la journee bureau (8h-16h30) a completer, sans enregistrer">Bureau 8h</button>
+                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Remplit la journee longue (7h-18h) a completer, sans enregistrer">Long 11h</button>
+                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Remplit la demi-journee (8h-12h ou 13h-17h) a completer, sans enregistrer">Demi-jour</button>
+                <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (enregistre direct)">Repos</button>
             </div>
             <div style="font-size:0.68rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px">Reprendre une journee deja saisie</div>
             <div class="preset-bar">
@@ -4470,8 +4470,11 @@ function applyDayPreset(type, quick) {
             btn.classList.add(type === 'repos' ? 'repos-active' : 'active');
         }
     } catch(e) {}
-    if (quick) { saveDay({ silent: true }); return; }
-    showToast(type === 'repos' ? 'Jour de repos' : 'Preset applique !', 'info');
+    // Les presets de travail ne font QUE remplir la journee (jamais de
+    // chantier vide enregistre ni de doublon) : l'utilisateur valide ensuite.
+    // Seul 'repos' est enregistre immediatement (il marque la journee vide).
+    if (quick && type === 'repos') { saveDay({ silent: true }); return; }
+    showToast(type === 'repos' ? 'Jour de repos enregistre' : 'Journee remplie, enregistrez pour la valider', 'info');
 }
 
 function getLastKmArrivee() {
