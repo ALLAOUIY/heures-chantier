@@ -1,10 +1,16 @@
-var CACHE_NAME = 'heures-v3';
-var ASSETS = ['./index.html', './manifest.json'];
+var CACHE_NAME = 'heures-v4';
+var ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function(e) {
     e.waitUntil(
         caches.open(CACHE_NAME).then(function(cache) {
-            return cache.addAll(ASSETS);
+            return cache.addAll(ASSETS).catch(function() {
+                // Si une icone manque encore, ne pas bloquer l'install du cache principal.
+                return Promise.all([
+                    cache.add('./index.html'),
+                    cache.add('./manifest.json')
+                ]);
+            });
         })
     );
     self.skipWaiting();
@@ -19,6 +25,14 @@ self.addEventListener('activate', function(e) {
         })
     );
     e.waitUntil(clients.claim());
+    // Signaler aux pages qu'une nouvelle version est prete a etre utilisee.
+    e.waitUntil(
+        self.clients.matchAll({ type: 'window' }).then(function(clientList) {
+            clientList.forEach(function(client) {
+                client.postMessage({ type: 'APP_UPDATED', cache: CACHE_NAME });
+            });
+        })
+    );
 });
 
 self.addEventListener('fetch', function(e) {

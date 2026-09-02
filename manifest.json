@@ -4,8 +4,8 @@
     "description": "Suivi d'heures chantier - Releve hebdomadaire",
     "start_url": "./index.html",
     "display": "standalone",
-    "background_color": "#0f1117",
-    "theme_color": "#0f1117",
+    "background_color": "#0b0d14",
+    "theme_color": "#0b0d14",
     "orientation": "any",
     "icons": [
         {

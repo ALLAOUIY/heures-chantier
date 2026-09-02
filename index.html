@@ -1676,14 +1676,15 @@ function saveEntries(e) {
     catch (err) {
         if (err.name === 'QuotaExceededError' || err.code === 22) {
             showToast('Espace de stockage plein ! Exportez vos donnees.', 'error');
-            return;
+            return false;
         }
         showToast('Erreur de sauvegarde', 'error');
-        return;
+        return false;
     }
     markUsbDirty();
     logAuditThrottled('save_day', formatDate(currentWeekStart) + ' (' + e.length + ' entree(s))');
     debouncedLearn();
+    return true;
 }
 function loadProfile() { try { return JSON.parse(localStorage.getItem(uK('profile'))) || {}; } catch { return {}; } }
 function saveProfile(p) { try { localStorage.setItem(uK('profile'), JSON.stringify(p)); markUsbDirty(); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
@@ -1707,6 +1708,13 @@ function autoSave() {
         saveDay();
         markSaved();
     } catch (e) { /* silent */ }
+}
+// Sauvegarde de secours a la fermeture de l'onglet : evite de perdre la saisie
+// en cours si l'utilisateur ferme l'app sans attendre l'auto-save (3s).
+if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', function() {
+        if (_isDirty && typeof autoSave === 'function') autoSave();
+    });
 }
 function persistTimerState() {
     try {
@@ -2072,7 +2080,7 @@ function computeOvertimeForecast() {
     let lastWeekWork = 0;
     const lastWeekStart = new Date(currentWeekStart);
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-    const lastWeekKey = 'chantier_' + formatDate(lastWeekStart);
+    const lastWeekKey = uK(formatDate(lastWeekStart));
     try {
         const lwEntries = JSON.parse(localStorage.getItem(lastWeekKey)) || [];
         lwEntries.forEach(function(e) { lastWeekWork += e.totalWork || 0; });
@@ -2952,7 +2960,7 @@ function importBackup(e) {
                 if (mode === '2') { saveProfile(data.profile); }
                 else { const existing = loadProfile(); saveProfile({ ...existing, ...data.profile }); }
             }
-            if (data.company) { if (mode === '2') { saveCompanyName(data.company); } else { if (!getCompName() || getCompName() === 'Mon Entreprise') saveCompanyName(data.company); } }
+            if (data.company) { if (mode === '2') { saveCompanyName(data.company); } else { if (!getCompName() || getCompName() === 'Nom entreprise') saveCompanyName(data.company); } }
             if (data.logo) { var logoK = uK('logo'); if (mode === '2') { try { localStorage.setItem(logoK, data.logo); } catch {} } else { if (!getLogoSrc()) try { localStorage.setItem(logoK, data.logo); } catch {} } }
             if (data.lieux) {
                 if (mode === '2') { saveLieux(data.lieux); }
@@ -4219,7 +4227,8 @@ function saveDay(opts) {
     }
 
     deduplicateEntries(entries);
-    saveEntries(entries);
+    const savedOk = saveEntries(entries);
+    if (savedOk === false) { showToast('Journee NON enregistree (stockage plein), saisie conservee', 'error'); return; }
     const existingProfile = loadProfile();
     saveProfile({ ...existingProfile, nom, prenom, vehicule, lieuDefault: getCurrentLieu() });
 
@@ -4509,7 +4518,7 @@ function fillFromLastSameDay() {
     for (let weekOffset = 1; weekOffset <= 4 && !found; weekOffset++) {
         const prevWeekStart = new Date(currentWeekStart);
         prevWeekStart.setDate(prevWeekStart.getDate() - weekOffset * 7);
-        const prevKey = 'chantier_' + formatDate(prevWeekStart);
+        const prevKey = uK(formatDate(prevWeekStart));
         let prevEntries;
         try { prevEntries = JSON.parse(localStorage.getItem(prevKey)) || []; } catch { prevEntries = []; }
         for (let i = prevEntries.length - 1; i >= 0; i--) {
@@ -6360,13 +6369,17 @@ function loadYearData(year) {
 
     Object.entries(allData).forEach(([ws, entries]) => {
         const wsDate = new Date(ws + 'T00:00:00');
-        if (wsDate.getFullYear() !== year) return;
+        const wsYear = wsDate.getFullYear();
+        // Inclure la semaine frontaliere : une semaine commencant fin decembre
+        // contient les 1ers jours de janvier (et inversement).
+        if (wsYear !== year && wsYear !== year - 1 && wsYear !== year + 1) return;
         entries.forEach(e => {
+            const eDate = new Date(e.date + 'T00:00:00');
+            if (eDate.getFullYear() !== year) return;
             totalWork += e.totalWork || 0;
             totalRoute += e.totalRoute || 0;
             totalKm += e.totalKm || 0;
             totalDays++;
-            const eDate = new Date(e.date + 'T00:00:00');
             const monthIdx = eDate.getMonth();
             const monthKey = year + '-' + String(monthIdx + 1).padStart(2, '0');
             if (!months[monthKey]) months[monthKey] = { work: 0, route: 0, km: 0, days: 0 };
@@ -6628,7 +6641,7 @@ function showAnnualRecap() {
 }
 
 // --- RELEVE D'HEURES ---
-function getCompName() { try { return localStorage.getItem(uK('company')) || 'Mon Entreprise'; } catch { return 'Mon Entreprise'; } }
+function getCompName() { return loadCompanyName(); }
 function getLogoSrc() { try { return localStorage.getItem(uK('logo')) || ''; } catch { return ''; } }
 function fmtH(mins) { if (!mins) return '0:00'; const h = Math.floor(mins / 60); const m = mins % 60; return h + ':' + String(m).padStart(2, '0'); }
 function fmtDateFR(dateStr) { const d = new Date(dateStr + 'T00:00:00'); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
@@ -6641,7 +6654,7 @@ function showReleveDay(targetDate) {
     if (!targetDate) targetDate = formatDate(now);
     const profile = loadProfile();
     const targetWeekStart = getWeekStart(new Date(targetDate + 'T00:00:00'));
-    const targetKey = 'chantier_' + formatDate(targetWeekStart);
+    const targetKey = uK(formatDate(targetWeekStart));
     let entries;
     try { entries = JSON.parse(localStorage.getItem(targetKey)) || []; } catch { entries = []; }
     const entry = entries.find(e => e.date === targetDate);
@@ -6729,7 +6742,7 @@ function showReleveDay(targetDate) {
 function showReleveWeek(targetWeekStart) {
     const profile = loadProfile();
     if (!targetWeekStart) targetWeekStart = formatDate(currentWeekStart);
-    const targetKey = 'chantier_' + targetWeekStart;
+    const targetKey = uK(targetWeekStart);
     let entries;
     try { entries = JSON.parse(localStorage.getItem(targetKey)) || []; } catch { entries = []; }
     const weekDates = [];
@@ -7035,8 +7048,8 @@ function correctEntryDate() {
 
     const oldWeekStart = getWeekStart(new Date(oldDate + 'T00:00:00'));
     const newWeekStart = getWeekStart(new Date(newDate + 'T00:00:00'));
-    const oldKey = 'chantier_' + formatDate(oldWeekStart);
-    const newKey = 'chantier_' + formatDate(newWeekStart);
+    const oldKey = uK(formatDate(oldWeekStart));
+    const newKey = uK(formatDate(newWeekStart));
 
     let oldEntries, newEntries;
     try { oldEntries = JSON.parse(localStorage.getItem(oldKey)) || []; } catch { oldEntries = []; }
@@ -7077,7 +7090,7 @@ function deleteEntryByDate() {
     if (!confirm('Supprimer ' + DAY_NAMES[dayIdx] + ' ' + d.getDate() + '/' + (d.getMonth()+1) + ' ?')) return;
 
     const weekStart = getWeekStart(d);
-    const key = 'chantier_' + formatDate(weekStart);
+    const key = uK(formatDate(weekStart));
     let entries;
     try { entries = JSON.parse(localStorage.getItem(key)) || []; } catch { entries = []; }
     const before = entries.length;
@@ -8310,7 +8323,22 @@ fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     }
 }).catch(function() {});
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(function(){});
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+        function promptReload() {
+            if (confirm('Une nouvelle version de l\'application est disponible. Recharger maintenant ?')) {
+                try { location.reload(); } catch (e) {}
+            }
+        }
+        navigator.serviceWorker.addEventListener('message', function(ev) {
+            if (ev.data && ev.data.type === 'APP_UPDATED') promptReload();
+        });
+        reg.addEventListener('updatefound', function() {
+            var nw = reg.installing;
+            if (nw) nw.addEventListener('statechange', function() {
+                if (nw.state === 'installed' && navigator.serviceWorker.controller) promptReload();
+            });
+        });
+    }).catch(function(){});
 }
 }
 
