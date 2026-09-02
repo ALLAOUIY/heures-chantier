@@ -1569,6 +1569,17 @@
             </div>
         </div>
         <div class="form-body" style="padding:8px">
+            <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <span title="Aide commandes" style="cursor:pointer;opacity:0.7" onclick="setMicStatus('Remplissage rapide: Depart(1) Arrivee B.(2) Depart B.(3) Arrivee C.(4) Debut(5) Fin(6) Depart C.(7) Arrivee M.(8) ou dictez au micro','heard');setTimeout(()=>setMicStatus('',''),4000)">Aide</span></div>
+            <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">
+                <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>
+                <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>
+                <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>
+                <button class="btn sm" onclick="quickAction('arrivee_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivee C.</button>
+                <button class="btn sm accent2" onclick="quickAction('debut')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Debut</button>
+                <button class="btn sm accent2" onclick="quickAction('fin')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">6</span>Fin</button>
+                <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>
+                <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>
+            </div>
             <div class="feuille-wrap">
                 <table class="feuille-table" id="feuilleTable">
                     <thead>
@@ -3131,20 +3142,20 @@ function renderFeuille() {
                             <option value="petit" ${shift.deplacement==='petit'?'selected':''}>Petit</option>
                             <option value="grand" ${shift.deplacement==='grand'?'selected':''}>Grand</option>
                         </select></td>
-                        <td><input type="time" value="${shift.departMaison}" onchange="feuilleEdit(${entry.id},${si},${ci},'departMaison',this.value)"></td>
-                        <td><input type="time" value="${shift.arriveeBureaux}" onchange="feuilleEdit(${entry.id},${si},${ci},'arriveeBureaux',this.value)"></td>
-                        <td><input type="time" value="${shift.departBureaux}" onchange="feuilleEdit(${entry.id},${si},${ci},'departBureaux',this.value)"></td>
-                        <td><input type="time" value="${shift.arriveeMaison}" onchange="feuilleEdit(${entry.id},${si},${ci},'arriveeMaison',this.value)"></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${shift.departMaison}" onchange="feuilleEdit(${entry.id},${si},${ci},'departMaison',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEdit(${entry.id},${si},${ci},'departMaison',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${shift.arriveeBureaux}" onchange="feuilleEdit(${entry.id},${si},${ci},'arriveeBureaux',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEdit(${entry.id},${si},${ci},'arriveeBureaux',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${shift.departBureaux}" onchange="feuilleEdit(${entry.id},${si},${ci},'departBureaux',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEdit(${entry.id},${si},${ci},'departBureaux',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${shift.arriveeMaison}" onchange="feuilleEdit(${entry.id},${si},${ci},'arriveeMaison',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEdit(${entry.id},${si},${ci},'arriveeMaison',nowStr())">Maint.</button></div></td>
                         <td><input type="text" value="${esc(c.num)}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'num',this.value)" placeholder="CHT"></td>
                         <td><input type="text" value="${esc(c.lieu)}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'lieu',this.value)" placeholder="Lieu"></td>
                         <td><input type="text" value="${esc(c.lieu2 || '')}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'lieu2',this.value)" placeholder="Lieu 2"></td>
                         <td><input type="text" value="${esc(c.lieu3 || '')}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'lieu3',this.value)" placeholder="Lieu 3"></td>
                         <td><input type="text" value="${esc(c.adresse || '')}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'adresse',this.value)" placeholder="Adresse exacte"></td>
                         <td><input type="text" value="${esc(c.identification || '')}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'identification',this.value)" placeholder="Identif."></td>
-                        <td><input type="time" value="${c.arriveeChantier}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'arriveeChantier',this.value)"></td>
-                        <td><input type="time" value="${c.debut}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'debut',this.value)"></td>
-                        <td><input type="time" value="${c.fin}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'fin',this.value)"></td>
-                        <td><input type="time" value="${c.departChantier}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'departChantier',this.value)"></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${c.arriveeChantier}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'arriveeChantier',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEditChantier(${entry.id},${si},${ci},'arriveeChantier',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${c.debut}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'debut',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEditChantier(${entry.id},${si},${ci},'debut',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${c.fin}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'fin',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEditChantier(${entry.id},${si},${ci},'fin',nowStr())">Maint.</button></div></td>
+                        <td><div style="display:flex;align-items:center;gap:2px"><input type="time" value="${c.departChantier}" onchange="feuilleEditChantier(${entry.id},${si},${ci},'departChantier',this.value)" style="min-width:0;width:100%"><button class="now-btn" style="font-size:0.55rem;padding:2px 3px;min-width:auto" onclick="feuilleEditChantier(${entry.id},${si},${ci},'departChantier',nowStr())">Maint.</button></div></td>
                         <td><input type="number" value="${shift.kmDepart}" onchange="feuilleEdit(${entry.id},${si},${ci},'kmDepart',this.value)" min="0" style="width:55px"></td>
                         <td><input type="number" value="${shift.kmArrivee}" onchange="feuilleEdit(${entry.id},${si},${ci},'kmArrivee',this.value)" min="0" style="width:55px"></td>
                         <td class="td-total">${formatMinutes(workMin)}</td>
@@ -7434,7 +7445,18 @@ function renderOrchestrator() {
     html += orchBtn("applyDayPreset('repos',true)", 'Repos', 'var(--red)');
     html += orchBtn("toggleOrchestrator();showAnalytics()", 'Analytics', 'var(--accent4)');
     html += orchBtn("toggleOrchestrator();openSessionPanel()", 'Comptes', 'var(--text-dim)');
-    html += '</div></div>';
+    html += '</div>';
+    html += '<div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin:12px 0 6px">Remplissage rapide horaires</div>';
+    html += '<div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivee C.</button>';
+    html += '<button class="btn sm accent2" onclick="quickAction(\'debut\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Debut</button>';
+    html += '<button class="btn sm accent2" onclick="quickAction(\'fin\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">6</span>Fin</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>';
+    html += '</div>';
     html += '</div>';
 
     if (topProjects.length) {
