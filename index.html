@@ -4440,24 +4440,28 @@ function fillSample() {
 }
 
 // --- Day presets (one-click) ---
-function applyDayPreset(type, quick) {
-    pushUndo();
+function applyDayPreset(type, quick, autoSmart) {
+    if (!autoSmart) pushUndo();
     pendingShifts = [];
     shiftIdCounter = 0;
     chantierIdCounter = 0;
     const lieu = getDefaultLieu();
+    // Auto-completion intelligente : les presets reprennent le premier chantier
+    // favori (num + lieu) pour ne jamais enregistrer un chantier anonyme vide.
+    const fav = loadFavChantiers().length ? loadFavChantiers()[0] : null;
+    const chantierAuto = { num: (fav && fav.num) || '', lieu: (fav && fav.lieu) || lieu, lieu2: (fav && fav.lieu2) || '', lieu3: (fav && fav.lieu3) || '', adresse: (fav && fav.adresse) || '', identification: (fav && fav.identification) || '', desc: (fav && fav.desc) || '', priorite: (fav && fav.priorite) || '' };
     const mkC = (o) => ({ id: ++chantierIdCounter, num: '', lieu, lieu2: '', lieu3: '', adresse: '', identification: '', desc: '', priorite: '', arriveeChantier: '', debut: '', fin: '', departChantier: '', notes: '', ...o });
     const mkS = (o) => ({ id: ++shiftIdCounter, periode: 'matin', deplacement: 'petit', departMaison: '', arriveeMaison: '', arriveeBureaux: '', departBureaux: '', kmDepart: 0, kmArrivee: 0, chantiers: [mkC({})], ...o });
     const kmStart = parseInt(getLastKmArrivee()) || 0;
     if (type === 'bureau') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '08:00', departBureaux: '16:30', chantiers: [mkC({ debut: '08:00', fin: '16:30' })] }));
+        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '08:00', departBureaux: '16:30', chantiers: [mkC({ ...chantierAuto, debut: '08:00', fin: '16:30' })] }));
     } else if (type === 'chantier') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'grand', departMaison: '07:00', arriveeMaison: '16:30', kmDepart: kmStart, kmArrivee: kmStart, chantiers: [mkC({ arriveeChantier: '07:30', debut: '07:30', fin: '16:00', departChantier: '16:00' })] }));
+        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'grand', departMaison: '07:00', arriveeMaison: '16:30', kmDepart: kmStart, kmArrivee: kmStart, chantiers: [mkC({ ...chantierAuto, arriveeChantier: '07:30', debut: '07:30', fin: '16:00', departChantier: '16:00' })] }));
     } else if (type === 'long') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '07:00', departBureaux: '18:00', chantiers: [mkC({ debut: '07:00', fin: '18:00' })] }));
+        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '07:00', departBureaux: '18:00', chantiers: [mkC({ ...chantierAuto, debut: '07:00', fin: '18:00' })] }));
     } else if (type === 'demijour') {
         const isAM = new Date().getHours() < 13;
-        pendingShifts.push(mkS({ periode: isAM ? 'matin' : 'aprem', deplacement: 'petit', arriveeBureaux: isAM ? '08:00' : '13:00', departBureaux: isAM ? '12:00' : '17:00', chantiers: [mkC({ debut: isAM ? '08:00' : '13:00', fin: isAM ? '12:00' : '17:00' })] }));
+        pendingShifts.push(mkS({ periode: isAM ? 'matin' : 'aprem', deplacement: 'petit', arriveeBureaux: isAM ? '08:00' : '13:00', departBureaux: isAM ? '12:00' : '17:00', chantiers: [mkC({ ...chantierAuto, debut: isAM ? '08:00' : '13:00', fin: isAM ? '12:00' : '17:00' })] }));
     } else if (type === 'repos') {
         pendingShifts = [];
     }
@@ -4470,11 +4474,8 @@ function applyDayPreset(type, quick) {
             btn.classList.add(type === 'repos' ? 'repos-active' : 'active');
         }
     } catch(e) {}
-    // Les presets de travail ne font QUE remplir la journee (jamais de
-    // chantier vide enregistre ni de doublon) : l'utilisateur valide ensuite.
-    // Seul 'repos' est enregistre immediatement (il marque la journee vide).
-    if (quick && type === 'repos') { saveDay({ silent: true }); return; }
-    showToast(type === 'repos' ? 'Jour de repos enregistre' : 'Journee remplie, enregistrez pour la valider', 'info');
+    if (quick) { saveDay({ silent: true }); return; }
+    showToast(type === 'repos' ? 'Jour de repos' : 'Preset applique !', 'info');
 }
 
 function getLastKmArrivee() {
