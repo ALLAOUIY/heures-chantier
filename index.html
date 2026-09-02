@@ -1510,7 +1510,7 @@
                     <strong>Systeme :</strong> semaine prochaine/precedente, ouvre la vue/historique/projets, exporte excel/csv, backup, imprime, modele bureau/chantier, plein ecran, guide
                 </div>
                 <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
-                    <strong>Vocale :</strong> pilotez toute l'appli a la voix : saisie ("depart maison", "8h30-17h00", "chantier CHT-042", "c'est fini"), profil ("je m'appelle...", "mon entreprise s'appelle..."), reglages ("seuil hebdo 35", "taux horaire 25"), et systeme ("ouvre la vue d'ensemble", "exporte excel", "semaine prochaine", "modele bureau").
+                    <strong>Vocale :</strong> le micro comprend de longues phrases ("je pars a 7h30, j'arrive au chantier a 8h a Lyon, puis je termine a 17h"), se corrige ("non attends, c'est 8h", "je me suis trompe, debut 9h", "corrige depart maison a 6h45"), s'adapte aux formulations, et pilote tout le systeme ("ouvre la vue", "exporte excel", "semaine prochaine", "modele bureau").
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;margin-top:4px;line-height:1.8;opacity:0.7">
                     <strong>Clavier :</strong> 1-8 rapide  C=chantier  B=bureaux  T=timer  R=repeter  ?=aide  
@@ -4840,15 +4840,20 @@ function daySummary() {
 }
 
 function cleanSpeech(t) {
-    return t
-        .toLowerCase()
-        .replace(/\b(euh|hum|hmm|en fait|voila|voilà|heu|ben|bon alors|alors|du coup|donc|je vais|je vous|j'ai|tres bien|d accord|okay|ok)\b/g, ' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+    let s = t.toLowerCase();
+    s = s.replace(/\b(euh|hum|hmm|heu|ben|bah|beh|et bah|bon alors|voila|voilà|en fait|enfaite|bon|du coup|alors|donc|enfin|je veux dire|je te dis|je vous dis|tu sais|vous savez|disons|bref|quoi|hein|reparlons|tu vois|si tu veux)\b/g, ' ');
+    s = s.replace(/(?:\b|^)(attends|attendez|ecoute|ecoutez|regarde|regardez|pardon|excuse[\s-]?moi|desole|desolee|je me suis trompe|je me suis tromper|je voulais dire|je voulais plutot|au lieu de|en realite|rectifie|rectifions|corrige|corriges|change|changent|modifie|modifier|reprend\s+la\s+saisie|non en fait|non attends|plutot|plutot que)\b/g, ' $& ');
+    s = s.replace(/\bs[' ]appelle\b/g, ' s appelle ');
+    s = s.replace(/\bj[' ]ai\b/g, ' j ai ');
+    s = s.replace(/\bd[' ]un\b/g, ' d un ');
+    s = s.replace(/\bavec\s+une\s+camion\b/g, ' vehicule ');
+    s = s.replace(/\s{2,}/g, ' ').trim();
+    return s;
 }
 
 function splitSpeech(t) {
-    const parts = t.split(/\s*[,;!?]\s*|\s*(?<![0-9])[.:](?![0-9])\s*|\s+et\s+(?!demie|demi|quart|trente)\s*|\s+(?:puis|ensuite|apres(?!\s*(?:midi|m[ée]di))|après|alors|donc|et\s+ensuite|et\s+puis|apres\s+ca|cela\s+etant|ensuite\s+je)\s+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    const re = /\s*[,;!?]\s*|\s*(?<![0-9])[.:](?![0-9])\s*|\s+et\s+(?!demie|demi|quart|trente|demi\s+partie)\s*|\s+(?:puis|ensuite|apres(?!\s*(?:midi|m[ée]di))|après|alors|donc|du\s+coup|et\s+ensuite|et\s+puis|apres\s+ca|apres\s+ia\s+saisi|cela\s+etant|ensuite\s+je|puis\s+je|et\s+je\s+suis)\s+/;
+    const parts = t.split(re).map(function(s){ return s.trim(); }).filter(Boolean);
     return parts.length ? parts : [t];
 }
 
@@ -4909,6 +4914,40 @@ function applyCommand(cmd) {
         setMicStatus('Jour marque comme repos', 'heard');
         setTimeout(() => setMicStatus('',''), 2500);
         return true;
+    }
+
+    // ==========================================
+    // CORRECTIONS & ADAPTATION
+    // Detecte une reprise / une erreur et ECRASE
+    // la valeur ciblee au lieu de l'ignorer.
+    // ==========================================
+    var corrIntent = /(?:^|\s)(?:non|attends|attendez|plutot|en\s+fait|en\s+realite|en\s+realite[es]|c[' ]?est\s+pas|c[' ]?est\s+plutot|je\s+me\s+suis\s+tromp|je\s+voulais\s+dire|je\s+voulais\s+plutot|corrige|corriges|rectifie|modifie|change\s+ca|changement|au\s+lieu\s+de|reprend|on\s+reprend|reparlons)/.test(cmd);
+    var corrTarget = null;
+    if (/depart\s*maison/.test(cmd)) corrTarget=['l','departMaison'];
+    else if (/arrivee\s*maison|retour\s*maison|\brentre\b/.test(cmd)) corrTarget=['l','arriveeMaison'];
+    else if (/depart\s*bureaux|depart\s*au\s*bureau/.test(cmd)) corrTarget=['l','departBureaux'];
+    else if (/arrivee\s*bureaux|arrive\s*au\s*bureau/.test(cmd)) corrTarget=['l','arriveeBureaux'];
+    else if (/debut|commence|demarre/.test(cmd)) corrTarget=['c','debut'];
+    else if (/\bfin\b|arrete|fini|termine/.test(cmd)) corrTarget=['c','fin'];
+    else if (/depart\s*chantier/.test(cmd)) corrTarget=['c','departChantier'];
+    else if (/arrivee\s*chantier|arrive\s*au\s*chantier/.test(cmd)) corrTarget=['c','arriveeChantier'];
+    if (corrIntent) {
+        var cTime = extractTime(cmd);
+        if (corrTarget) {
+            var done = false;
+            if (corrTarget[0]==='l' && l) { setShiftField(l.id, corrTarget[1], cTime || now); setMicStatus('Corrige: '+(cTime||now),'heard'); done = true; }
+            else if (corrTarget[0]==='c' && ch && s) { setChantierField(s.id, ch.id, corrTarget[1], cTime || now); setMicStatus('Corrige: '+(cTime||now),'heard'); done = true; }
+            if (done) { setTimeout(function(){ setMicStatus('',''); }, 2500); return true; }
+        }
+        if (cTime && l) {
+            var forced = false;
+            if (isEmpty(l.departMaison)){ setShiftField(l.id,'departMaison',cTime); setMicStatus('Depart maison: '+cTime,'heard'); forced=true; }
+            else if (isEmpty(l.arriveeBureaux)){ setShiftField(l.id,'arriveeBureaux',cTime); setMicStatus('Arrivee bureaux: '+cTime,'heard'); forced=true; }
+            else if (ch && s && isEmpty(ch.arriveeChantier)){ setChantierField(s.id,ch.id,'arriveeChantier',cTime); setMicStatus('Arrivee chantier: '+cTime,'heard'); forced=true; }
+            else if (isEmpty(l.departBureaux)){ setShiftField(l.id,'departBureaux',cTime); setMicStatus('Depart bureaux: '+cTime,'heard'); forced=true; }
+            else if (isEmpty(l.arriveeMaison)){ setShiftField(l.id,'arriveeMaison',cTime); setMicStatus('Arrivee maison: '+cTime,'heard'); forced=true; }
+            if (forced) { setTimeout(function(){ setMicStatus('',''); },2500); return true; }
+        }
     }
 
     // ==========================================
