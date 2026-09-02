@@ -4654,10 +4654,10 @@ function quickAction(action) {
         case 'depart_maison': setShiftField(l.id,'departMaison',now);setMicStatus('Depart maison: '+now,'heard');break;
         case 'arrivee_bureaux': setShiftField(l.id,'arriveeBureaux',now);setMicStatus('Arrivee bureaux: '+now,'heard');break;
         case 'depart_bureaux': setShiftField(l.id,'departBureaux',now);setMicStatus('Depart bureaux: '+now,'heard');break;
-        case 'arrivee_chantier': if(ch&&s){setChantierField(s.id,ch.id,'arriveeChantier',now);setMicStatus('Arrivee chantier: '+now,'heard');}else{setMicStatus('Ajoutez d\'abord un chantier','error');} break;
-        case 'debut': if(ch&&s){setChantierField(s.id,ch.id,'debut',now);setMicStatus('Debut: '+now,'heard');}else{setMicStatus('Ajoutez d\'abord un chantier','error');} break;
-        case 'fin': if(ch&&s){setChantierField(s.id,ch.id,'fin',now);setMicStatus('Fin: '+now,'heard');}else{setMicStatus('Ajoutez d\'abord un chantier','error');} break;
-        case 'depart_chantier': if(ch&&s){setChantierField(s.id,ch.id,'departChantier',now);setMicStatus('Depart chantier: '+now,'heard');}else{setMicStatus('Ajoutez d\'abord un chantier','error');} break;
+        case 'arrivee_chantier': var qA=targetChantier(); if(qA[0]&&qA[1]){setChantierField(qA[1].id,qA[0].id,'arriveeChantier',now);setMicStatus('Arrivee chantier: '+now,'heard');} break;
+        case 'debut': var qB=targetChantier(); if(qB[0]&&qB[1]){setChantierField(qB[1].id,qB[0].id,'debut',now);setMicStatus('Debut: '+now,'heard');} break;
+        case 'fin': var qC=targetChantier(); if(qC[0]&&qC[1]){setChantierField(qC[1].id,qC[0].id,'fin',now);setMicStatus('Fin: '+now,'heard');} break;
+        case 'depart_chantier': var qD=targetChantier(); if(qD[0]&&qD[1]){setChantierField(qD[1].id,qD[0].id,'departChantier',now);setMicStatus('Depart chantier: '+now,'heard');} break;
         case 'arrivee_maison': setShiftField(l.id,'arriveeMaison',now);setMicStatus('Arrivee maison: '+now,'heard');break;
     }
     renderShifts(); updateCalcs();
