@@ -5215,16 +5215,32 @@ function applyCommand(cmd) {
 
     function isEmpty(v) { return !v || v === ''; }
 
+    // Remplissage sans blocage : cible le dernier chantier s'il existe,
+    // sinon en cree un automatiquement (jamais de doublon inutile).
+    function targetChantier() {
+        if (ch && s) return [ch, s];
+        if (!l) return [null, null];
+        if (!ch) addChantierToShift(l.id);
+        const nc = getLastChantier();
+        return [nc, nc ? findShiftOfChantier(nc.id) : null];
+    }
+    // Evite les doublons: n'ecrit que si la valeur change reellement.
+    function setIfChanged(fn, cur, nv) {
+        if (String(cur) === String(nv)) return false;
+        fn(nv); return true;
+    }
+
     function smartFillTime(time) {
         if (l && isEmpty(l.departMaison)) { setShiftField(l.id,'departMaison',time); setMicStatus(time+' Depart maison','heard'); return true; }
         if (l && isEmpty(l.arriveeBureaux)) { setShiftField(l.id,'arriveeBureaux',time); setMicStatus(time+' Arrivee bureaux','heard'); return true; }
-        if (ch && s && isEmpty(ch.arriveeChantier)) { setChantierField(s.id,ch.id,'arriveeChantier',time); setMicStatus(time+' Arrivee chantier','heard'); return true; }
-        if (ch && s && isEmpty(ch.debut)) { setChantierField(s.id,ch.id,'debut',time); setMicStatus(time+' Debut','heard'); return true; }
-        if (ch && s && isEmpty(ch.fin)) { setChantierField(s.id,ch.id,'fin',time); setMicStatus(time+' Fin','heard'); return true; }
-        if (ch && s && isEmpty(ch.departChantier)) { setChantierField(s.id,ch.id,'departChantier',time); setMicStatus(time+' Depart chantier','heard'); return true; }
+        var tc = targetChantier();
+        if (tc[0] && tc[1] && isEmpty(tc[0].arriveeChantier)) { setChantierField(tc[1].id,tc[0].id,'arriveeChantier',time); setMicStatus(time+' Arrivee chantier','heard'); return true; }
+        if (tc[0] && tc[1] && isEmpty(tc[0].debut)) { setChantierField(tc[1].id,tc[0].id,'debut',time); setMicStatus(time+' Debut','heard'); return true; }
+        if (tc[0] && tc[1] && isEmpty(tc[0].fin)) { setChantierField(tc[1].id,tc[0].id,'fin',time); setMicStatus(time+' Fin','heard'); return true; }
+        if (tc[0] && tc[1] && isEmpty(tc[0].departChantier)) { setChantierField(tc[1].id,tc[0].id,'departChantier',time); setMicStatus(time+' Depart chantier','heard'); return true; }
         if (l && isEmpty(l.departBureaux)) { setShiftField(l.id,'departBureaux',time); setMicStatus(time+' Depart bureaux','heard'); return true; }
         if (l && isEmpty(l.arriveeMaison)) { setShiftField(l.id,'arriveeMaison',time); setMicStatus(time+' Arrivee maison','heard'); return true; }
-        setMicStatus(time+' - tous les champs remplis','heard');
+        setMicStatus(time+' : tout est deja rempli', 'heard');
         return true;
     }
 
@@ -5271,28 +5287,29 @@ function applyCommand(cmd) {
     // DEPART + LIEU
     if (/depart\s*maison|je\s+(?:suis\s+)?(?:parti|partie|pars)\s*(?:a|a|du)?\s*(?:de\s+)?(?:la\s+)?maison|^je\s+pars$/.test(cmd) || /depart\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
     if (/depart\s*bureaux|je\s+(?:suis\s+)?parti\s*(?:a|a)\s*(?:au|aux)?\s*bureaux|^je\s+pars\s*au\s*bureau$/.test(cmd)) { if(l){setShiftField(l.id,'departBureaux',time||now);setMicStatus('Depart bureaux: '+(time||now),'heard');return true;} }
-    if (/depart\s*chantier|je\s+(?:suis\s+)?parti\s*(?:a|a|du|de)\s*(?:au|aux|le|la)?\s*chantier/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'departChantier',time||now);setMicStatus('Depart chantier: '+(time||now),'heard');return true;} }
+    if (/depart\s*chantier|je\s+(?:suis\s+)?parti\s*(?:a|a|du|de)\s*(?:au|aux|le|la)?\s*chantier/.test(cmd)) { var tc0=targetChantier(); if(tc0[0]&&tc0[1]){setChantierField(tc0[1].id,tc0[0].id,'departChantier',time||now);setMicStatus('Depart chantier: '+(time||now),'heard');return true;} }
 
     // ARRIVEE + LIEU
     if (/arrivee\s*maison|arrive\s*(?:a|a|au|aux|sur|dan?s|chez)\s*(?:la\s+)?maison|je\s+suis\s+arrive\s*(?:a|a|au|aux|sur)?\s*maison|^rentre$|retour\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
     if (/arrivee\s*bureaux|arrive\s*(?:a|a|au|aux|sur|dan?s)?\s*(?:au|aux|les)?\s*bureaux?/.test(cmd)) { if(l){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;} }
     if (/arrivee\s*chantier|arrive\s*(?:au|a|sur|a|dan?s|aux)\s+(?:le\s+|la\s+)?chantier/.test(cmd)) {
-        if (ch && s) {
-            setChantierField(s.id, ch.id, 'arriveeChantier', time || now);
+        var tcArr = targetChantier();
+        if (tcArr[0] && tcArr[1]) {
+            setChantierField(tcArr[1].id, tcArr[0].id, 'arriveeChantier', time || now);
             const numM = cmd.match(/(?:au|sur|a|au|pour)\s+chantier\s+([A-Za-z0-9\-\/]+)/i) || cmd.match(/chantier\s+([A-Za-z0-9\-\/]+)/i);
-            if (numM && !ch.num) setChantierField(s.id, ch.id, 'num', numM[1].toUpperCase());
+            if (numM && !tcArr[0].num) setChantierField(tcArr[1].id, tcArr[0].id, 'num', numM[1].toUpperCase());
             const lieuM = cmd.match(/(?:a|a|sur|dan?s|aux|pres\s+de)\s+([a-zA-Z][a-zA-Z \-]{2,})$/i);
-            if (lieuM && !ch.lieu && !/chantier|heure|h\s*\d/.test(lieuM[1])) setChantierField(s.id, ch.id, 'lieu', lieuM[1].trim());
+            if (lieuM && !tcArr[0].lieu && !/chantier|heure|h\s*\d/.test(lieuM[1])) setChantierField(tcArr[1].id, tcArr[0].id, 'lieu', lieuM[1].trim());
             const adrM = cmd.match(/(\d{1,4})\s*(?:rue|avenue|av|bd|boulevard|chemin|route|impasse)\s+([a-zA-Z0-9 \-]+)/i);
-            if (adrM && !ch.adresse) setChantierField(s.id, ch.id, 'adresse', (adrM[1] + ' ' + adrM[2]).trim());
+            if (adrM && !tcArr[0].adresse) setChantierField(tcArr[1].id, tcArr[0].id, 'adresse', (adrM[1] + ' ' + adrM[2]).trim());
             setMicStatus('Arrivee chantier: ' + (time || now), 'heard');
             return true;
         }
     }
 
     // DEBUT / FIN + LIEU
-    if (/debut|commence|demarre|je\s+(?:commence|demarre)|on\s+(?:commence|demarre)|c'est\s+parti/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
-    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse|fini\s*(?:a|a)?|j[' ']?ai\s+(?:fini|arrete|termine)/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
+    if (/debut|commence|demarre|je\s+(?:commence|demarre)|on\s+(?:commence|demarre)|c'est\s+parti/.test(cmd)) { var tcD=targetChantier(); if(tcD[0]&&tcD[1]){setChantierField(tcD[1].id,tcD[0].id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
+    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse|fini\s*(?:a|a)?|j[' ']?ai\s+(?:fini|arrete|termine)/.test(cmd)) { var tcF=targetChantier(); if(tcF[0]&&tcF[1]){setChantierField(tcF[1].id,tcF[0].id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
 
     // ==========================================
     // COMMANDES COURTES (sans lieu)
@@ -5300,11 +5317,11 @@ function applyCommand(cmd) {
     if (/^pars?$/.test(cmd) || /^je\s+pars?$/.test(cmd)) { if(l&&isEmpty(l.departMaison)){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
     if (/^arrive?$/.test(cmd) || /^j[' ]+arrive?$/.test(cmd)) {
         if(l&&isEmpty(l.arriveeBureaux)){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;}
-        if(ch&&s&&isEmpty(ch.arriveeChantier)){setChantierField(s.id,ch.id,'arriveeChantier',time||now);setMicStatus('Arrivee chantier: '+(time||now),'heard');return true;}
+        var tcA=targetChantier(); if(tcA[0]&&tcA[1]&&isEmpty(tcA[0].arriveeChantier)){setChantierField(tcA[1].id,tcA[0].id,'arriveeChantier',time||now);setMicStatus('Arrivee chantier: '+(time||now),'heard');return true;}
         if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;}
     }
-    if (/^commence?$/.test(cmd) || /^je commence$/.test(cmd) || /^c'est parti$/.test(cmd) || /^on y va$/.test(cmd)) { if(ch&&s&&isEmpty(ch.debut)){setChantierField(s.id,ch.id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
-    if (/^fini$/.test(cmd) || /^c[' ]+est fini$/.test(cmd) || /^j[' ]+ai fini$/.test(cmd) || /^arrete$/.test(cmd) || /^pause$/.test(cmd) || /^ferme$/.test(cmd)) { if(ch&&s&&isEmpty(ch.fin)){setChantierField(s.id,ch.id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
+    if (/^commence?$/.test(cmd) || /^je commence$/.test(cmd) || /^c'est parti$/.test(cmd) || /^on y va$/.test(cmd)) { var tcC=targetChantier(); if(tcC[0]&&tcC[1]&&isEmpty(tcC[0].debut)){setChantierField(tcC[1].id,tcC[0].id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
+    if (/^fini$/.test(cmd) || /^c[' ]+est fini$/.test(cmd) || /^j[' ]+ai fini$/.test(cmd) || /^arrete$/.test(cmd) || /^pause$/.test(cmd) || /^ferme$/.test(cmd)) { var tcE=targetChantier(); if(tcE[0]&&tcE[1]&&isEmpty(tcE[0].fin)){setChantierField(tcE[1].id,tcE[0].id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
     if (/^rentre$/.test(cmd) || /^retour$/.test(cmd) || /^c[' ]+est bon$/.test(cmd)) { if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
 
     // ==========================================
@@ -5325,31 +5342,36 @@ function applyCommand(cmd) {
     let m = cmd.match(/(\d+)\s*(?:km|kilometres?|kilo)/i);
     if (m && l) { if(isEmpty(l.kmDepart)){setShiftField(l.id,'kmDepart',m[1]);setMicStatus('Km dep: '+m[1],'heard');}else{setShiftField(l.id,'kmArrivee',m[1]);setMicStatus('Km arr: '+m[1],'heard');} return true; }
 
+    // Tous les champs chantier s'appuient sur targetChantier() : si aucun
+    // chantier n'existe, on en cree un (jamais de blocage, jamais de doublon).
+    var _tcM = null;
+    function getTcM() { if (!_tcM) _tcM = targetChantier(); return _tcM; }
+
     m = cmd.match(/(?:n\.?|numero|num)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'num',m[1].trim());setMicStatus('Num: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'num',m[1].trim());setMicStatus('Num: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:lieu|adresse|site)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'lieu',m[1].trim());setMicStatus('Lieu: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'lieu',m[1].trim());setMicStatus('Lieu: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:desc|description|travaux)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'desc',m[1].trim());setMicStatus('Desc: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'desc',m[1].trim());setMicStatus('Desc: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:identif|identification|type|categorie|metier|specialite)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'identification',m[1].trim());setMicStatus('Identif: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'identification',m[1].trim());setMicStatus('Identif: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:lieu\s*2|batiment|zone)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'lieu2',m[1].trim());setMicStatus('Lieu 2: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'lieu2',m[1].trim());setMicStatus('Lieu 2: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:lieu\s*3|etage|salle)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'lieu3',m[1].trim());setMicStatus('Lieu 3: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'lieu3',m[1].trim());setMicStatus('Lieu 3: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:adresse\s*exacte?|adresse)\s+(.+)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'adresse',m[1].trim());setMicStatus('Adresse: '+m[1].trim(),'heard');return true; }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'adresse',m[1].trim());setMicStatus('Adresse: '+m[1].trim(),'heard');return true; }
 
     m = cmd.match(/(?:prio|priorite|urgence|urgent)\s+(urgent|normal|flexible)/i);
-    if (m && ch && s) { setChantierField(s.id,ch.id,'priorite',m[1].toLowerCase());setMicStatus('Priorite: '+m[1],'heard');return true; }
-    if (/urgent/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'priorite','urgent');setMicStatus('Priorite: urgent','heard');return true;} }
-    if (/flexible/.test(cmd)) { if(ch&&s){setChantierField(s.id,ch.id,'priorite','flexible');setMicStatus('Priorite: flexible','heard');return true;} }
+    if (m && getTcM()[0] && getTcM()[1]) { setChantierField(getTcM()[1].id,getTcM()[0].id,'priorite',m[1].toLowerCase());setMicStatus('Priorite: '+m[1],'heard');return true; }
+    if (/urgent/.test(cmd)) { if(getTcM()[0]&&getTcM()[1]){setChantierField(getTcM()[1].id,getTcM()[0].id,'priorite','urgent');setMicStatus('Priorite: urgent','heard');return true;} }
+    if (/flexible/.test(cmd)) { if(getTcM()[0]&&getTcM()[1]){setChantierField(getTcM()[1].id,getTcM()[0].id,'priorite','flexible');setMicStatus('Priorite: flexible','heard');return true;} }
 
     m = cmd.match(/(?:commentaire|comment|remarque|remarques)\s*:?\s*(.+)/i);
     if (m && l) { setShiftField(l.id,'commentaire',m[1].trim());setMicStatus('Commentaire ajoute','heard');return true; }
