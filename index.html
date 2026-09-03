@@ -4966,12 +4966,204 @@ function handleMicPaste(e) {
     setTimeout(() => setMicStatus('',''), 2500);
 }
 
+// =====================================================================
+// MOTEUR UNIVERSEL DE COMPREHENSION DU LANGAGE
+// Comprend ""presque"" n'importe quelle formulation de remplissage et la
+// traduit en une suite d'evenements structures, puis les distribue aux
+// bons champs (shift / chantier) de facon contextuelle et chronologique.
+// =====================================================================
+var UNIV_LIEU = {
+    maison: /\b(?:maison|domicile|chez\s+moi|chez\s+nous|logement|residence|chez\s+lui)\b/,
+    bureaux: /\b(?:bureaux?|atelier|agence|entrepot|depot|administration|siege|base)\b/,
+    chantier: /\b(?:chantier|site|intervention|ouvrage|cours|projet|affaire|chatier)\b/,
+    vehicule: /\b(?:vehicule|voiture|camionnette|camion|fourgon|utilitaire|moto|deplacement)\b/
+};
+var UNIV_MOTION = {
+    depart: /\b(?:depart|partir|pars|sort|sortie|quitte|repart|repars)\b|demarre\s+(?:mon|le)\s+trajet|je\s+suis\s+parti|je\s+suis\s+partie|on\s+repart|de\s+la\s+maison\s*$/,
+    arrivee: /\b(?:arrivee?|retour|rentre|entre)\b|je\s+suis\s+arrive|je\s+suis\s+rentre|je\s+debarque|j\s?arrive|c\s?est\s+bon/,
+    debut: /\b(?:debute|commence|demarre|debut)\b|je\s+commence|je\s+demarre|c\s?est\s+parti|on\s+y\s+va/,
+    fin: /\b(?:fin|fini|termine|arrete|pause|ferme|clotur|cloture)\b|je\s+finis|c\s?est\s+fini/
+};
+var UNIV_CORR = /\b(?:non|attends|attendez|plutot|corrige|corriges|rectifie|modifie|reprend|reparlons)\b|en\s+fait|en\s+realite|c\s?est\s+(?:pas|plutot)|je\s+me\s+suis\s+tromp|je\s+voulais\s+dire|change\s+ca|au\s+lieu\s+de/;
+var UNIV_INDEX = /\b(?:aller[- ]retour|aller[- ]retours|trajet|voyage|sequence|passage|fois|seance)\s*(\d+)\s*\/?\s*(\d*)/i;
+
+// Mappe un mot/expression de lieu vers la categorie reconnue.
+function universalLieu(text) {
+    const t = text.toLowerCase();
+    if (UNIV_LIEU.maison.test(t)) return 'maison';
+    if (UNIV_LIEU.bureaux.test(t)) return 'bureaux';
+    if (UNIV_LIEU.chantier.test(t)) return 'chantier';
+    return null;
+}
+
+// Extrait la liste d'evenements depuis une phrase de remplissage.
+// Retourne [] si rien de fiable n'est trouve (permet de retomber sur
+// l'ancien moteur pour les commandes hors-remplissage).
+function universalParse(text, et) {
+    const t = ' ' + text.toLowerCase() + ' ';
+    const events = [];
+    const corr = UNIV_CORR.test(t);
+    const xTime = et || function(){ return null; };
+
+    // Plage "8h30-17h00" : c'est une saisie rapide sans verbe, geree par
+    // l'ancien moteur (remplir debut/fin + trajet). On laisse tomber ici.
+    if (/[0-9]{1,2}[h:][0-9]{0,2}\s*[-–—]\s*[0-9]{1,2}[h:][0-9]{0,2}/.test(t)) {
+        return [];
+    }
+
+    // Detection d'une marque de sequence : "2e aller-retour", "3/8", "trajet 2"
+    let idx = 0;
+    const idxM = t.match(UNIV_INDEX);
+    if (idxM && idxM[1]) idx = parseInt(idxM[1], 10) || 0;
+
+    // Decoupe la phrase en segments a partir des mots porteurs d'action.
+    const splitRe = /\b(depart|arrivee|arrive|retour|rentre|entre|pars|repart|debut|commence|demarre|fin|fini|termine|arrete|clotur|debute|chantier|lieu|numero|num|adresse)\b/gi;
+    let lastIdx = 0;
+    const parts = [];
+    let mm;
+    while ((mm = splitRe.exec(t)) !== null) {
+        parts.push({ key: mm[1], start: mm.index });
+    }
+
+    // Traite chaque segment : "{action} {...details}" -> UN SEUL evenement
+    // porteur, avec ses attributs (heure, num, lieu) rattaches.
+    for (let p = 0; p < parts.length; p++) {
+        const seg = parts[p];
+        const body = t.slice(seg.start);
+        const action = seg.key;
+        const time = xTime(body);
+        const lieuC = universalLieu(body);
+        const numM = body.match(/(?:chantier|numero|n[oe])\s+([a-z0-9][a-z0-9\-\/]*)/i);
+        let e = null;
+
+        if (action === 'depart' || action === 'pars' || action === 'repart' || action === 'sort') {
+            const lieu = lieuC === 'bureaux' ? 'bureaux' : lieuC === 'chantier' ? 'chantier' : 'maison';
+            e = { kind: 'depart', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Depart ' + (lieuC||'maison')) };
+        } else if (action === 'arrivee' || action === 'arrive' || action === 'retour' || action === 'rentre') {
+            const lieu = lieuC === 'maison' ? 'maison' : lieuC === 'bureaux' ? 'bureaux' : 'chantier';
+            e = { kind: 'arrivee', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Arrivee ' + (lieuC||'?')) };
+        } else if (action === 'debut' || action === 'commence' || action === 'demarre' || action === 'debute') {
+            e = { kind: 'debut', time, corr, num: null, label: ((time||'') + ' Debut') };
+        } else if (action === 'fin' || action === 'fini' || action === 'termine' || action === 'arrete' || action === 'clotur') {
+            e = { kind: 'fin', time, corr, num: null, label: ((time||'') + ' Fin') };
+        } else if (action === 'chantier') {
+            e = { kind: 'chantier', num: numM ? numM[1].toUpperCase() : null, lieu: (universalLieu(body) || null) === 'chantier' ? null : universalLieu(body), time, corr, label: ('+ Chantier' + (numM ? ' ' + numM[1] : '')) };
+        } else if (action === 'lieu' || action === 'adresse') {
+            const val = body.replace(/^.*?\b(lieu|adresse)\s*:?\s*/i, '').trim().replace(/[.,;!]$/,'');
+            e = { kind: 'lieu', val: val || null, time, corr, num: null, label: 'Lieu' };
+        } else if (action === 'numero' || action === 'num') {
+            const val = body.replace(/.*?(numero|num)\s*:?\s*/i, '').trim().replace(/[.,;!]$/,'');
+            e = { kind: 'num', val: val || null, time, corr, num: null, label: 'Num' };
+        }
+        if (e) { e.index = idx; e.seg = p; events.push(e); }
+    }
+
+    // Supprime un evenement "chantier 42" redondant quand le meme num est deja
+    // porte par un deplacement (arrivee/depart chantier) de la phrase.
+    for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e.kind !== 'chantier' || !e.num) continue;
+        const dup = events.some(x => x.kind === 'arrivee' && x.lieu === 'chantier' && x.num === e.num)
+                 || events.some(x => x.kind === 'depart' && x.lieu === 'chantier' && x.num === e.num);
+        if (dup) events.splice(i, 1);
+    }
+
+    // Deduits l'horodatage d'un parametre "N chantier" sans action si une seule
+    // heure est donnee avec (ex "8h chantier 42") -> on cree un evenement arrivee chantier
+    if (!events.length && xTime(t)) {
+        const tm = xTime(t);
+        const nc = t.match(/chantier\s+([a-z0-9\-\/]+)/i);
+        events.push({ kind: 'arrivee', lieu: 'chantier', time: tm, corr, label: (tm||'') + ' Arrivee chantier', num: nc ? nc[1].toUpperCase() : null, index: idx, chantier: null });
+    }
+
+    return events;
+}
+
+// Applique les evenements au bon shift/chantier de facon contextuelle.
+function universalApply(events) {
+    const now = nowStr();
+    let handled = false;
+    for (let i = 0; i < events.length; i++) {
+        const f = events[i];
+        // Reprise : quand la sequence actuelle est terminee (retour maison) et
+        // que l'utilisateur ENTAME un nouveau depart, on demarre une nouvelle
+        // sequence (2/8, 3/8...) au lieu d'ecraser ou d'ignorer.
+        let cur = lastShift();
+        if (f.kind === 'depart' && (shiftJourneyComplete(cur) || !cur)) {
+            const ns = startNewJourneyShift();
+            if (ns) cur = ns;
+        }
+        if (!cur && (f.kind === 'arrivee' || f.kind === 'debut' || f.kind === 'fin')) {
+            const ns = startNewJourneyShift();
+            if (ns) cur = ns;
+        }
+        if (!cur) { continue; }
+
+        // Le chantier cible (celui de ce shift)
+        let tarC = null, tarS = cur;
+        if (cur.chantiers && cur.chantiers.length) tarC = cur.chantiers[cur.chantiers.length - 1];
+        if (f.kind === 'chantier') {
+            // Ajoute un nouveau chantier dans le shift courant
+            addChantierToShift(cur.id, f.num || '');
+            const nc = getLastChantier();
+            if (nc && f.lieu) setChantierField(findShiftOfChantier(nc.id).id, nc.id, 'lieu', f.lieu);
+            handled = true;
+            continue;
+        }
+        if (!tarC && (f.kind === 'debut' || f.kind === 'fin' || f.kind === 'arrivee' && f.lieu === 'chantier')) {
+            addChantierToShift(cur.id, '');
+            tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id);
+        }
+
+        // ecriture selon le type d'evenement
+        if (f.kind === 'depart') {
+            if (f.lieu === 'maison') { if(f.corr||!cur.departMaison){ setShiftField(cur.id,'departMaison',f.time||now); handled=true; } }
+            else if (f.lieu === 'bureaux') { if(f.corr||!cur.departBureaux){ setShiftField(cur.id,'departBureaux',f.time||now); handled=true; } }
+            else if (f.lieu === 'chantier') { if(tarC && (f.corr||!tarC.departChantier)){ setChantierField(tarS.id,tarC.id,'departChantier',f.time||now); handled=true; } }
+        } else if (f.kind === 'arrivee') {
+            if (f.lieu === 'maison') { if(f.corr||!cur.arriveeMaison){ setShiftField(cur.id,'arriveeMaison',f.time||now); handled=true; } }
+            else if (f.lieu === 'bureaux') { if(f.corr||!cur.arriveeBureaux){ setShiftField(cur.id,'arriveeBureaux',f.time||now); handled=true; } }
+            else if (f.lieu === 'chantier') { if(tarC && (f.corr||!tarC.arriveeChantier)){ setChantierField(tarS.id,tarC.id,'arriveeChantier',f.time||now); if(f.num&&!tarC.num) setChantierField(tarS.id,tarC.id,'num',f.num); handled=true; } }
+        } else if (f.kind === 'debut') {
+            if (tarC && (f.corr||!tarC.debut)){ setChantierField(tarS.id,tarC.id,'debut',f.time||now); handled=true; }
+        } else if (f.kind === 'fin') {
+            if (tarC && (f.corr||!tarC.fin)){ setChantierField(tarS.id,tarC.id,'fin',f.time||now); handled=true; }
+        } else if (f.kind === 'lieu') {
+            if (tarC && f.val){ setChantierField(tarS.id,tarC.id,'lieu',f.val); handled=true; }
+        } else if (f.kind === 'num') {
+            if (tarC && f.val){ setChantierField(tarS.id,tarC.id,'num',f.val.toUpperCase()); handled=true; }
+        }
+    }
+    return { handled: handled };
+}
+
 function applyCommand(cmd) {
     cmd = cmd.trim().toLowerCase();
     let l = lastShift();
     let ch = getLastChantier();
     let s = ch ? findShiftOfChantier(ch.id) : null;
     const now = nowStr();
+
+    // ==========================================
+    // MOTEUR UNIVERSEL DE COMPREHENSION
+    // Analyse la phrase comme une suite d'EVENEMENTS (depart/arrivee/debut/fin/
+    // chantier/lieu/numero...) puis distribue chacun au bon champ du bon shift,
+    // dans l'ordre, en gerant reprises (x/8) et corrections.
+    // ==========================================
+    if (!/^(?:semaine|aller)?\s*(?:prochaine|suivante|precedente)/.test(cmd)
+        && !/ouvre|gabarit|modele|exporte|export\b|backup|sauvegarde|imprime|impression|imprimer|plein\s+ecran|raccourcis|guide\s+de\s+demarrage|vider\s+la\s+semaine|raccourci|reinitialise|feuille\s+de\s+temps|releve|recherche|historique|analytics|statistiques|tableau\s+de\s+bord|orchestrateur|projets?|dashboard/.test(cmd)) {
+        const _univFacts = universalParse(cmd, extractTime);
+        if (_univFacts && _univFacts.length) {
+            const _res = universalApply(_univFacts);
+            if (_res && _res.handled) {
+                var _sum = _univFacts.map(f => (f.label || f.kind)).join(' ; ');
+                setMicStatus(_sum, 'heard');
+                setTimeout(function(){ setMicStatus('',''); }, 5000);
+                renderShifts(); updateCalcs();
+                return true;
+            }
+        }
+    }
 
     // ==========================================
     // PLUSIEURS ALLERS-RETOURS PAR JOURNEE (x/8)
