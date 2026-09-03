@@ -531,6 +531,7 @@
         .badge-matin { background: linear-gradient(135deg, rgba(255,217,61,0.2), rgba(255,217,61,0.08)); color: #ffd93d; }
         .badge-aprem { background: linear-gradient(135deg, rgba(108,122,255,0.2), rgba(108,122,255,0.08)); color: var(--accent); }
         .badge-nuit { background: linear-gradient(135deg, rgba(171,71,188,0.2), rgba(171,71,188,0.08)); color: #ab47bc; }
+        .badge.voyage-badge { background: linear-gradient(135deg, rgba(255,149,0,0.18), rgba(255,149,0,0.06)); color: #ff9500; border: 1px solid rgba(255,149,0,0.35); margin-left: 4px; }
         .badge-petit { background: linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.08)); color: var(--accent2); }
         .badge-grand { background: linear-gradient(135deg, rgba(255,107,157,0.2), rgba(255,107,157,0.08)); color: var(--accent3); }
 
@@ -3484,7 +3485,7 @@ function refreshDatalists() {
 }
 
 // --- Shifts ---
-function addShift(periode) {
+function addShift(periode, norender) {
     pushUndo();
     if (!periode) {
         const h = new Date().getHours();
@@ -3519,8 +3520,7 @@ function addShift(periode) {
         commentaire: '',
         chantiers: []
     });
-    renderShifts();
-    updateCalcs();
+    if (!norender) { renderShifts(); updateCalcs(); }
 }
 
 function removeShift(id) {
@@ -4070,7 +4070,8 @@ function renderShifts() {
         <div class="shift-block">
             <div class="shift-header">
                 <div class="sh-title">
-                    <span class="badge ${badgeClass(s.periode)}">${periodeLabel(s.periode)}</span>
+<span class="badge ${badgeClass(s.periode)}">${periodeLabel(s.periode)}</span>
+                    <span class="badge voyage-badge" title="Sequence d'aller-retour dans la journee">Aller-retour ${journeyIndex(s)}</span>
                     <span style="font-size:0.72rem;color:var(--text-dim)">${esc(s.departMaison) || '?'} &rarr; ${esc(s.arriveeMaison) || '?'}</span>
                     ${fieldStatus()}
                 </div>
@@ -4972,6 +4973,21 @@ function applyCommand(cmd) {
     let s = ch ? findShiftOfChantier(ch.id) : null;
     const now = nowStr();
 
+    // ==========================================
+    // PLUSIEURS ALLERS-RETOURS PAR JOURNEE (x/8)
+    // Si la sequence actuelle est terminee (retour maison) et que l'utilisateur
+    // repart (nouveau trajet / depart), on demarre automatiquement une
+    // NOUVELLE sequence au lieu d'ecraser l'ancienne ou de dire "rempli".
+    // ==========================================
+    var isTravelCmd = /depart\s*maison|depart\s*bureaux|depart\s*chantier|arrivee\s*maison|arrivee\s*bureaux|arrivee\s*chantier|^pars|^je\s+pars|repart|seconde?|deuxieme|2e|2eme|troisie?me|3e|3eme|nouvel(le)?\s*trajet|aller[- ]retour|nouvelle?\s*sequence/.test(cmd) && !/corrige|rectifie|modifie|change|attends|plutot|en\s+fait|tromp/.test(cmd);
+    if (isTravelCmd && isLastShiftJourneyComplete()) {
+        l = startNewJourneyShift() || l;
+        ch = getLastChantier();
+        s = ch ? findShiftOfChantier(ch.id) : null;
+        setMicStatus('Nouvelle sequence ' + journeyIndex(l) + '/' + (pendingShifts.length || 8), 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+    }
+
     if (/jour de repos|marque.*repos|jours? (de )?repos?$|^repos$|^repose$/.test(cmd) && !/matin|aprem|nuit/.test(cmd)) {
         applyDayPreset('repos', true);
         setMicStatus('Jour marque comme repos', 'heard');
@@ -5294,6 +5310,17 @@ function applyCommand(cmd) {
     }
 
     function smartFillTime(time) {
+        // Si la sequence precedente est terminee (rentre a la maison), un
+        // nouveau remplissage demarre une NOUVELLE sequence (2/8, 3/8...)
+        // escale au lieu de repondre "tout est deja rempli".
+        if (l && shiftJourneyComplete(l)) {
+            const ns = startNewJourneyShift();
+            if (ns) {
+                l = ns;
+                ch = getLastChantier();
+                s = ch ? findShiftOfChantier(ch.id) : null;
+            }
+        }
         if (l && isEmpty(l.departMaison)) { setShiftField(l.id,'departMaison',time); setMicStatus(time+' Depart maison','heard'); return true; }
         if (l && isEmpty(l.arriveeBureaux)) { setShiftField(l.id,'arriveeBureaux',time); setMicStatus(time+' Arrivee bureaux','heard'); return true; }
         var tc = targetChantier();
@@ -5467,6 +5494,28 @@ function getLastChantier() {
     return null;
 }
 function findShiftOfChantier(cid) { return pendingShifts.find(s => s.chantiers.some(c => c.id === cid)); }
+// Une "sequence" (1/8, 2/8...) correspond a un aller-retour complet de la
+// journee. On considere la sequence terminee quand l'utilisateur est rentre
+// a la maison (arriveeMaison remplie) : un nouveau trajet doit alors demarrer
+// une NOUVELLE sequence au lieu d'ecraser/ignorer la precedente.
+function shiftJourneyComplete(s) { return !!s && !!s.arriveeMaison; }
+function isLastShiftJourneyComplete() {
+    const ls = lastShift();
+    return !!ls && shiftJourneyComplete(ls);
+}
+// Demarre automatiquement une nouvelle sequence (1er alle-retour, 2e, 3e...)
+// deduite de l'heure. Retourne le nouveau shift ou null si la sequence
+// actuelle n'est pas encore terminee.
+function startNewJourneyShift() {
+    const h = new Date().getHours();
+    const periode = h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit';
+    addShift(periode, true);
+    return lastShift();
+}
+function journeyIndex(s) {
+    if (!pendingShifts || !Array.isArray(pendingShifts)) return 1;
+    return pendingShifts.indexOf(s) + 1;
+}
 
 function renderTableStatsOnly() {
     const entries = loadEntries();
