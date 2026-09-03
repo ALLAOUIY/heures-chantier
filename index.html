@@ -4985,7 +4985,7 @@ var UNIV_MOTION = {
     fin: /\b(?:fin|fini|termine|arrete|pause|ferme|clotur|cloture)\b|je\s+finis|c\s?est\s+fini/
 };
 var UNIV_CORR = /\b(?:non|attends|attendez|plutot|corrige|corriges|rectifie|modifie|reprend|reparlons)\b|en\s+fait|en\s+realite|c\s?est\s+(?:pas|plutot)|je\s+me\s+suis\s+tromp|je\s+voulais\s+dire|change\s+ca|au\s+lieu\s+de/;
-var UNIV_INDEX = /\b(?:aller[- ]retour|aller[- ]retours|trajet|voyage|sequence|passage|fois|seance)\s*(\d+)\s*\/?\s*(\d*)/i;
+var UNIV_INDEX = /\b(?:(\d+)(?:\s*e(?:me|m)?)?\s*(?:aller[- ]retour|aller[- ]retours|trajet|voyage|sequence|passage|fois|seance))[ \/]*(\d*)|\b(?:aller[- ]retour|aller[- ]retours|trajet|voyage|sequence|passage|fois|seance)\s*(\d+)\s*\/?\s*(\d*)|([1-9])\s*\/\s*([0-9]+)/i;
 
 // Mappe un mot/expression de lieu vers la categorie reconnue.
 function universalLieu(text) {
@@ -5014,14 +5014,31 @@ function universalParse(text, et) {
     // Detection d'une marque de sequence : "2e aller-retour", "3/8", "trajet 2"
     let idx = 0;
     const idxM = t.match(UNIV_INDEX);
-    if (idxM && idxM[1]) idx = parseInt(idxM[1], 10) || 0;
+    if (idxM && (idxM[1] || idxM[3] || idxM[5])) idx = parseInt(idxM[1] || idxM[3] || idxM[5], 10) || 0;
+    // Mote le texte de la marque (ex "2e aller-retour") pour que le mot "retour"
+    // qu'elle contient ne soit pas lu comme un evenement a part entiere.
+    var tForSplit = t;
+    if (idxM && idxM[0]) tForSplit = t.replace(idxM[0], ' ');
+
+    // Heure seule avec un chantier ("8h chantier 42", "7h30 au site") sans verbe
+    // d'action : interprete comme une arrivee sur le chantier. On traite cela
+    // par une voie dediee (l'heure precede le mot "chantier" et serait perdue
+    // par la decoupe en segments).
+    const hasChantierWord = /\b(?:chantier|site|intervention|ouvrage)\b/.test(t);
+    const hasMotionVerb = /\b(?:depart|pars|repart|sort|arrivee|arrive|retour|rentre|entre|debut|demarre|commence|debute|fin|fini|termine|arrete)\b/.test(t);
+    if (hasChantierWord && !hasMotionVerb && xTime(t)) {
+        const tm = xTime(t);
+        const nc = t.match(/(?:chantier|site|intervention|ouvrage)\s+([a-z0-9\-\/]+)/i);
+        events.push({ kind: 'arrivee', lieu: 'chantier', time: tm, corr, label: (tm||'') + ' Arrivee chantier', num: nc ? nc[1].toUpperCase() : null, index: idx, chantier: null });
+        return events;
+    }
 
     // Decoupe la phrase en segments a partir des mots porteurs d'action.
     const splitRe = /\b(depart|arrivee|arrive|retour|rentre|entre|pars|repart|debut|commence|demarre|fin|fini|termine|arrete|clotur|debute|chantier|lieu|numero|num|adresse)\b/gi;
     let lastIdx = 0;
     const parts = [];
     let mm;
-    while ((mm = splitRe.exec(t)) !== null) {
+    while ((mm = splitRe.exec(tForSplit)) !== null) {
         parts.push({ key: mm[1], start: mm.index });
     }
 
@@ -5068,11 +5085,12 @@ function universalParse(text, et) {
         if (dup) events.splice(i, 1);
     }
 
-    // Deduits l'horodatage d'un parametre "N chantier" sans action si une seule
-    // heure est donnee avec (ex "8h chantier 42") -> on cree un evenement arrivee chantier
-    if (!events.length && xTime(t)) {
+    // Heure seule accompagnée d'un chantier (ex "8h chantier 42"): on cree un
+    // evenement arrivee chantier. Une heure seule sans lieu ("7h", "8h30") reste
+    // a l'ancien remplissage intelligent (smartFill), pour ne pas casser la saisie rapide.
+    if (!events.length && xTime(t) && /\b(?:chantier|site|intervention|ouvrage)\b/.test(t)) {
         const tm = xTime(t);
-        const nc = t.match(/chantier\s+([a-z0-9\-\/]+)/i);
+        const nc = t.match(/(?:chantier|site|intervention|ouvrage)\s+([a-z0-9\-\/]+)/i);
         events.push({ kind: 'arrivee', lieu: 'chantier', time: tm, corr, label: (tm||'') + ' Arrivee chantier', num: nc ? nc[1].toUpperCase() : null, index: idx, chantier: null });
     }
 
@@ -5089,6 +5107,12 @@ function universalApply(events) {
         // que l'utilisateur ENTAME un nouveau depart, on demarre une nouvelle
         // sequence (2/8, 3/8...) au lieu d'ecraser ou d'ignorer.
         let cur = lastShift();
+        // Cible explicite par marque de sequence : "2e aller-retour ..." ->
+        // on applique au shift d'indice f.index (sinon on descend sur le dernier).
+        if (f.index > 0 && pendingShifts && pendingShifts.length) {
+            const targetIdx = f.index - 1;
+            if (pendingShifts[targetIdx]) cur = pendingShifts[targetIdx];
+        }
         if (f.kind === 'depart' && (shiftJourneyComplete(cur) || !cur)) {
             const ns = startNewJourneyShift();
             if (ns) cur = ns;
@@ -5105,8 +5129,10 @@ function universalApply(events) {
         if (f.kind === 'chantier') {
             // Ajoute un nouveau chantier dans le shift courant
             addChantierToShift(cur.id, f.num || '');
-            const nc = getLastChantier();
-            if (nc && f.lieu) setChantierField(findShiftOfChantier(nc.id).id, nc.id, 'lieu', f.lieu);
+            const nc = getLastChantier(); const ns2 = nc ? findShiftOfChantier(nc.id) : null;
+            if (nc && f.lieu) setChantierField(ns2.id, nc.id, 'lieu', f.lieu);
+            // Une heure accompagnee ("8h chantier 42") = arrivee sur ce chantier
+            if (nc && f.time) setChantierField(ns2.id, nc.id, 'arriveeChantier', f.time);
             handled = true;
             continue;
         }
