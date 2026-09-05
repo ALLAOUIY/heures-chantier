@@ -4764,21 +4764,7 @@ function openStoredEntry(dateStr) {
         loadEntryIntoForm(found.entry);
         showToast('Ressaisie de la journee du ' + fmtDateFR(dateStr));
     } else {
-        const smart = getSmartTimes(idx, 'matin') || getSmartTimes(idx, 'aprem');
-        if (smart) {
-            pushUndo();
-            addShift('matin');
-            const l = lastShift();
-            if (l) {
-                if (smart.departMaison) setShiftField(l.id, 'departMaison', smart.departMaison);
-                if (smart.arriveeBureaux) setShiftField(l.id, 'arriveeBureaux', smart.arriveeBureaux);
-                if (smart.departBureaux) setShiftField(l.id, 'departBureaux', smart.departBureaux);
-                if (smart.arriveeMaison) setShiftField(l.id, 'arriveeMaison', smart.arriveeMaison);
-            }
-            renderShifts();
-            updateCalcs();
-        }
-        showToast('Nouvelle saisie pour le ' + fmtDateFR(dateStr) + (smart ? ' (horaires suggeres)' : ''));
+        showToast('Nouvelle saisie pour le ' + fmtDateFR(dateStr));
     }
     scrollPanelIntoView('mainFormPanel');
 }
@@ -4931,29 +4917,9 @@ function onDayChange() {
         const appDay = jsDay === 0 ? 6 : jsDay - 1;
         if (appDay === dayIdx) { found = entries[i]; break; }
     }
-    const now = new Date();
-    const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
     if (found && !pendingShifts.length) {
         loadEntryIntoForm(found);
         showToast('Donnees du ' + DAY_NAMES[dayIdx] + ' chargees');
-    } else if (dayIdx === todayIdx && !pendingShifts.length) {
-        const h = now.getHours();
-        const periode = h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit';
-        const smart = getSmartTimes(dayIdx, periode);
-        if (smart) {
-            pushUndo();
-            addShift(periode);
-            const l = lastShift();
-            if (l) {
-                if (smart.departMaison) setShiftField(l.id, 'departMaison', smart.departMaison);
-                if (smart.arriveeBureaux) setShiftField(l.id, 'arriveeBureaux', smart.arriveeBureaux);
-                if (smart.departBureaux) setShiftField(l.id, 'departBureaux', smart.departBureaux);
-                if (smart.arriveeMaison) setShiftField(l.id, 'arriveeMaison', smart.arriveeMaison);
-            }
-            renderShifts();
-            updateCalcs();
-            showToast('Periode ' + (periode === 'matin' ? 'Matin' : periode === 'aprem' ? 'Apres-midi' : 'Nuit') + ' suggeree');
-        }
     }
 }
 
