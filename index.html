@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -623,83 +623,159 @@
 
         /* Large mobile (601-767) */
         @media (max-width: 767px) {
-            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
             .form-row.r3, .form-row.r4 { grid-template-columns: 1fr 1fr; }
             .chantier-row .form-row.r4 { grid-template-columns: 1fr; }
         }
 
-        /* Mobile (max 600) */
-        @media (max-width: 600px) {
-            body { padding: 8px; padding-bottom: 80px; }
-            .form-row.r2, .form-row.r3, .form-row.r4, .form-row.r5 { grid-template-columns: 1fr; }
-            h1 { font-size: 1.1rem; }
-            header { flex-direction: column; align-items: stretch; gap: 8px; }
-            header .actions { justify-content: center; flex-wrap: wrap; gap: 6px; }
-            header .actions .btn { flex: 1 1 31%; justify-content: center; min-height: 42px; }
-            header .actions #mainMenuBtn { flex: 1 1 100%; background: linear-gradient(135deg, var(--accent), #5a6aee); border-color: var(--accent); color: #fff; font-weight: 700; }
-            header .actions #sessionBtn { flex: 1 1 31%; }
-            .dropdown-content { min-width: auto; max-height: 72vh; position: fixed; top: 56px; left: 8px; right: 8px; width: auto; }
-            .form-group input, .form-group select { padding: 12px 10px; font-size: 1rem; }
-            .form-group label { font-size: 0.78rem; }
-            .time-input input { padding: 12px 10px; font-size: 1rem; }
-            .time-input .now-btn { padding: 12px 8px; font-size: 0.75rem; min-width: 50px; }
-            .btn { padding: 12px 16px; min-height: 44px; font-size: 0.85rem; }
-            .btn.sm { padding: 10px 14px; min-height: 44px; font-size: 0.78rem; }
-            .shift-block { border-radius: 12px; }
-            .shift-header { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px; }
-            .chantier-row { padding: 10px; }
-            .chantier-row .form-row { grid-template-columns: 1fr !important; }
-            .cr-header { flex-wrap: wrap; gap: 4px; }
-            .radio-group label { padding: 10px 14px; min-height: 44px; display: flex; align-items: center; }
-            .stat-card { padding: 12px; }
-            .stat-card .value { font-size: 1.15rem; }
-            .calc-box { padding: 10px; }
-            #micInput { padding: 14px 12px; font-size: 1rem; min-height: 48px; width: 100%; }
-            .table-wrap { font-size: 0.7rem; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; }
-            .table-wrap table { min-width: 900px; }
-            th { padding: 8px 6px; position: sticky; top: 0; z-index: 2; background: var(--surface2); }
-            td { padding: 7px 5px; }
-            .week-nav { width: 100%; justify-content: center; }
-            .week-nav .week-label { min-width: unset; font-size: 0.82rem; }
-            .quick-grid { gap: 6px !important; }
-            .quick-grid .btn { min-height: 44px; }
-            .form-section { padding-bottom: 12px; margin-bottom: 12px; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-            .feuille-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-            .feuille-table input { min-height: 36px; font-size: 0.8rem; padding: 6px 4px; }
-            .feuille-table th { font-size: 0.55rem; padding: 6px 3px; white-space: nowrap; }
-            .recap-table { font-size: 0.72rem; }
-            .recap-table th, .recap-table td { padding: 6px 8px; }
-            .form-header { font-size: 0.85rem; padding: 10px 14px; }
-            .form-header .feuille-toolbar { flex-wrap: wrap; gap: 4px; }
-            .preset-bar { gap: 4px; }
-            .preset-btn { padding: 5px 8px; font-size: 0.65rem; }
-            .view-toggle { gap: 2px; }
-            .view-toggle .btn { font-size: 0.6rem; padding: 2px 6px; }
-            #liveClock, #formDate { display: none; }
+        /* ============================================================
+           RESPONSIVE HARDENED FRAME — Desktop / Laptop / Ultrawide
+           ============================================================ */
+
+        /* Laptop / desktop (1025–1499): grille stats 4-col, espace compact */
+        @media (min-width: 1025px) {
+            body { padding: 20px 24px; }
+            .container { max-width: 1440px; }
+            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+            .stat-card { padding: 12px 14px; }
+            .stat-card .value { font-size: 1.25rem; }
+            .form-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
+            .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+            .form-row.r5 { grid-template-columns: repeat(5, 1fr); }
+            .chantier-row .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+            .preset-bar { gap: 8px; }
+            .preset-btn { padding: 7px 14px; font-size: 0.75rem; }
+            .shift-header { flex-direction: row; align-items: center; padding: 10px 14px; gap: 12px; }
+            .btn { min-height: 38px; }
+            .btn.sm { min-height: 32px; padding: 5px 12px; }
+            .form-section { padding-bottom: 14px; margin-bottom: 14px; }
+            .quick-grid { gap: 8px !important; }
+            .quick-grid .btn { min-height: 40px; font-size: 0.78rem; }
+            .week-nav .week-label { font-size: 0.92rem; min-width: 240px; }
+            .form-header { padding: 10px 16px; }
+            .table-wrap table { min-width: 1100px; }
         }
 
-        /* Extra small (max 480) */
-        @media (max-width: 480px) {
-            body { padding: 6px; padding-bottom: 90px; }
-            .quick-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
-            .quick-grid .btn { min-height: 48px; font-size: 0.72rem; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
-            .stat-card { padding: 10px 8px; }
+        /* Ultrawide (>1500px): grille optimisee pour grands ecrans */
+        @media (min-width: 1500px) {
+            body { padding: 24px 32px; }
+            .container { max-width: 1600px; }
+            .stats-grid { grid-template-columns: repeat(6, 1fr); gap: 12px; }
+            .stat-card { padding: 14px 16px; }
+            .stat-card .value { font-size: 1.35rem; }
+            .stat-card .label { font-size: 0.68rem; }
+            .form-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
+            .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+            .form-row.r5 { grid-template-columns: repeat(5, 1fr); }
+            .chantier-row .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+            .preset-bar { gap: 10px; }
+            .preset-btn { padding: 8px 16px; font-size: 0.8rem; }
+            .shift-block { border-radius: 16px; }
+            .shift-header { padding: 12px 18px; }
+            .chantier-row { padding: 12px 16px; }
+            .form-body { padding: 16px; }
+            .form-section-title { font-size: 0.78rem; }
+            .btn { min-height: 42px; font-size: 0.85rem; }
+            .btn.sm { min-height: 36px; padding: 6px 14px; }
+            .quick-grid { gap: 10px !important; }
+            .quick-grid .btn { min-height: 44px; font-size: 0.82rem; }
+            .calc-box { padding: 14px 18px; }
+            .table-wrap table { min-width: 1200px; }
+        }
+
+        /* ============================================================
+           PROGRESSIVE ENHANCEMENT — min-width for non-touch / desktop
+           ============================================================ */
+
+        /* Desktop non-touch: hover effects only, no touch padding bloat */
+        @media (min-width: 768px) and (pointer: fine) {
+            .btn:hover { transform: translateY(-1px); }
+            .preset-btn:hover { transform: translateY(-1px); }
+            .form-group input:hover, .form-group select:hover { border-color: var(--border-hi); }
+            .radio-group label:hover { background: var(--surface3); color: var(--text); }
+            .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+            .shift-block:hover { border-color: var(--border-hi); }
+        }
+
+        /* Desktop non-touch: disable large touch targets, use compact sizing */
+        @media (min-width: 768px) and (pointer: fine) {
+            .btn { min-height: auto; padding: 7px 14px; font-size: 0.8rem; }
+            .btn.sm { min-height: auto; padding: 4px 10px; font-size: 0.72rem; }
+            .quick-grid .btn { min-height: auto; }
+            .radio-group label { min-height: auto; padding: 7px 12px; }
+            .form-group input, .form-group select { padding: 7px 10px; font-size: 0.82rem; }
+        }
+
+        /* ============================================================
+           LANDSCAPE HARDENING — phones & tablets en mode paysage
+           ============================================================ */
+
+        /* Phone landscape (<700px height, paysage) */
+        @media (max-height: 500px) and (orientation: landscape) {
+            body { padding: 4px 8px; }
+            header { padding: 4px 10px; gap: 6px; }
+            h1 { font-size: 0.85rem; }
+            .week-nav .week-label { font-size: 0.75rem; min-width: 140px; }
+            .form-panel { margin-bottom: 6px; }
+            .form-header { padding: 5px 10px; font-size: 0.78rem; }
+            .form-body { padding: 6px 8px !important; }
+            .shift-block { margin-bottom: 5px; border-radius: 8px; }
+            .shift-header { padding: 5px 8px; flex-direction: row; }
+            .chantier-row { padding: 5px 8px; }
+            .chantier-row .form-row { grid-template-columns: 1fr 1fr !important; }
+            .stats-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+            .stat-card { padding: 3px 5px; }
+            .stat-card .value { font-size: 0.8rem; }
+            .stat-card .label { font-size: 0.52rem; }
+            .stat-card .sub { display: none; }
+            .btn { min-height: 30px; padding: 4px 8px; font-size: 0.72rem; }
+            .btn.sm { min-height: 26px; padding: 3px 6px; font-size: 0.65rem; }
+            .quick-grid { gap: 3px !important; }
+            .quick-grid .btn { min-height: 30px; font-size: 0.62rem; }
+            .preset-bar { gap: 3px; }
+            .preset-btn { padding: 3px 6px; font-size: 0.6rem; }
+            .form-section { margin-bottom: 6px; padding-bottom: 4px; }
+            .form-section-title { font-size: 0.65rem; margin-bottom: 4px; }
+            #micInput { min-height: 36px; padding: 6px 8px; font-size: 0.8rem; }
+        }
+
+        /* Tablet landscape (hauteur 501-900px, paysage) */
+        @media (min-height: 501px) and (max-height: 900px) and (orientation: landscape) {
+            body { padding: 8px 14px; }
+            header { flex-direction: row; align-items: center; gap: 10px; }
+            .form-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
+            .form-row.r4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+            .chantier-row .form-row.r4 { grid-template-columns: 1fr 1fr; }
+            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+            .stat-card { padding: 8px 10px; }
             .stat-card .value { font-size: 1rem; }
-            .header-left { gap: 8px; }
-            .logo-area, .logo-area img { width: 48px; height: 48px; }
-            .week-nav .week-label { font-size: 0.75rem; }
-            h1 { font-size: 1rem; }
-            .form-row.r3, .form-row.r4 { grid-template-columns: 1fr; }
-            .chantier-row .form-row.r4 { grid-template-columns: 1fr; }
-            .fab { bottom: 16px; right: 16px; width: 52px; height: 52px; font-size: 1.4rem; display: flex !important; }
-            .fab-menu { bottom: 78px; right: 12px; }
-            .feuille-table input { min-height: 40px; font-size: 0.85rem; padding: 8px 4px; }
+            .btn { min-height: 36px; }
+            .quick-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; }
+            .quick-grid .btn { min-height: 36px; }
+            .shift-header { flex-direction: row; padding: 8px 12px; }
+            .chantier-row .form-row { grid-template-columns: 1fr 1fr !important; }
         }
 
-        /* Tiny (max 380) */
+        /* ============================================================
+           PHONE PORTRAIT HARDENING — 480px et dessous, haute densite
+           ============================================================ */
+
+        /* Phone portrait 381-480: tactile optimise */
+        @media (max-width: 480px) and (pointer: coarse) {
+            .btn { min-height: 48px; padding: 12px 16px; font-size: 0.85rem; border-radius: var(--radius-sm); }
+            .btn.sm { min-height: 44px; padding: 10px 14px; font-size: 0.78rem; }
+            .preset-btn { min-height: 44px; padding: 10px 12px; font-size: 0.72rem; }
+            .quick-grid .btn { min-height: 48px; font-size: 0.78rem; }
+            .radio-group label { min-height: 48px; padding: 12px 14px; }
+            .form-group input, .form-group select { padding: 14px 12px; font-size: 1rem; }
+            .time-input input { padding: 14px 12px; font-size: 1rem; }
+            .now-btn { padding: 12px 8px; font-size: 0.72rem; }
+            #micInput { min-height: 52px; padding: 16px 14px; font-size: 1.05rem; }
+        }
+
+        /* Tiny phone 380px et dessous: densite maximale, pas de gaspillage */
         @media (max-width: 380px) {
+            body { padding: 6px; padding-bottom: 90px; }
             .stats-grid { grid-template-columns: 1fr; gap: 6px; }
             .stat-card { padding: 8px 6px; display: flex; align-items: center; gap: 8px; text-align: left; }
             .stat-card .value { font-size: 0.95rem; }
@@ -709,47 +785,13 @@
             h1 { font-size: 0.9rem; }
             .logo-area, .logo-area img { width: 40px; height: 40px; }
             header .actions .btn { font-size: 0.7rem; min-height: 36px; padding: 8px; }
-        }
-
-        /* --- LANDSCAPE orientation on mobile/tablet --- */
-        @media (max-width: 1024px) and (orientation: landscape) {
-            body { padding: 6px 12px; }
-            header { flex-direction: row; align-items: center; }
-            header .actions { flex-wrap: nowrap; }
-            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-            .stat-card { padding: 8px; }
-            .stat-card .value { font-size: 1rem; }
-            .form-panel { margin-bottom: 10px; }
-            .shift-block { margin-bottom: 8px; }
-            .form-row.r2 { grid-template-columns: 1fr 1fr; }
-            .form-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
-            .form-row.r4 { grid-template-columns: 1fr 1fr; }
-            .chantier-row .form-row.r4 { grid-template-columns: 1fr 1fr; }
-            .chantier-row .form-row.r2 { grid-template-columns: 1fr 1fr; }
-            .btn { min-height: 40px; }
-            .btn.sm { min-height: 36px; }
-            .quick-grid { grid-template-columns: repeat(4, 1fr) !important; }
-            .quick-grid .btn { min-height: 40px; }
-            .shift-header { flex-direction: row; align-items: center; padding: 8px 12px; }
-        }
-
-        /* Tiny landscape */
-        @media (max-height: 500px) and (orientation: landscape) {
-            body { padding: 4px 8px; }
-            .form-panel { margin-bottom: 6px; }
-            .form-header { padding: 6px 10px; font-size: 0.8rem; }
-            .form-body { padding: 8px !important; }
-            .shift-block { margin-bottom: 6px; }
-            .chantier-row { padding: 6px; }
-            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
-            .stat-card { padding: 4px 6px; }
-            .stat-card .value { font-size: 0.85rem; }
-            .stat-card .label { font-size: 0.55rem; }
-            .stat-card .sub { display: none; }
-            .btn { min-height: 34px; padding: 6px 10px; font-size: 0.75rem; }
-            .btn.sm { min-height: 30px; padding: 4px 8px; font-size: 0.68rem; }
-            .quick-grid { gap: 4px !important; }
-            .quick-grid .btn { min-height: 34px; font-size: 0.65rem; }
+            .form-row.r2, .form-row.r3, .form-row.r4, .form-row.r5 { grid-template-columns: 1fr; }
+            .chantier-row .form-row { grid-template-columns: 1fr !important; }
+            .preset-bar { flex-direction: column; gap: 4px; }
+            .preset-btn { width: 100%; justify-content: center; }
+            .week-nav .week-label { font-size: 0.7rem; min-width: 120px; }
+            .header-left { gap: 6px; }
+            .form-header { font-size: 0.8rem; padding: 8px 10px; flex-wrap: wrap; gap: 4px; }
         }
 
         /* --- SAFE AREA for notched phones --- */
@@ -1317,10 +1359,10 @@
             <!-- Preset bar -->
             <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Modeles rapides — 1 clic remplit (enregistrez ensuite)</div>
             <div class="preset-bar">
-                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Remplit la journee chantier (7h30-16h30) a completer, sans enregistrer">Chantier</button>
-                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Remplit la journee bureau (8h-16h30) a completer, sans enregistrer">Bureau 8h</button>
-                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Remplit la journee longue (7h-18h) a completer, sans enregistrer">Long 11h</button>
-                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Remplit la demi-journee (8h-12h ou 13h-17h) a completer, sans enregistrer">Demi-jour</button>
+                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Pose la plage chantier 07h30-16h00 (8h30) a completer, sans enregistrer">Chantier 8h30</button>
+                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Pose la plage bureau 08h00-16h30 (8h30) a completer, sans enregistrer">Bureau 8h30</button>
+                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Pose la plage longue 07h00-18h00 (11h) a completer, sans enregistrer">Long 11h</button>
+                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Pose une demi-journee 4h (08h00-12h00 ou 13h00-17h00) a completer, sans enregistrer">Demi-jour 4h</button>
                 <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (enregistre direct)">Repos</button>
             </div>
             <div style="font-size:0.68rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px">Reprendre une journee deja saisie</div>
@@ -1485,13 +1527,13 @@
                 <button class="btn sm accent2" id="timerBtn" onclick="toggleTimer()">Start</button>
                 <button class="btn sm" onclick="resetTimer()">Reset</button>
                 <select id="timerTarget" style="font-size:0.72rem;padding:4px 6px;width:auto">
-                    <option value="debut">> Debut travail</option>
+                    <option value="debut">> Début travail</option>
                     <option value="fin">> Fin travail</option>
-                    <option value="arrivee_chantier">> Arrivee chantier</option>
-                    <option value="depart_chantier">> Depart chantier</option>
-                    <option value="depart_maison">> Depart maison</option>
-                    <option value="arrivee_bureaux">> Arrivee bureaux</option>
-                    <option value="arrivee_maison">> Arrivee maison</option>
+                    <option value="arrivee_chantier">> Arrivée chantier</option>
+                    <option value="depart_chantier">> Départ chantier</option>
+                    <option value="depart_maison">> Départ maison</option>
+                    <option value="arrivee_bureaux">> Arrivée bureaux</option>
+                    <option value="arrivee_maison">> Arrivée maison</option>
                 </select>
                 <button class="btn sm accent3" onclick="applyTimerToField(document.getElementById('timerTarget').value)">Appliquer</button>
             </div>
@@ -1499,14 +1541,14 @@
             <div style="margin-top:10px" id="quickInputZone">
                 <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <button class="btn sm" onclick="toggleNlLegend()" title="Afficher / masquer la liste des commandes">Aide commandes</button></div>
                 <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px" id="quickGrid">
-                    <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>
-                    <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>
-                    <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>
-                    <button class="btn sm" onclick="quickAction('arrivee_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivee C.</button>
-                    <button class="btn sm accent2" onclick="quickAction('debut')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Debut</button>
+                    <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Départ</button>
+                    <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivée bureaux</button>
+                    <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Départ bureaux</button>
+                    <button class="btn sm" onclick="quickAction('arrivee_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivée chantier</button>
+                    <button class="btn sm accent2" onclick="quickAction('debut')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Début</button>
                     <button class="btn sm accent2" onclick="quickAction('fin')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">6</span>Fin</button>
-                    <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>
-                    <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>
+                    <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Départ chantier</button>
+                    <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivée maison</button>
                 </div>
                 <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap" id="shiftActionsZone">
                     <button class="btn sm accent3" onclick="if(lastShift()){addChantierToShift(lastShift().id);renderShifts();updateCalcs();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">+ Chantier</button>
@@ -1563,20 +1605,20 @@
                 <thead>
                     <tr>
                         <th>Jour</th>
-                        <th>Periode</th>
-                        <th>Depl.</th>
-                        <th>Depart</th>
+                        <th>Période</th>
+                        <th>Dépl.</th>
+                        <th>Départ</th>
                         <th>Arr. B.</th>
                         <th>Dep. B.</th>
                         <th>N Chantier</th>
                         <th>Lieu</th>
                         <th>Identif.</th>
-                        <th>Arrivee</th>
-                        <th>Debut</th>
+                        <th>Arr. Ch.</th>
+                        <th>Début</th>
                         <th>Fin</th>
-                        <th>Depart ch.</th>
+                        <th>Dep. Ch.</th>
                         <th>Travail</th>
-                        <th>Arrivee</th>
+                        <th>Arr. M.</th>
                         <th>Route</th>
                         <th>Km</th>
                         <th></th>
@@ -1598,38 +1640,38 @@
             </div>
         </div>
         <div class="form-body" style="padding:8px">
-            <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <span title="Aide commandes" style="cursor:pointer;opacity:0.7" onclick="setMicStatus('Remplissage rapide: Depart(1) Arrivee B.(2) Depart B.(3) Arrivee C.(4) Debut(5) Fin(6) Depart C.(7) Arrivee M.(8) ou dictez au micro','heard');setTimeout(()=>setMicStatus('',''),4000)">Aide</span></div>
+            <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <span title="Aide commandes" style="cursor:pointer;opacity:0.7" onclick="setMicStatus('Remplissage rapide: Départ(1) Arrivée bureaux(2) Départ bureaux(3) Arrivée chantier(4) Début(5) Fin(6) Départ chantier(7) Arrivée maison(8) ou dictez au micro','heard');setTimeout(()=>setMicStatus('',''),4000)">Aide</span></div>
             <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">
-                <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>
-                <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>
-                <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>
-                <button class="btn sm" onclick="quickAction('arrivee_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivee C.</button>
-                <button class="btn sm accent2" onclick="quickAction('debut')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Debut</button>
+                <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Départ</button>
+                <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivée bureaux</button>
+                <button class="btn sm" onclick="quickAction('depart_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Départ bureaux</button>
+                <button class="btn sm" onclick="quickAction('arrivee_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivée chantier</button>
+                <button class="btn sm accent2" onclick="quickAction('debut')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Début</button>
                 <button class="btn sm accent2" onclick="quickAction('fin')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">6</span>Fin</button>
-                <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>
-                <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>
+                <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Départ chantier</button>
+                <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivée maison</button>
             </div>
             <div class="feuille-wrap">
                 <table class="feuille-table" id="feuilleTable">
                     <thead>
                         <tr>
                             <th style="min-width:70px">Jour</th>
-                            <th style="min-width:60px">Periode</th>
-                            <th style="min-width:50px">Depl.</th>
-                            <th style="min-width:60px">Dep.M</th>
-                            <th style="min-width:60px">Arr.B</th>
-                            <th style="min-width:60px">Dep.B</th>
-                            <th style="min-width:60px">Arr.M</th>
-                            <th style="min-width:70px">N Chantier</th>
+                            <th style="min-width:60px">Période</th>
+                            <th style="min-width:50px">Dépl.</th>
+                            <th style="min-width:60px">Départ M.</th>
+                            <th style="min-width:60px">Arr. B.</th>
+                            <th style="min-width:60px">Départ B.</th>
+                            <th style="min-width:60px">Arr. M.</th>
+                            <th style="min-width:70px">N° Chantier</th>
                             <th style="min-width:90px">Lieu</th>
                             <th style="min-width:80px">Lieu 2</th>
                             <th style="min-width:80px">Lieu 3</th>
                             <th style="min-width:100px">Adresse</th>
                             <th style="min-width:80px">Identif.</th>
-                            <th style="min-width:60px">Arr.Ch</th>
-                            <th style="min-width:55px">Debut</th>
+                            <th style="min-width:60px">Arr. Ch.</th>
+                            <th style="min-width:55px">Début</th>
                             <th style="min-width:55px">Fin</th>
-                            <th style="min-width:60px">Dep.Ch</th>
+                            <th style="min-width:60px">Départ Ch.</th>
                             <th style="min-width:50px">Km D</th>
                             <th style="min-width:50px">Km A</th>
                             <th style="min-width:65px">Travail</th>
@@ -1719,7 +1761,21 @@ function loadProfile() { try { return JSON.parse(localStorage.getItem(uK('profil
 function saveProfile(p) { try { localStorage.setItem(uK('profile'), JSON.stringify(p)); markUsbDirty(); } catch { showToast('Erreur sauvegarde profil', 'error'); } }
 let _isDirty = false;
 function changeWeek(dir) { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart.setDate(currentWeekStart.getDate() + dir * 7); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
-function goToToday() { if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return; _isDirty = false; currentWeekStart = getWeekStart(new Date()); pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0; render(); }
+function goToToday() { goToDate(new Date()); }
+function goToDate(target) {
+    if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return false;
+    _isDirty = false;
+    const t = new Date(target);
+    if (isNaN(t.getTime())) return false;
+    currentWeekStart = getWeekStart(t);
+    const idx = t.getDay() === 0 ? 6 : t.getDay() - 1;
+    pendingShifts = []; shiftIdCounter = 0; chantierIdCounter = 0;
+    selectedDayIdx = idx;
+    const fDay = document.getElementById('fDay');
+    if (fDay) fDay.value = idx;
+    render();
+    return true;
+}
 
 // === AUTO-SAVE ===
 let _autoSaveTimer = null;
@@ -1759,7 +1815,9 @@ if (typeof window !== 'undefined') {
 function persistTimerState() {
     try {
         if (timerRunning && timerStart) {
-            localStorage.setItem(uK('timer'), JSON.stringify({start: timerStart, paused: timerPaused, running: timerRunning}));
+            localStorage.setItem(uK('timer'), JSON.stringify({start: timerStart, paused: timerPaused, running: true}));
+        } else if (timerPaused > 0) {
+            localStorage.setItem(uK('timer'), JSON.stringify({start: null, paused: timerPaused, running: false}));
         } else {
             localStorage.removeItem(uK('timer'));
         }
@@ -1770,28 +1828,40 @@ function restoreTimerState() {
         const raw = localStorage.getItem(uK('timer'));
         if (!raw) return;
         const t = JSON.parse(raw);
-        if (t && t.running && t.start) {
+        if (!t) return;
+        const setDisplay = function(elapsed) {
+            const el = Math.max(0, elapsed);
+            const h = Math.floor(el / 3600);
+            const m = Math.floor((el % 3600) / 60);
+            const s = el % 60;
+            const txt = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+            const timerEl = document.getElementById('timerValue');
+            if (timerEl) timerEl.textContent = txt;
+            const pct = Math.min(100, (el % 3600) / 3600 * 100);
+            const bar = document.getElementById('timerProgress');
+            if (bar) bar.style.width = pct + '%';
+        };
+        if (t.running && t.start) {
             timerStart = t.start;
             timerPaused = t.paused || 0;
             timerRunning = true;
-            const elapsed = Math.floor((Date.now() - timerStart - timerPaused) / 1000);
-            const timerEl = document.getElementById('timerValue');
-            if (timerEl) {
-                const h = Math.floor(elapsed / 3600);
-                const m = Math.floor((elapsed % 3600) / 60);
-                const s = elapsed % 60;
-                timerEl.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-            }
+            setDisplay((Date.now() - timerStart - timerPaused) / 1000);
+            const tb = document.getElementById('timerBtn');
+            if (tb) { tb.textContent = 'Stop'; tb.classList.add('recording'); }
             if (!timerInterval) {
                 timerInterval = setInterval(function() {
-                    const el = Math.floor((Date.now() - timerStart - timerPaused) / 1000);
-                    const h = Math.floor(el / 3600);
-                    const m = Math.floor((el % 3600) / 60);
-                    const s = el % 60;
-                    const timerEl = document.getElementById('timerValue');
-                    if (timerEl) timerEl.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+                    setDisplay((Date.now() - timerStart - timerPaused) / 1000);
                 }, 1000);
             }
+        } else if (t.paused > 0) {
+            timerRunning = false;
+            timerPaused = t.paused;
+            timerStart = null;
+            clearInterval(timerInterval);
+            timerInterval = null;
+            setDisplay(t.paused);
+            const tb = document.getElementById('timerBtn');
+            if (tb) { tb.textContent = 'Start'; tb.classList.remove('recording'); }
         }
     } catch {}
 }
@@ -1893,9 +1963,9 @@ function performGlobalSearch(query) {
     if (!results.length) { resultsEl.innerHTML = '<div style="color:var(--text-dim);padding:8px">Aucun resultat pour "' + esc(query) + '"</div>'; return; }
     let html = '<div style="margin-bottom:6px;color:var(--text-dim)">' + results.length + ' resultat(s)</div>';
     results.forEach(function(r) {
-        html += '<div style="padding:6px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer" onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'">';
+        html += '<div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;border-radius:6px" onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'" onclick="openStoredEntry(\'' + r.date + '\')" title="Cliquer pour ressaisir cette journee">';
         html += '<div><strong>' + esc(r.num || '--') + '</strong> ' + esc(r.lieu || r.lieu2 || '--') + (r.identification ? ' <span style="color:var(--accent3)">(' + esc(r.identification) + ')</span>' : '') + '</div>';
-        html += '<div style="color:var(--text-dim);font-size:0.7rem">' + fmtDateFR(r.date) + ' ' + r.debut + '-' + r.fin + ' <span style="color:var(--accent2)">' + fmtH(r.work) + '</span></div>';
+        html += '<div style="color:var(--text-dim);font-size:0.7rem;text-align:right">' + fmtDateFR(r.date) + ' ' + r.debut + '-' + r.fin + ' <span style="color:var(--accent2)">' + fmtH(r.work) + '</span><div style="color:var(--accent);font-size:0.65rem">Modifier</div></div>';
         html += '</div>';
     });
     resultsEl.innerHTML = html;
@@ -2230,6 +2300,31 @@ function validateEntry(e) {
     }
     return { valid: issues.length === 0, issues: issues };
 }
+function roughRepairEntries(entries) {
+    if (!Array.isArray(entries)) return;
+    entries.forEach(function(e) {
+        if (!e || !Array.isArray(e.shifts)) return;
+        e.shifts.forEach(function(s) {
+            (s.chantiers || []).forEach(function(c) {
+                if (c.debut && c.fin && timeToMinutes(c.debut) > timeToMinutes(c.fin)) {
+                    // Fin avant debut : possibilite de travail de nuit (fin
+                    // le lendemain matin). On reconstruit fin = debut + duree
+                    // seulement si le resultat reste plausible (<= duree max).
+                    var t1 = timeToMinutes(c.debut), t2 = timeToMinutes(c.fin);
+                    var dur = (t2 + 1440) - t1;
+                    if (dur > 0 && dur <= CFG.durationCap) c.fin = addMinutesToTime(c.debut, dur);
+                }
+            });
+        });
+        if (e._issues) {
+            e._issues = e._issues.filter(function(x) {
+                return x.indexOf('Fin avant debut') !== 0;
+            });
+            if (!e._issues.length) delete e._issues;
+        }
+        recalcEntryTotals(e);
+    });
+}
 function runIntegrityCheck() {
     let fixed = 0, issues = 0;
     const keys = [];
@@ -2241,21 +2336,19 @@ function runIntegrityCheck() {
         try {
             let entries = JSON.parse(localStorage.getItem(key));
             if (!Array.isArray(entries)) return;
-            const seen = new Set();
-            const deduped = [];
+            const processed = [];
             entries.forEach(function(e) {
                 const migrated = migrateEntry(e);
                 if (!migrated) { issues++; return; }
                 const v = validateEntry(migrated);
-                if (!v.valid) migrated._issues = v.issues;
-                const dateKey = migrated.date + '_' + (migrated.shifts.length || 0);
-                if (!seen.has(dateKey)) {
-                    seen.add(dateKey);
-                    deduped.push(migrated);
-                    if (migrated._schemaVersion !== SCHEMA_VERSION) fixed++;
-                } else { issues++; }
+                if (!v.valid) { migrated._issues = v.issues; issues++; }
+                if (migrated._schemaVersion !== SCHEMA_VERSION) fixed++;
+                processed.push(migrated);
             });
-            if (fixed > 0 || deduped.length !== entries.length) {
+            deduplicateEntries(processed);
+            const deduped = processed.filter(Boolean);
+            roughRepairEntries(deduped);
+            if (deduped.length !== entries.length || processed.length !== entries.length) {
                 localStorage.setItem(key, JSON.stringify(deduped));
             }
         } catch {}
@@ -2832,7 +2925,7 @@ function startTimer() {
 function stopTimer() {
     timerRunning = false;
     clearInterval(timerInterval);
-    const elapsed = Math.floor((Date.now() - timerStart) / 1000);
+    const elapsed = Math.max(0, Math.floor((Date.now() - timerStart) / 1000));
     timerPaused = elapsed;
     persistTimerState();
     document.getElementById('timerBtn').textContent = 'Start';
@@ -2853,7 +2946,7 @@ function resetTimer() {
     document.getElementById('timerBtn').classList.remove('recording');
 }
 function updateTimerDisplay() {
-    const elapsed = Math.floor((Date.now() - timerStart - timerPaused) / 1000);
+    const elapsed = Math.max(0, Math.floor((Date.now() - timerStart - timerPaused) / 1000));
     const h = String(Math.floor(elapsed / 3600)).padStart(2,'0');
     const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2,'0');
     const s = String(elapsed % 60).padStart(2,'0');
@@ -4019,7 +4112,7 @@ function renderShifts() {
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Debut travail</label>
+                        <label>Début travail</label>
                         <div class="time-input">
                             <input type="time" value="${c.debut}"
                                 oninput="setChantierField(${s.id},${c.id},'debut',this.value)">
@@ -4190,17 +4283,26 @@ function updateCalcs() {
 function saveDay(opts) {
     const dates = getWeekDates();
     const dayIdx = parseInt(document.getElementById('fDay').value);
-    const isRepos = pendingShifts.length === 0;
+    let isRepos = pendingShifts.length === 0;
     const silent = !!(opts && opts.silent);
 
     if (!isRepos) {
-        for (const s of pendingShifts) {
-            if (!s.chantiers.length) { if (silent) continue; alert('Chaque periode doit avoir au moins un chantier.'); return; }
-            const warnings = validateTimeSequence(s);
-            if (warnings.length) {
-                if (silent) continue;
-                const proceed = confirm('Attention - incoherences detectees :\n\n' + warnings.join('\n') + '\n\nEnregistrer quand meme ?');
-                if (!proceed) return;
+        if (silent) {
+            // Mode silencieux : on ignore les periodes invalides plutot que
+            // de les enregistrer.
+            pendingShifts = pendingShifts.filter(function(s) {
+                if (!s.chantiers.length) return false;
+                return validateTimeSequence(s).length === 0;
+            });
+            if (pendingShifts.length === 0) isRepos = true;
+        } else {
+            for (const s of pendingShifts) {
+                if (!s.chantiers.length) { alert('Chaque periode doit avoir au moins un chantier.'); return; }
+                const warnings = validateTimeSequence(s);
+                if (warnings.length) {
+                    const proceed = confirm('Attention - incoherences detectees :\n\n' + warnings.join('\n') + '\n\nEnregistrer quand meme ?');
+                    if (!proceed) return;
+                }
             }
         }
     }
@@ -4506,24 +4608,26 @@ function applyDayPreset(type, quick, autoSmart) {
     shiftIdCounter = 0;
     chantierIdCounter = 0;
     const lieu = getDefaultLieu();
-    // Auto-completion intelligente : les presets reprennent le premier chantier
-    // favori (num + lieu) pour ne jamais enregistrer un chantier anonyme vide.
-    const fav = loadFavChantiers().length ? loadFavChantiers()[0] : null;
-    const chantierAuto = { num: (fav && fav.num) || '', lieu: (fav && fav.lieu) || lieu, lieu2: (fav && fav.lieu2) || '', lieu3: (fav && fav.lieu3) || '', adresse: (fav && fav.adresse) || '', identification: (fav && fav.identification) || '', desc: (fav && fav.desc) || '', priorite: (fav && fav.priorite) || '' };
+    // Modèle a la demande : on ne pose que la PLAGE de travail (debut/fin) du
+    // chantier. Aucun deplacement, aucun chantier favori ni km ne sont inventes :
+    // l'utilisateur complete num, lieu, deplacements et heures de route apres coup.
     const mkC = (o) => ({ id: ++chantierIdCounter, num: '', lieu, lieu2: '', lieu3: '', adresse: '', identification: '', desc: '', priorite: '', arriveeChantier: '', debut: '', fin: '', departChantier: '', notes: '', ...o });
     const mkS = (o) => ({ id: ++shiftIdCounter, periode: 'matin', deplacement: 'petit', departMaison: '', arriveeMaison: '', arriveeBureaux: '', departBureaux: '', kmDepart: 0, kmArrivee: 0, chantiers: [mkC({})], ...o });
-    const kmStart = parseInt(getLastKmArrivee()) || 0;
+    let applyPlage = null; // {periode, debut, fin}
     if (type === 'bureau') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '08:00', departBureaux: '16:30', chantiers: [mkC({ ...chantierAuto, debut: '08:00', fin: '16:30' })] }));
+        applyPlage = { periode: 'matin', debut: '08:00', fin: '16:30' };
     } else if (type === 'chantier') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'grand', departMaison: '07:00', arriveeMaison: '16:30', kmDepart: kmStart, kmArrivee: kmStart, chantiers: [mkC({ ...chantierAuto, arriveeChantier: '07:30', debut: '07:30', fin: '16:00', departChantier: '16:00' })] }));
+        applyPlage = { periode: 'matin', debut: '07:30', fin: '16:00' };
     } else if (type === 'long') {
-        pendingShifts.push(mkS({ periode: 'matin', deplacement: 'petit', arriveeBureaux: '07:00', departBureaux: '18:00', chantiers: [mkC({ ...chantierAuto, debut: '07:00', fin: '18:00' })] }));
+        applyPlage = { periode: 'matin', debut: '07:00', fin: '18:00' };
     } else if (type === 'demijour') {
         const isAM = new Date().getHours() < 13;
-        pendingShifts.push(mkS({ periode: isAM ? 'matin' : 'aprem', deplacement: 'petit', arriveeBureaux: isAM ? '08:00' : '13:00', departBureaux: isAM ? '12:00' : '17:00', chantiers: [mkC({ ...chantierAuto, debut: isAM ? '08:00' : '13:00', fin: isAM ? '12:00' : '17:00' })] }));
+        applyPlage = isAM ? { periode: 'matin', debut: '08:00', fin: '12:00' } : { periode: 'aprem', debut: '13:00', fin: '17:00' };
     } else if (type === 'repos') {
         pendingShifts = [];
+    }
+    if (applyPlage) {
+        pendingShifts.push(mkS({ periode: applyPlage.periode, chantiers: [mkC({ debut: applyPlage.debut, fin: applyPlage.fin })] }));
     }
     renderShifts();
     updateCalcs();
@@ -4622,6 +4726,199 @@ function fillFromYesterday() {
     showToast('Donnees d hier chargees !');
 }
 
+// =====================================================================
+// SAISIE INTELLIGENTE — ouvrir / ressaisir n'importe quel jour (passe ou
+// futur) avec suggestions apprises de l'historique.
+// =====================================================================
+
+// Recherche une entree precise (par date YYYY-MM-DD) dans toutes les semaines.
+function findEntryAcrossWeeks(dateStr) {
+    const allData = loadAllWeeksData();
+    const results = [];
+    Object.entries(allData).forEach(([ws, entries]) => {
+        if (!Array.isArray(entries)) return;
+        entries.forEach(e => { if (e && e.date === dateStr) results.push({ weekStart: ws, entry: e }); });
+    });
+    return results[0] || null;
+}
+
+// Ouvre un jour (n'importe quelle date) en navigant vers sa semaine, puis
+// charge l'entree existante pour la RESSASIR, ou prepare une nouvelle saisie
+// intelligente si le jour est vide.
+function openStoredEntry(dateStr) {
+    const target = new Date(dateStr + 'T00:00:00');
+    if (isNaN(target.getTime())) { showToast('Date invalide', 'warning'); return; }
+    if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return;
+    _isDirty = false;
+    const found = findEntryAcrossWeeks(dateStr);
+    currentWeekStart = getWeekStart(target);
+    const idx = target.getDay() === 0 ? 6 : target.getDay() - 1;
+    pendingShifts = [];
+    shiftIdCounter = 0;
+    chantierIdCounter = 0;
+    selectedDayIdx = idx;
+    const fDay = document.getElementById('fDay');
+    if (fDay) fDay.value = idx;
+    render();
+    if (found && found.entry) {
+        loadEntryIntoForm(found.entry);
+        showToast('Ressaisie de la journee du ' + fmtDateFR(dateStr));
+    } else {
+        const smart = getSmartTimes(idx, 'matin') || getSmartTimes(idx, 'aprem');
+        if (smart) {
+            pushUndo();
+            addShift('matin');
+            const l = lastShift();
+            if (l) {
+                if (smart.departMaison) setShiftField(l.id, 'departMaison', smart.departMaison);
+                if (smart.arriveeBureaux) setShiftField(l.id, 'arriveeBureaux', smart.arriveeBureaux);
+                if (smart.departBureaux) setShiftField(l.id, 'departBureaux', smart.departBureaux);
+                if (smart.arriveeMaison) setShiftField(l.id, 'arriveeMaison', smart.arriveeMaison);
+            }
+            renderShifts();
+            updateCalcs();
+        }
+        showToast('Nouvelle saisie pour le ' + fmtDateFR(dateStr) + (smart ? ' (horaires suggeres)' : ''));
+    }
+    scrollPanelIntoView('mainFormPanel');
+}
+
+// Modale : choisir une date + apercu intelligent (jour valeur existante,
+// sinon horaires type appris, chantiers frequents, et un bouton pour creer).
+function openDatePickerModal(preselectDate, autoOpenForm) {
+    const date = preselectDate || formatDate(new Date());
+    const found = findEntryAcrossWeeks(date);
+    const d = new Date(date + 'T00:00:00');
+    const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    const dayName = DAY_NAMES[dayIdx];
+    const smart = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem');
+    const topCh = getTopChantiers(5);
+
+    let html = '<div style="padding:14px;min-width:280px;max-width:420px;width:90vw">';
+    html += '<div style="font-size:0.95rem;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">';
+    html += '<span>Saisie intelligente du jour</span>';
+    html += '<button class="btn sm" onclick="closeDatePickerModal()" style="min-width:30px;padding:2px 8px">&#10005;</button></div>';
+    html += '<div style="margin-bottom:10px">';
+    html += '<label style="font-size:0.7rem;color:var(--text-dim)">Choisir une date</label>';
+    html += '<input type="date" id="smartDateInput" value="' + date + '" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)" onchange="renderSmartDatePreview(this.value)">';
+    html += '</div>';
+    html += '<div id="smartDatePreview" style="font-size:0.78rem;margin-bottom:12px">' + buildSmartDatePreview(date, dayName, smart, topCh) + '</div>';
+    html += '<div style="display:flex;gap:8px;justify-content:flex-end">';
+    html += '<button class="btn" onclick="closeDatePickerModal()">Annuler</button>';
+    if (found) html += '<button class="btn primary" onclick="applyOpenStoredDate(document.getElementById(\'smartDateInput\').value)">Ressaisir ce jour</button>';
+    else html += '<button class="btn primary" onclick="applyOpenStoredDate(document.getElementById(\'smartDateInput\').value)">Crer / completer ce jour</button>';
+    html += '</div></div>';
+
+    showModal(html);
+    document.getElementById('smartDateInput').focus();
+}
+function buildSmartDatePreview(date, dayName, smart, topCh) {
+    const found = findEntryAcrossWeeks(date);
+    let h = '<div style="color:var(--accent);font-weight:600;margin-bottom:4px">' + dayName + ' ' + fmtDateFR(date) + '</div>';
+    if (found) {
+        h += '<div style="color:var(--green)">Deja saisi : ' + (found.entry.isRepos ? 'Repos' : (found.entry.shifts || []).length + ' periode(s), ' + formatMinutes(found.entry.totalWork || 0) + ' de travail') + '</div>';
+    } else {
+        h += '<div style="color:var(--text-dim)">Nouveau jour</div>';
+        if (smart) {
+            h += '<div style="margin-top:6px;font-size:0.7rem"><span style="color:var(--text-dim)">Horaires type</span><br>';
+            h += 'Depart maison: <strong>' + (smart.departMaison || '--') + '</strong><br>';
+            h += 'Arrivee bureaux: <strong>' + (smart.arriveeBureaux || '--') + '</strong><br>';
+            h += 'Retour: <strong>' + (smart.arriveeMaison || '--') + '</strong></div>';
+        }
+        if (topCh.length) {
+            h += '<div style="margin-top:6px;font-size:0.7rem"><span style="color:var(--text-dim)">Chantiers frequents</span><br>';
+            topCh.forEach(c => { h += '&bull; <strong>' + esc(c.num) + '</strong> ' + esc(c.lieu || '') + '<br>'; });
+            h += '</div>';
+        }
+    }
+    return h;
+}
+
+function renderSmartDatePreview(date) {
+    const preview = document.getElementById('smartDatePreview');
+    if (!preview) return;
+    const d = new Date(date + 'T00:00:00');
+    const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+    const dayName = DAY_NAMES[dayIdx];
+    const smart = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem');
+    const topCh = getTopChantiers(5);
+    preview.innerHTML = buildSmartDatePreview(date, dayName, smart, topCh);
+}
+
+function closeDatePickerModal() {
+    const ov = document.getElementById('modalOverlay');
+    if (ov) ov.style.display = 'none';
+}
+
+function applyOpenStoredDate(dateStr) {
+    closeDatePickerModal();
+    openStoredEntry(dateStr);
+}
+
+// Parse une date francaise : "15 mars", "le 15/03/2024", "15-03",
+// "mardi dernier", "lundi prochain", "mardi". Renvoie YYYY-MM-DD ou null.
+function parseFrenchDate(str) {
+    const s = String(str || '').toLowerCase().replace(/^le\s+/i, '').replace(/\s+/g, ' ').trim();
+    if (!s) return null;
+
+    // Formats numeriques stricts : JJ/MM(/AAAA) ou JJ-MM(/AAAA)
+    const numM = s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/);
+    if (numM) {
+        let dd = parseInt(numM[1], 10), mm = parseInt(numM[2], 10);
+        let yy = numM[3] ? (String(numM[3]).length === 2 ? 2000 + parseInt(numM[3], 10) : parseInt(numM[3], 10)) : new Date().getFullYear();
+        const d = new Date(yy, mm - 1, dd);
+        if (d.getDate() === dd && d.getMonth() === mm - 1) return formatDate(d);
+        return null;
+    }
+
+    // Jour de la semaine simple / avec "dernier"/"prochain"
+    const dayNames = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    const jourM = s.match(/(dimanche|lundi|mardi|mercredi|jeudi|vendredi|samedi)\s*(dernier|derniere|prochain|prochaine)?/);
+    if (jourM) {
+        const targetDay = dayNames.indexOf(jourM[1]); // 0=dim
+        const rel = jourM[2] || '';
+        const now = new Date();
+        let d = new Date(now);
+        if (rel === 'dernier' || rel === 'derniere') {
+            const diff = (d.getDay() - targetDay + 7) % 7;
+            d.setDate(d.getDate() - (diff === 0 ? 7 : diff));
+        } else if (rel === 'prochain' || rel === 'prochaine') {
+            const diff = (targetDay - d.getDay() + 7) % 7;
+            d.setDate(d.getDate() + (diff === 0 ? 7 : diff));
+        } else {
+            // Le prochain jour correspondant si pas aujourd'hui, sinon aujourd'hui
+            const diff = (targetDay - d.getDay() + 7) % 7;
+            d.setDate(d.getDate() + diff);
+        }
+        return formatDate(d);
+    }
+
+    // Jour + mois en lettres : "15 mars", "3 avril 2024"
+    const mois = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+    const djM = s.match(/^(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(?:\s+(\d{2,4}))?/);
+    if (djM) {
+        const dd = parseInt(djM[1], 10);
+        const mm = mois.indexOf(djM[2]) + 1;
+        let yy = djM[3] ? (String(djM[3]).length === 2 ? 2000 + parseInt(djM[3], 10) : parseInt(djM[3], 10)) : new Date().getFullYear();
+        const d = new Date(yy, mm - 1, dd);
+        if (d.getDate() === dd && d.getMonth() === mm - 1) return formatDate(d);
+        return null;
+    }
+
+    // Mois + jour : "mars 15"
+    const mjM = s.match(/^(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\s+(\d{1,2})(?:\s+(\d{2,4}))?/);
+    if (mjM) {
+        const mm = mois.indexOf(mjM[1]) + 1;
+        const dd = parseInt(mjM[2], 10);
+        let yy = mjM[3] ? (String(mjM[3]).length === 2 ? 2000 + parseInt(mjM[3], 10) : parseInt(mjM[3], 10)) : new Date().getFullYear();
+        const d = new Date(yy, mm - 1, dd);
+        if (d.getDate() === dd && d.getMonth() === mm - 1) return formatDate(d);
+        return null;
+    }
+
+    return null;
+}
+
 function onDayChange() {
     const dayIdx = parseInt(document.getElementById('fDay').value);
     if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return;
@@ -4715,14 +5012,14 @@ function quickAction(action) {
     if (!l) { setMicStatus('Ajoutez d\'abord une periode (matin/aprem/nuit)', 'error'); setTimeout(() => setMicStatus('',''), 3000); return; }
     let filled = 0;
     switch(action) {
-        case 'depart_maison': setShiftField(l.id,'departMaison',now);setMicStatus('Depart maison: '+now,'heard');break;
-        case 'arrivee_bureaux': setShiftField(l.id,'arriveeBureaux',now);setMicStatus('Arrivee bureaux: '+now,'heard');break;
-        case 'depart_bureaux': setShiftField(l.id,'departBureaux',now);setMicStatus('Depart bureaux: '+now,'heard');break;
-        case 'arrivee_chantier': var qA=targetChantier(); if(qA[0]&&qA[1]){setChantierField(qA[1].id,qA[0].id,'arriveeChantier',now);setMicStatus('Arrivee chantier: '+now,'heard');} break;
-        case 'debut': var qB=targetChantier(); if(qB[0]&&qB[1]){setChantierField(qB[1].id,qB[0].id,'debut',now);setMicStatus('Debut: '+now,'heard');} break;
-        case 'fin': var qC=targetChantier(); if(qC[0]&&qC[1]){setChantierField(qC[1].id,qC[0].id,'fin',now);setMicStatus('Fin: '+now,'heard');} break;
-        case 'depart_chantier': var qD=targetChantier(); if(qD[0]&&qD[1]){setChantierField(qD[1].id,qD[0].id,'departChantier',now);setMicStatus('Depart chantier: '+now,'heard');} break;
-        case 'arrivee_maison': setShiftField(l.id,'arriveeMaison',now);setMicStatus('Arrivee maison: '+now,'heard');break;
+        case 'depart_maison': setShiftField(l.id,'departMaison',now);setMicStatus(now+' Départ maison','heard');break;
+        case 'arrivee_bureaux': setShiftField(l.id,'arriveeBureaux',now);setMicStatus(now+' Arrivée bureaux','heard');break;
+        case 'depart_bureaux': setShiftField(l.id,'departBureaux',now);setMicStatus(now+' Départ bureaux','heard');break;
+        case 'arrivee_chantier': var qA=targetChantier(); if(qA[0]&&qA[1]){setChantierField(qA[1].id,qA[0].id,'arriveeChantier',now);setMicStatus(now+' Arrivée chantier','heard');} break;
+        case 'debut': var qB=targetChantier(); if(qB[0]&&qB[1]){setChantierField(qB[1].id,qB[0].id,'debut',now);setMicStatus(now+' Début','heard');} break;
+        case 'fin': var qC=targetChantier(); if(qC[0]&&qC[1]){setChantierField(qC[1].id,qC[0].id,'fin',now);setMicStatus(now+' Fin','heard');} break;
+        case 'depart_chantier': var qD=targetChantier(); if(qD[0]&&qD[1]){setChantierField(qD[1].id,qD[0].id,'departChantier',now);setMicStatus(now+' Départ chantier','heard');} break;
+        case 'arrivee_maison': setShiftField(l.id,'arriveeMaison',now);setMicStatus(now+' Arrivée maison','heard');break;
     }
     renderShifts(); updateCalcs();
     const status = getFieldStatusSummary();
@@ -4954,9 +5251,8 @@ function handleMicPaste(e) {
     e.preventDefault();
     let count = 0;
     for (const line of lines) {
-        const commands = line.split(/[,;]|\bet\b/).map(s => s.trim()).filter(Boolean);
-        for (const cmd of commands) {
-            if (applyCommand(cmd)) count++;
+        for (const cmd of splitSpeech(line)) {
+            try { if (applyCommand(cmd)) count++; } catch (e) {}
         }
     }
     renderShifts();
@@ -5055,12 +5351,12 @@ function universalParse(text, et) {
 
         if (action === 'depart' || action === 'pars' || action === 'repart' || action === 'sort') {
             const lieu = lieuC === 'bureaux' ? 'bureaux' : lieuC === 'chantier' ? 'chantier' : 'maison';
-            e = { kind: 'depart', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Depart ' + (lieuC||'maison')) };
+            e = { kind: 'depart', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Départ ' + (lieuC||'maison')) };
         } else if (action === 'arrivee' || action === 'arrive' || action === 'retour' || action === 'rentre') {
             const lieu = lieuC === 'maison' ? 'maison' : lieuC === 'bureaux' ? 'bureaux' : 'chantier';
-            e = { kind: 'arrivee', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Arrivee ' + (lieuC||'?')) };
+            e = { kind: 'arrivee', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Arrivée ' + (lieuC||'?')) };
         } else if (action === 'debut' || action === 'commence' || action === 'demarre' || action === 'debute') {
-            e = { kind: 'debut', time, corr, num: null, label: ((time||'') + ' Debut') };
+            e = { kind: 'debut', time, corr, num: null, label: ((time||'') + ' Début') };
         } else if (action === 'fin' || action === 'fini' || action === 'termine' || action === 'arrete' || action === 'clotur') {
             e = { kind: 'fin', time, corr, num: null, label: ((time||'') + ' Fin') };
         } else if (action === 'chantier') {
@@ -5171,6 +5467,24 @@ function applyCommand(cmd) {
     const now = nowStr();
 
     // ==========================================
+    // SAISIE / RESSAISIE D'UN JOUR PRECIS PAR DATE
+    // "ouvre le 3 avril", "ressaisis le 5 fevrier", "saisis mardi dernier".
+    // Doit preceder le moteur universel pour ne pas etre mute en evenement.
+    // ==========================================
+    if (!/^(?:semaine|aller)?\s*(?:prochaine|suivante|precedente)/.test(cmd)) {
+        const smartDateM = cmd.match(/^(?:ressaisis?|resaisis?|saisis?|saisir|ouvre|ouvrir|modifie|modifier|corrige|corriger)\s+(?:la\s+journee(?:e)?\s+du\s+)?(le\s+)?(.+)$/);
+        if (smartDateM && !cmd.match(/depart|arrive|debut|fin|chantier|heure|bureau|a\s+[0-9]/)) {
+            const parsed = parseFrenchDate(smartDateM[2]);
+            if (parsed) {
+                openStoredEntry(parsed);
+                setMicStatus('Jour ouvert: ' + fmtDateFR(parsed), 'heard');
+                setTimeout(function(){ setMicStatus('',''); }, 3000);
+                return true;
+            }
+        }
+    }
+
+    // ==========================================
     // MOTEUR UNIVERSEL DE COMPREHENSION
     // Analyse la phrase comme une suite d'EVENEMENTS (depart/arrivee/debut/fin/
     // chantier/lieu/numero...) puis distribue chacun au bon champ du bon shift,
@@ -5232,17 +5546,17 @@ function applyCommand(cmd) {
         var cTime = extractTime(cmd);
         if (corrTarget) {
             var done = false;
-            if (corrTarget[0]==='l' && l) { setShiftField(l.id, corrTarget[1], cTime || now); setMicStatus('Corrige: '+(cTime||now),'heard'); done = true; }
-            else if (corrTarget[0]==='c' && ch && s) { setChantierField(s.id, ch.id, corrTarget[1], cTime || now); setMicStatus('Corrige: '+(cTime||now),'heard'); done = true; }
+            if (corrTarget[0]==='l' && l) { setShiftField(l.id, corrTarget[1], cTime || now); setMicStatus((cTime||now)+' corrigé','heard'); done = true; }
+            else if (corrTarget[0]==='c' && ch && s) { setChantierField(s.id, ch.id, corrTarget[1], cTime || now); setMicStatus((cTime||now)+' corrigé','heard'); done = true; }
             if (done) { setTimeout(function(){ setMicStatus('',''); }, 2500); return true; }
         }
         if (cTime && l) {
             var forced = false;
-            if (isEmpty(l.departMaison)){ setShiftField(l.id,'departMaison',cTime); setMicStatus('Depart maison: '+cTime,'heard'); forced=true; }
-            else if (isEmpty(l.arriveeBureaux)){ setShiftField(l.id,'arriveeBureaux',cTime); setMicStatus('Arrivee bureaux: '+cTime,'heard'); forced=true; }
-            else if (ch && s && isEmpty(ch.arriveeChantier)){ setChantierField(s.id,ch.id,'arriveeChantier',cTime); setMicStatus('Arrivee chantier: '+cTime,'heard'); forced=true; }
-            else if (isEmpty(l.departBureaux)){ setShiftField(l.id,'departBureaux',cTime); setMicStatus('Depart bureaux: '+cTime,'heard'); forced=true; }
-            else if (isEmpty(l.arriveeMaison)){ setShiftField(l.id,'arriveeMaison',cTime); setMicStatus('Arrivee maison: '+cTime,'heard'); forced=true; }
+            if (isEmpty(l.departMaison)){ setShiftField(l.id,'departMaison',cTime); setMicStatus(cTime+' Départ maison','heard'); forced=true; }
+            else if (isEmpty(l.arriveeBureaux)){ setShiftField(l.id,'arriveeBureaux',cTime); setMicStatus(cTime+' Arrivée bureaux','heard'); forced=true; }
+            else if (ch && s && isEmpty(ch.arriveeChantier)){ setChantierField(s.id,ch.id,'arriveeChantier',cTime); setMicStatus(cTime+' Arrivée chantier','heard'); forced=true; }
+            else if (isEmpty(l.departBureaux)){ setShiftField(l.id,'departBureaux',cTime); setMicStatus(cTime+' Départ bureaux','heard'); forced=true; }
+            else if (isEmpty(l.arriveeMaison)){ setShiftField(l.id,'arriveeMaison',cTime); setMicStatus(cTime+' Arrivée maison','heard'); forced=true; }
             if (forced) { setTimeout(function(){ setMicStatus('',''); },2500); return true; }
         }
     }
@@ -5251,15 +5565,25 @@ function applyCommand(cmd) {
     // REMPLISSAGE UNIVERSEL (profil, entreprise,
     // reglages, lieux, favoris) - toute l'appli
     // ==========================================
-    const NW = {un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,quinze:15,vingt:20,trente:30,quarante:40,cinquante:50,soixante:60,quatrevingt:80,quatrevingtdix:90,cent:100};
+    const NW = {un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,dixsept:17,dixhuit:18,dixneuf:19,vingt:20,trente:30,quarante:40,cinquante:50,soixante:60,soixantedix:70,soixanteonze:71,soixantedouze:72,quatrevingt:80,quatrevingtdix:90,cent:100,mille:1000};
     function parseNum(str) {
         str = (str || '').trim().toLowerCase().replace(/%|pourcent|pourcents|euros|eur|euro|\s+heures?|\s+l\b|\s+km\b|\s+par\s+(?:heure|jour|semaine|an)|l\/100km/g, ' ').replace(/,/g, '.').replace(/\s+/g, ' ');
         const m = str.match(/(\d+(?:[.,]\d+)?)/);
         if (m) return parseFloat(m[1].replace(',', '.'));
-        str = str.replace(/quatre\s+vingt\s+dix/g, 'quatrevingtdix').replace(/quatre\s+vingt/g, 'quatrevingt');
-        const nn = str.split(' ').map(w => NW[w]).filter(v => v !== undefined);
+        // Normalise les formes composees (traits d'union et espaces internes).
+        str = str.replace(/quatre\s*[- ]\s*vingt\s*[- ]\s*dix/g, ' quatrevingtdix ')
+                  .replace(/quatre\s*[- ]\s*vingts?\b/g, ' quatrevingt ')
+                  .replace(/soixante\s*[- ]\s*(?:&|et)?\s*(dix|onze|douze|treize|quatorze|quinze|seize|dixsept|dixhuit|dixneuf)\b/g, ' soixante$1 ');
+        const clean = str.replace(/&|\bet\b|-/g, ' ').replace(/\s+/g, ' ').trim();
+        const tokens = clean.split(' ').filter(Boolean);
         let total = 0;
-        nn.forEach(v => { total = v === 100 && total ? total * 100 + (v - 100) : total + v; });
+        const stack = [];
+        tokens.forEach(function(w) {
+            const v = NW[w];
+            if (v === undefined) return;
+            if (v === 100 || v === 1000) { total = total === 0 ? v : total * v; }
+            else { total += v; }
+        });
         return total || null;
     }
     const profMatch = {
@@ -5371,20 +5695,21 @@ function applyCommand(cmd) {
     const dayNavM = cmd.match(/^(?:va\s+(?:a|sur|au)?\s*)?(aujourd\s*hui|demain|hier|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)$/);
     if (dayNavM) {
         const DAYS = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
-        const dates = getWeekDates();
-        let idx = -1;
         const lw = dayNavM[1];
-        if (lw === 'aujourd hui' || lw === "aujourd'hui") { const d=new Date(); idx = d.getDay()===0?6:d.getDay()-1; }
-        else if (lw === 'demain') { const d=new Date(); d.setDate(d.getDate()+1); idx = d.getDay()===0?6:d.getDay()-1; if(dates[idx] !== formatDate(d)){} }
-        else if (lw === 'hier') { const d=new Date(); d.setDate(d.getDate()-1); idx = d.getDay()===0?6:d.getDay()-1; }
-        else { for (let i=0;i<7;i++){ if (DAY_NAMES[i].toLowerCase() === lw) idx = i; } }
-        if (idx >= 0 && idx < 7) {
-            selectedDayIdx = idx;
-            const fDay = document.getElementById('fDay');
-            if (fDay) fDay.value = idx;
-            onDayChange();
-            setMicStatus('Jour choisi: ' + DAY_NAMES[idx], 'heard');
-            setTimeout(() => setMicStatus('',''), 2500);
+        if (lw === 'aujourd hui' || lw === "aujourd'hui") { goToDate(new Date()); setMicStatus('Jour choisi: Aujourd\'hui', 'heard'); setTimeout(() => setMicStatus('',''), 2500); return true; }
+        else if (lw === 'demain') { const d = new Date(); d.setDate(d.getDate() + 1); goToDate(d); setMicStatus('Jour choisi: Demain', 'heard'); setTimeout(() => setMicStatus('',''), 2500); return true; }
+        else if (lw === 'hier') { const d = new Date(); d.setDate(d.getDate() - 1); goToDate(d); setMicStatus('Jour choisi: Hier', 'heard'); setTimeout(() => setMicStatus('',''), 2500); return true; }
+        else {
+            let idx = -1;
+            for (let i = 0; i < 7; i++) { if (DAY_NAMES[i].toLowerCase() === lw) idx = i; }
+            if (idx >= 0 && idx < 7) {
+                selectedDayIdx = idx;
+                const fDay = document.getElementById('fDay');
+                if (fDay) fDay.value = idx;
+                onDayChange();
+                setMicStatus('Jour choisi: ' + DAY_NAMES[idx], 'heard');
+                setTimeout(() => setMicStatus('',''), 2500);
+            }
             return true;
         }
     }
@@ -5405,6 +5730,8 @@ function applyCommand(cmd) {
     if (/ouvre.*(?:historique|multi\s*semaines?)|historique\s+multi/.test(cmd)) { showHistory(); sysHandled = sysMsg('Historique'); }
     if (/ouvre.*projets?|suivi\s+des\s+projets|gestion\s+des\s+projets/.test(cmd)) { showProjectTracker(); sysHandled = sysMsg('Projets'); }
     if (/ouvre.*(?:analyse|statistiques|analytics)|analytics|statistiques/.test(cmd)) { showAnalytics(); sysHandled = sysMsg('Analytics'); }
+    if (/aper(?:cu)?\s+global|vue\s+globale|vue\s+d\s?ensemble\s+complet|toutes\s+(?:les\s+)?semaines|aper(?:cu)?\s+complet/.test(cmd)) { openEnhancedRecap(); sysHandled = sysMsg('Aper\u00e7u global'); }
+    if (/heures?\s+(?:supl|supp|supplementaires)|supl(?:ementaires)?\s+hebdo|heures? sup\b/.test(cmd)) { showDailyOvertime(); sysHandled = sysMsg('Heures supp'); }
     if (/ouvre.*(?:template|modele|gabarit)|gestion\s+des\s+modeles/.test(cmd)) { renderTemplatesPanel(); sysHandled = sysMsg('Templates'); }
     if (/ouvre.*recherche|recherche\s+globale|rechercher/.test(cmd)) { showGlobalSearch(); sysHandled = sysMsg('Recherche'); }
     if (/feuille\s+de\s+temps|feuille\s+hebdo?|ouvre.*feuille/.test(cmd)) { toggleFeuille(); sysHandled = sysMsg('Feuille de temps'); }
@@ -5521,11 +5848,6 @@ function applyCommand(cmd) {
         const nc = getLastChantier();
         return [nc, nc ? findShiftOfChantier(nc.id) : null];
     }
-    // Evite les doublons: n'ecrit que si la valeur change reellement.
-    function setIfChanged(fn, cur, nv) {
-        if (String(cur) === String(nv)) return false;
-        fn(nv); return true;
-    }
 
     function smartFillTime(time) {
         // Si la sequence precedente est terminee (rentre a la maison), un
@@ -5539,16 +5861,16 @@ function applyCommand(cmd) {
                 s = ch ? findShiftOfChantier(ch.id) : null;
             }
         }
-        if (l && isEmpty(l.departMaison)) { setShiftField(l.id,'departMaison',time); setMicStatus(time+' Depart maison','heard'); return true; }
-        if (l && isEmpty(l.arriveeBureaux)) { setShiftField(l.id,'arriveeBureaux',time); setMicStatus(time+' Arrivee bureaux','heard'); return true; }
+        if (l && isEmpty(l.departMaison)) { setShiftField(l.id,'departMaison',time); setMicStatus(time+' Départ maison','heard'); return true; }
+        if (l && isEmpty(l.arriveeBureaux)) { setShiftField(l.id,'arriveeBureaux',time); setMicStatus(time+' Arrivée bureaux','heard'); return true; }
         var tc = targetChantier();
-        if (tc[0] && tc[1] && isEmpty(tc[0].arriveeChantier)) { setChantierField(tc[1].id,tc[0].id,'arriveeChantier',time); setMicStatus(time+' Arrivee chantier','heard'); return true; }
-        if (tc[0] && tc[1] && isEmpty(tc[0].debut)) { setChantierField(tc[1].id,tc[0].id,'debut',time); setMicStatus(time+' Debut','heard'); return true; }
+        if (tc[0] && tc[1] && isEmpty(tc[0].arriveeChantier)) { setChantierField(tc[1].id,tc[0].id,'arriveeChantier',time); setMicStatus(time+' Arrivée chantier','heard'); return true; }
+        if (tc[0] && tc[1] && isEmpty(tc[0].debut)) { setChantierField(tc[1].id,tc[0].id,'debut',time); setMicStatus(time+' Début','heard'); return true; }
         if (tc[0] && tc[1] && isEmpty(tc[0].fin)) { setChantierField(tc[1].id,tc[0].id,'fin',time); setMicStatus(time+' Fin','heard'); return true; }
-        if (tc[0] && tc[1] && isEmpty(tc[0].departChantier)) { setChantierField(tc[1].id,tc[0].id,'departChantier',time); setMicStatus(time+' Depart chantier','heard'); return true; }
-        if (l && isEmpty(l.departBureaux)) { setShiftField(l.id,'departBureaux',time); setMicStatus(time+' Depart bureaux','heard'); return true; }
-        if (l && isEmpty(l.arriveeMaison)) { setShiftField(l.id,'arriveeMaison',time); setMicStatus(time+' Arrivee maison','heard'); return true; }
-        setMicStatus(time+' : tout est deja rempli', 'heard');
+        if (tc[0] && tc[1] && isEmpty(tc[0].departChantier)) { setChantierField(tc[1].id,tc[0].id,'departChantier',time); setMicStatus(time+' Départ chantier','heard'); return true; }
+        if (l && isEmpty(l.departBureaux)) { setShiftField(l.id,'departBureaux',time); setMicStatus(time+' Départ bureaux','heard'); return true; }
+        if (l && isEmpty(l.arriveeMaison)) { setShiftField(l.id,'arriveeMaison',time); setMicStatus(time+' Arrivée maison','heard'); return true; }
+        setMicStatus(time+' : tout est déjà rempli', 'heard');
         return true;
     }
 
@@ -5562,13 +5884,13 @@ function applyCommand(cmd) {
             if (isEmpty(ch.debut) || isEmpty(ch.fin)) {
                 if (isEmpty(ch.debut)) setChantierField(s.id,ch.id,'debut',t1);
                 if (isEmpty(ch.fin)) setChantierField(s.id,ch.id,'fin',t2);
-                setMicStatus(t1+' - '+t2+' Debut/Fin','heard'); return true;
+                setMicStatus(t1+' - '+t2+' Début/Fin','heard'); return true;
             }
         }
         if (isEmpty(l.departMaison) && isEmpty(l.arriveeMaison)) {
             setShiftField(l.id,'departMaison',t1);
             setShiftField(l.id,'arriveeMaison',t2);
-            setMicStatus(t1+' - '+t2+' Depart/Retour','heard'); return true;
+            setMicStatus(t1+' - '+t2+' Départ/Retour','heard'); return true;
         }
         if (isEmpty(l.arriveeBureaux) && isEmpty(l.departBureaux)) {
             setShiftField(l.id,'arriveeBureaux',t1);
@@ -5593,13 +5915,13 @@ function applyCommand(cmd) {
     // ==========================================
     
     // DEPART + LIEU
-    if (/depart\s*maison|je\s+(?:suis\s+)?(?:parti|partie|pars)\s*(?:a|a|du)?\s*(?:de\s+)?(?:la\s+)?maison|^je\s+pars$/.test(cmd) || /depart\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
-    if (/depart\s*bureaux|je\s+(?:suis\s+)?parti\s*(?:a|a)\s*(?:au|aux)?\s*bureaux|^je\s+pars\s*au\s*bureau$/.test(cmd)) { if(l){setShiftField(l.id,'departBureaux',time||now);setMicStatus('Depart bureaux: '+(time||now),'heard');return true;} }
-    if (/depart\s*chantier|je\s+(?:suis\s+)?parti\s*(?:a|a|du|de)\s*(?:au|aux|le|la)?\s*chantier/.test(cmd)) { var tc0=targetChantier(); if(tc0[0]&&tc0[1]){setChantierField(tc0[1].id,tc0[0].id,'departChantier',time||now);setMicStatus('Depart chantier: '+(time||now),'heard');return true;} }
+    if (/depart\s*maison|je\s+(?:suis\s+)?(?:parti|partie|pars)\s*(?:a|a|du)?\s*(?:de\s+)?(?:la\s+)?maison|^je\s+pars$/.test(cmd) || /depart\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'departMaison',time||now);setMicStatus((time||now)+' Départ maison','heard');return true;} }
+    if (/depart\s*bureaux|je\s+(?:suis\s+)?parti\s*(?:a|a)\s*(?:au|aux)?\s*bureaux|^je\s+pars\s*au\s*bureau$/.test(cmd)) { if(l){setShiftField(l.id,'departBureaux',time||now);setMicStatus((time||now)+' Départ bureaux','heard');return true;} }
+    if (/depart\s*chantier|je\s+(?:suis\s+)?parti\s*(?:a|a|du|de)\s*(?:au|aux|le|la)?\s*chantier/.test(cmd)) { var tc0=targetChantier(); if(tc0[0]&&tc0[1]){setChantierField(tc0[1].id,tc0[0].id,'departChantier',time||now);setMicStatus((time||now)+' Départ chantier','heard');return true;} }
 
     // ARRIVEE + LIEU
-    if (/arrivee\s*maison|arrive\s*(?:a|a|au|aux|sur|dan?s|chez)\s*(?:la\s+)?maison|je\s+suis\s+arrive\s*(?:a|a|au|aux|sur)?\s*maison|^rentre$|retour\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
-    if (/arrivee\s*bureaux|arrive\s*(?:a|a|au|aux|sur|dan?s)?\s*(?:au|aux|les)?\s*bureaux?/.test(cmd)) { if(l){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;} }
+    if (/arrivee\s*maison|arrive\s*(?:a|a|au|aux|sur|dan?s|chez)\s*(?:la\s+)?maison|je\s+suis\s+arrive\s*(?:a|a|au|aux|sur)?\s*maison|^rentre$|retour\s*maison/.test(cmd)) { if(l){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus((time||now)+' Arrivée maison','heard');return true;} }
+    if (/arrivee\s*bureaux|arrive\s*(?:a|a|au|aux|sur|dan?s)?\s*(?:au|aux|les)?\s*bureaux?/.test(cmd)) { if(l){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus((time||now)+' Arrivée bureaux','heard');return true;} }
     if (/arrivee\s*chantier|arrive\s*(?:au|a|sur|a|dan?s|aux)\s+(?:le\s+|la\s+)?chantier/.test(cmd)) {
         var tcArr = targetChantier();
         if (tcArr[0] && tcArr[1]) {
@@ -5610,27 +5932,27 @@ function applyCommand(cmd) {
             if (lieuM && !tcArr[0].lieu && !/chantier|heure|h\s*\d/.test(lieuM[1])) setChantierField(tcArr[1].id, tcArr[0].id, 'lieu', lieuM[1].trim());
             const adrM = cmd.match(/(\d{1,4})\s*(?:rue|avenue|av|bd|boulevard|chemin|route|impasse)\s+([a-zA-Z0-9 \-]+)/i);
             if (adrM && !tcArr[0].adresse) setChantierField(tcArr[1].id, tcArr[0].id, 'adresse', (adrM[1] + ' ' + adrM[2]).trim());
-            setMicStatus('Arrivee chantier: ' + (time || now), 'heard');
+            setMicStatus((time || now)+' Arrivée chantier', 'heard');
             return true;
         }
     }
 
     // DEBUT / FIN + LIEU
-    if (/debut|commence|demarre|je\s+(?:commence|demarre)|on\s+(?:commence|demarre)|c'est\s+parti/.test(cmd)) { var tcD=targetChantier(); if(tcD[0]&&tcD[1]){setChantierField(tcD[1].id,tcD[0].id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
-    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse|fini\s*(?:a|a)?|j[' ']?ai\s+(?:fini|arrete|termine)/.test(cmd)) { var tcF=targetChantier(); if(tcF[0]&&tcF[1]){setChantierField(tcF[1].id,tcF[0].id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
+    if (/debut|commence|demarre|je\s+(?:commence|demarre)|on\s+(?:commence|demarre)|c'est\s+parti/.test(cmd)) { var tcD=targetChantier(); if(tcD[0]&&tcD[1]){setChantierField(tcD[1].id,tcD[0].id,'debut',time||now);setMicStatus((time||now)+' Début','heard');return true;} }
+    if (/\bfin\b/.test(cmd) || /arrete|ferme|pause|casse|fini\s*(?:a|a)?|j[' ']?ai\s+(?:fini|arrete|termine)/.test(cmd)) { var tcF=targetChantier(); if(tcF[0]&&tcF[1]){setChantierField(tcF[1].id,tcF[0].id,'fin',time||now);setMicStatus((time||now)+' Fin','heard');return true;} }
 
     // ==========================================
     // COMMANDES COURTES (sans lieu)
     // ==========================================
-    if (/^pars?$/.test(cmd) || /^je\s+pars?$/.test(cmd)) { if(l&&isEmpty(l.departMaison)){setShiftField(l.id,'departMaison',time||now);setMicStatus('Depart maison: '+(time||now),'heard');return true;} }
+    if (/^pars?$/.test(cmd) || /^je\s+pars?$/.test(cmd)) { if(l&&isEmpty(l.departMaison)){setShiftField(l.id,'departMaison',time||now);setMicStatus((time||now)+' Départ maison','heard');return true;} }
     if (/^arrive?$/.test(cmd) || /^j[' ]+arrive?$/.test(cmd)) {
-        if(l&&isEmpty(l.arriveeBureaux)){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus('Arrivee bureaux: '+(time||now),'heard');return true;}
-        var tcA=targetChantier(); if(tcA[0]&&tcA[1]&&isEmpty(tcA[0].arriveeChantier)){setChantierField(tcA[1].id,tcA[0].id,'arriveeChantier',time||now);setMicStatus('Arrivee chantier: '+(time||now),'heard');return true;}
-        if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;}
+        if(l&&isEmpty(l.arriveeBureaux)){setShiftField(l.id,'arriveeBureaux',time||now);setMicStatus((time||now)+' Arrivée bureaux','heard');return true;}
+        var tcA=targetChantier(); if(tcA[0]&&tcA[1]&&isEmpty(tcA[0].arriveeChantier)){setChantierField(tcA[1].id,tcA[0].id,'arriveeChantier',time||now);setMicStatus((time||now)+' Arrivée chantier','heard');return true;}
+        if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus((time||now)+' Arrivée maison','heard');return true;}
     }
-    if (/^commence?$/.test(cmd) || /^je commence$/.test(cmd) || /^c'est parti$/.test(cmd) || /^on y va$/.test(cmd)) { var tcC=targetChantier(); if(tcC[0]&&tcC[1]&&isEmpty(tcC[0].debut)){setChantierField(tcC[1].id,tcC[0].id,'debut',time||now);setMicStatus('Debut: '+(time||now),'heard');return true;} }
-    if (/^fini$/.test(cmd) || /^c[' ]+est fini$/.test(cmd) || /^j[' ]+ai fini$/.test(cmd) || /^arrete$/.test(cmd) || /^pause$/.test(cmd) || /^ferme$/.test(cmd)) { var tcE=targetChantier(); if(tcE[0]&&tcE[1]&&isEmpty(tcE[0].fin)){setChantierField(tcE[1].id,tcE[0].id,'fin',time||now);setMicStatus('Fin: '+(time||now),'heard');return true;} }
-    if (/^rentre$/.test(cmd) || /^retour$/.test(cmd) || /^c[' ]+est bon$/.test(cmd)) { if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus('Arrivee maison: '+(time||now),'heard');return true;} }
+    if (/^commence?$/.test(cmd) || /^je commence$/.test(cmd) || /^c'est parti$/.test(cmd) || /^on y va$/.test(cmd)) { var tcC=targetChantier(); if(tcC[0]&&tcC[1]&&isEmpty(tcC[0].debut)){setChantierField(tcC[1].id,tcC[0].id,'debut',time||now);setMicStatus((time||now)+' Début','heard');return true;} }
+    if (/^fini$/.test(cmd) || /^c[' ]+est fini$/.test(cmd) || /^j[' ]+ai fini$/.test(cmd) || /^arrete$/.test(cmd) || /^pause$/.test(cmd) || /^ferme$/.test(cmd)) { var tcE=targetChantier(); if(tcE[0]&&tcE[1]&&isEmpty(tcE[0].fin)){setChantierField(tcE[1].id,tcE[0].id,'fin',time||now);setMicStatus((time||now)+' Fin','heard');return true;} }
+    if (/^rentre$/.test(cmd) || /^retour$/.test(cmd) || /^c[' ]+est bon$/.test(cmd)) { if(l&&isEmpty(l.arriveeMaison)){setShiftField(l.id,'arriveeMaison',time||now);setMicStatus((time||now)+' Arrivée maison','heard');return true;} }
 
     // ==========================================
     // AJOUTER
@@ -6176,7 +6498,7 @@ function getSmartLieu(lieu) {
 
 function getSmartItinerary(from, to) {
     const intel = loadIntel();
-    return intel.itineraires.find(x => x.from === from && x.to === to) || null;
+    return (intel.itineraires || []).find(x => x.from === from && x.to === to) || null;
 }
 
 function getTopChantiers(limit) {
@@ -6217,6 +6539,7 @@ function renderIntelligencePanel() {
     const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
     const topCh = getTopChantiers(8);
     let html = '';
+    html += '<div style="margin-bottom:12px"><button class="btn primary" style="width:100%" onclick="openDatePickerModal()" title="Choisir une date, saisir ou ressaisir avec suggestions intelligentes">&#128197; Saisir / ressaisir une journee par date</button></div>';
     html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
     html += '<div style="flex:1;min-width:140px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)">';
     html += '<div style="font-size:0.68rem;color:var(--text-dim)">Jours</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent)">' + (intel.stats.totalDays || 0) + '</div></div>';
@@ -6421,6 +6744,7 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'e') { e.preventDefault(); exportXLSX(); return; }
         if (e.key === 'p') { e.preventDefault(); window.print(); return; }
         if (e.key === 'n') { e.preventDefault(); addShift('matin'); renderShifts(); updateCalcs(); setMicStatus('+ Matin', 'heard'); setTimeout(() => setMicStatus('',''), 2000); return; }
+        if (e.key === 'k') { e.preventDefault(); openDatePickerModal(); return; }
         if (e.key === 'z') { e.preventDefault(); undo(); return; }
         if (e.key === 'y') { e.preventDefault(); redo(); return; }
         if (e.key === '1') { e.preventDefault(); applyDayPreset('bureau'); return; }
@@ -6474,6 +6798,7 @@ function renderMainMenu() {
     let h = '<div class="dd-search"><input id="ddFilter" type="text" placeholder="Rechercher une fonction..." oninput="filterMainMenu(this.value)"></div>';
     h += G + 'Actions rapides</div>';
     h += I('goToToday()', '&#127757; Aujourd\'hui', false, 'Revenir a la semaine et jour courants');
+    h += I('openDatePickerModal()', '&#128197; Saisie par date', false, 'Choisir une date, saisir ou ressaisir avec suggestions intelligentes');
     h += I('scrollPanelIntoView(\'mainFormPanel\')', '&#9998; Saisie des horaires');
     h += I('toggleOrchestrator()', '&#9673; Vue d\'ensemble', false, 'Tableau de bord orchestrateur');
     h += I('saveDay()', '&#10004; Enregistrer la journee');
@@ -6491,6 +6816,8 @@ function renderMainMenu() {
     h += I('showGlobalSearch()', 'Recherche');
     h += I('renderTemplatesPanel()', 'Templates');
     h += I('showAnalytics()', 'Analytics');
+    h += I('openEnhancedRecap()', '&#128202; Aper\u00e7u global', false, 'Toutes semaines, salaire et projets');
+    h += I('showDailyOvertime()', '&#9201; Heures supp');
     h += I('toggleFeuille()', 'Feuille de temps');
     h += G + 'Exports</div>';
     h += I('exportCSV()', 'Exporter CSV');
@@ -6952,6 +7279,17 @@ function getLogoSrc() { try { return localStorage.getItem(uK('logo')) || ''; } c
 function fmtH(mins) { if (!mins) return '0:00'; const h = Math.floor(mins / 60); const m = mins % 60; return h + ':' + String(m).padStart(2, '0'); }
 function fmtDateFR(dateStr) { const d = new Date(dateStr + 'T00:00:00'); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
 function openRelevePanel(html) { const body = document.getElementById('recapBody'); body.innerHTML = html; document.getElementById('recapPanel').style.display = ''; scrollPanelIntoView('recapPanel'); }
+function renderRecapError(title) {
+    try {
+        const html = '<div style="padding:14px;text-align:center;color:var(--text-dim)"><div style="font-size:1.3rem;margin-bottom:6px">&#9888;&#65039;</div><div style="font-weight:600;font-size:0.82rem">' + esc(title) + ' : une erreur est survenue.</div><div style="font-size:0.68rem;margin-top:6px">Vos donnees ne sont pas perdues. Reessayez ou consultez la console.</div><div style="margin-top:12px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div></div>';
+        const body = document.getElementById('recapBody');
+        if (!body) return;
+        body.innerHTML = html;
+        const ph = document.getElementById('recapPanel') ? document.getElementById('recapPanel').querySelector('.form-header span') : null;
+        if (ph) ph.textContent = title;
+        document.getElementById('recapPanel').style.display = '';
+    } catch (e) {}
+}
 function scrollPanelIntoView(id) { var el = document.getElementById(id); if (el) setTimeout(function() { el.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }
 function printReleve() { window.print(); }
 
@@ -7631,7 +7969,13 @@ function showEnhancedRecap() {
 
     html += '<div style="margin-top:14px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div>';
     body.innerHTML = html;
+    const ph = document.getElementById('recapPanel').querySelector('.form-header span');
+    if (ph) ph.textContent = 'Apercu global (toutes les semaines)';
     document.getElementById('recapPanel').style.display = '';
+}
+
+function openEnhancedRecap() {
+    try { showEnhancedRecap(); } catch (e) { renderRecapError('Apercu global'); }
 }
 
 // --- Daily overtime breakdown ---
@@ -7649,6 +7993,34 @@ function getDailyOvertimeBreakdown() {
         breakdown.push({ day: DAY_NAMES[i], date: key, work: dayWork, overtime: ot, threshold: dailyThreshold });
     });
     return breakdown;
+}
+
+function showDailyOvertime() {
+    try {
+        const bids = getDailyOvertimeBreakdown();
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px">';
+        let totalWeekOt = 0;
+        bids.forEach(function(b) {
+            totalWeekOt += b.overtime;
+            const pct = b.threshold > 0 ? Math.min(100, Math.round((b.work / b.threshold) * 100)) : 0;
+            html += '<div style="padding:10px;background:var(--surface);border-radius:8px;border:1px solid ' + (b.overtime > 0 ? 'var(--accent3)' : 'var(--border)') + '">';
+            html += '<div style="font-size:0.62rem;color:var(--text-dim)">' + esc(b.day) + ' <span style="opacity:0.6">' + esc(b.date) + '</span></div>';
+            html += '<div style="font-size:0.95rem;font-weight:700;color:' + (b.overtime > 0 ? 'var(--accent3)' : 'var(--text)') + '">' + formatMinutes(b.work) + '</div>';
+            html += '<div style="font-size:0.6rem;color:var(--text-dim)">Seuil ' + formatMinutes(b.threshold) + '</div>';
+            html += '<div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:4px"><div style="height:100%;width:' + pct + '%;background:' + (b.overtime > 0 ? 'var(--accent3)' : 'var(--accent)') + '"></div></div>';
+            if (b.overtime > 0) html += '<div style="font-size:0.66rem;font-weight:600;color:var(--accent3);margin-top:3px">+' + formatMinutes(b.overtime) + ' sup.</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '<div style="padding:10px;background:var(--surface);border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:0.72rem;color:var(--text-dim)">Total heures supplémentaires de la semaine</span><strong style="font-size:1rem;color:var(--accent3)">' + formatMinutes(totalWeekOt) + '</strong></div>';
+        html += '<div style="margin-top:12px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div>';
+        const body = document.getElementById('recapBody');
+        body.innerHTML = html;
+        const ph = document.getElementById('recapPanel').querySelector('.form-header span');
+        if (ph) ph.textContent = 'Heures suplémentaires - semaine';
+        document.getElementById('recapPanel').style.display = '';
+        scrollPanelIntoView('recapPanel');
+    } catch (e) { renderRecapError('Heures suplémentaires'); }
 }
 
 // --- Auto-save toast ---
@@ -7767,14 +8139,14 @@ function renderOrchestrator() {
     html += '</div>';
     html += '<div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin:12px 0 6px">Remplissage rapide horaires</div>';
     html += '<div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px">';
-    html += '<button class="btn sm" onclick="quickAction(\'depart_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Depart</button>';
-    html += '<button class="btn sm" onclick="quickAction(\'arrivee_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivee B.</button>';
-    html += '<button class="btn sm" onclick="quickAction(\'depart_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Depart B.</button>';
-    html += '<button class="btn sm" onclick="quickAction(\'arrivee_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivee C.</button>';
-    html += '<button class="btn sm accent2" onclick="quickAction(\'debut\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Debut</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Départ</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivée bureaux</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_bureaux\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">3</span>Départ bureaux</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">4</span>Arrivée chantier</button>';
+    html += '<button class="btn sm accent2" onclick="quickAction(\'debut\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">5</span>Début</button>';
     html += '<button class="btn sm accent2" onclick="quickAction(\'fin\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">6</span>Fin</button>';
-    html += '<button class="btn sm" onclick="quickAction(\'depart_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Depart C.</button>';
-    html += '<button class="btn sm" onclick="quickAction(\'arrivee_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivee M.</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'depart_chantier\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Départ chantier</button>';
+    html += '<button class="btn sm" onclick="quickAction(\'arrivee_maison\')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivée maison</button>';
     html += '</div>';
     html += '</div>';
 
@@ -8161,6 +8533,8 @@ const ROUTES = {
     'search': function() { showGlobalSearch(); },
     'templates': function() { renderTemplatesPanel(); },
     'analytics': function() { showAnalytics(); },
+    'global': function() { openEnhancedRecap(); },
+    'heures': function() { showDailyOvertime(); },
     'settings': function() { /* profile panel - future */ }
 };
 function navigateTo(route) {
@@ -8169,7 +8543,7 @@ function navigateTo(route) {
 function handleRoute() {
     const hash = window.location.hash.replace('#/', '');
     if (ROUTES[hash]) {
-        ROUTES[hash]();
+        try { ROUTES[hash](); } catch (e) { renderRecapError('Vue demandee'); }
     }
 }
 window.addEventListener('hashchange', handleRoute);
@@ -8606,6 +8980,14 @@ function bootApp() {
     if (window._booted) return;
     window._booted = true;
     window_booted_backup = true;
+    window.addEventListener('error', function(ev) {
+        try {
+            var el = document.getElementById('globalErrBadge');
+            if (!el) return;
+            el.style.display = '';
+            el.title = (ev && ev.message) ? String(ev.message) : 'Erreur';
+        } catch (e) {}
+    });
     render();
     startLiveClock();
     initAutoDetect();
@@ -8683,14 +9065,14 @@ if (_startupUsers.length === 0) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78rem">
             <div style="background:var(--surface2);padding:8px 12px;border-radius:6px">
                 <strong style="color:var(--accent2)">Navigation rapide</strong><br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">1</kbd> Depart maison<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">2</kbd> Arrivee bureaux<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">3</kbd> Depart bureaux<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">4</kbd> Arrivee chantier<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">5</kbd> Debut travail<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">1</kbd> Départ maison<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">2</kbd> Arrivée bureaux<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">3</kbd> Départ bureaux<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">4</kbd> Arrivée chantier<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">5</kbd> Début travail<br>
                 <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">6</kbd> Fin travail<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">7</kbd> Depart chantier<br>
-                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">8</kbd> Arrivee maison
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">7</kbd> Départ chantier<br>
+                <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">8</kbd> Arrivée maison
             </div>
             <div style="background:var(--surface2);padding:8px 12px;border-radius:6px">
                 <strong style="color:var(--accent2)">Actions</strong><br>
@@ -8776,6 +9158,7 @@ if (_startupUsers.length === 0) {
 
 <!-- Toast notification -->
 <div id="autoSaveToast" style="position:fixed;top:12px;right:12px;background:var(--surface);color:var(--text);padding:10px 18px;border-radius:10px;font-size:0.78rem;font-weight:600;z-index:300;opacity:0;transform:translateY(-10px);transition:all 0.3s cubic-bezier(0.4,0,0.2,1);pointer-events:none;border:1px solid var(--accent2);box-shadow:0 4px 20px rgba(0,0,0,0.3),0 0 12px rgba(78,205,196,0.15);display:flex;align-items:center;gap:8px"><span id="toastIcon">&#10003;</span><span id="toastMsg">Enregistre</span></div>
+<div id="globalErrBadge" title="" style="display:none;position:fixed;bottom:14px;left:14px;z-index:290;background:rgba(255,70,70,0.15);color:#ff6b6b;border:1px solid rgba(255,70,70,0.4);border-radius:8px;padding:4px 9px;font-size:0.64rem;font-weight:600;cursor:pointer" onclick="this.style.display='none'">&#9888;&#65039; Erreur interne</div>
 
 <button class="mic-fab" id="micFab" onclick="toggleVoice()" title="Dictee vocale intelligente (F8)">&#127908;</button>
 <div class="mic-fab-status" id="micFabStatus"></div>
