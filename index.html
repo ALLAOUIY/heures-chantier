@@ -1467,7 +1467,7 @@
                 </div>
                 <div id="shiftList">
                     <div style="color:var(--text-dim);font-size:0.78rem;text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">
-                        Aucune periode pour l'instant.<br>Ajoutez une periode ci-dessous, ou utilisez un modele en haut (<b>Bureau 8h</b>, <b>Chantier</b>...) pour tout remplir en 1 clic.
+                        Aucune periode pour l'instant.<br>Ajoutez une periode ci-dessous, ou utilisez un modele en haut (<b>Bureau 8h30</b>, <b>Chantier</b>...) pour tout remplir en 1 clic.
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -1774,6 +1774,8 @@ function goToDate(target) {
     const fDay = document.getElementById('fDay');
     if (fDay) fDay.value = idx;
     render();
+    if (typeof onDayChange === 'function') onDayChange();
+    if (typeof updateTodayBadge === 'function') updateTodayBadge();
     return true;
 }
 
@@ -1790,7 +1792,7 @@ function triggerAutoSave() {
 }
 function autoSave() {
     try {
-        saveDay();
+        saveDay({ silent: true });
         markSaved();
     } catch (e) { /* silent */ }
 }
@@ -2138,7 +2140,7 @@ function renderTemplatesPanel() {
     const tpls = loadAllTemplates();
     let html = '<div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">';
     html += '<input type="text" id="tplNameInput" placeholder="Nom du template" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:0.82rem">';
-    html += '<button class="btn sm accent2" onclick="var n=document.getElementById(\'tplNameInput\').value.trim();if(n)saveNamedTemplate(n);else.showToast(\'Entrez un nom\',\'warning\')">Sauvegarder current</button>';
+    html += '<button class="btn sm accent2" onclick="var n=document.getElementById(\'tplNameInput\').value.trim();if(n){saveNamedTemplate(n);}else{showToast(\'Entrez un nom\',\'warning\')}">Sauvegarder current</button>';
     html += '</div>';
     if (!tpls.length) {
         html += '<div style="color:var(--text-dim);text-align:center;padding:16px">Aucun template enregistre. Remplissez le formulaire puis sauvegardez.</div>';
@@ -2147,8 +2149,8 @@ function renderTemplatesPanel() {
             html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">';
             html += '<div><strong>' + esc(t.name) + '</strong> <span style="color:var(--text-dim);font-size:0.7rem">' + (t.shifts ? t.shifts.length : 0) + ' periode(s)</span></div>';
             html += '<div style="display:flex;gap:4px">';
-            html += '<button class="btn sm accent2" onclick="applyNamedTemplate(\'' + esc(t.name) + '\')">Appliquer</button>';
-            html += '<button class="btn sm danger" onclick="deleteNamedTemplate(\'' + esc(t.name) + '\')">X</button>';
+            html += '<button class="btn sm accent2" onclick="applyNamedTemplate(\'' + jsArg(t.name) + '\')">Appliquer</button>';
+            html += '<button class="btn sm danger" onclick="deleteNamedTemplate(\'' + jsArg(t.name) + '\')">X</button>';
             html += '</div></div>';
         });
     }
@@ -2334,26 +2336,29 @@ function runIntegrityCheck() {
     }
     keys.forEach(function(key) {
         try {
-            let entries = JSON.parse(localStorage.getItem(key));
+            const raw = localStorage.getItem(key);
+            let entries = JSON.parse(raw);
             if (!Array.isArray(entries)) return;
             const processed = [];
+            let keyChanged = false;
             entries.forEach(function(e) {
                 const migrated = migrateEntry(e);
-                if (!migrated) { issues++; return; }
+                if (!migrated) { processed.push(e); issues++; return; }
+                if (JSON.stringify(migrated) !== JSON.stringify(e)) { fixed++; keyChanged = true; }
                 const v = validateEntry(migrated);
                 if (!v.valid) { migrated._issues = v.issues; issues++; }
-                if (migrated._schemaVersion !== SCHEMA_VERSION) fixed++;
                 processed.push(migrated);
             });
+            const beforeLen = processed.length;
             deduplicateEntries(processed);
-            const deduped = processed.filter(Boolean);
-            roughRepairEntries(deduped);
-            if (deduped.length !== entries.length || processed.length !== entries.length) {
-                localStorage.setItem(key, JSON.stringify(deduped));
+            roughRepairEntries(processed);
+            if (processed.length !== beforeLen) keyChanged = true;
+            if (keyChanged || JSON.stringify(processed) !== JSON.stringify(entries)) {
+                localStorage.setItem(key, JSON.stringify(processed.filter(Boolean)));
             }
         } catch {}
     });
-    if (fixed > 0) showToast(fixed + ' entree(s) migree(s)', 'info');
+    if (fixed > 0) showToast(fixed + ' entree(s) corrigee(s)', 'info');
     renderDataIntegrityBadge(issues);
 }
 function renderDataIntegrityBadge(issues) {
@@ -2379,7 +2384,7 @@ function checkAutoBackup() {
     const today = formatDate(now);
     if (last === today) return;
     try {
-        const data = { version: 1, date: now.toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: uK('logo') ? localStorage.getItem(uK('logo')) || null : null, lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
+        const data = { version: 1, date: now.toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: uK('logo') ? localStorage.getItem(uK('logo')) || null : null, lieux: loadLieux(), favs: loadFavChantiers(), templates: loadAllTemplates(), weeks: {} };
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
             if (isCurrentUserWeekKey(k)) {
@@ -2868,7 +2873,7 @@ function getWeekDates() {
 }
 function timeToMinutes(t) { if (t === undefined || t === null || t === '') return NaN; const parts = String(t).split(':'); if (parts.length !== 2) return NaN; const h = parseInt(parts[0], 10); const m = parseInt(parts[1], 10); if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return NaN; return h * 60 + m; }
 function calcDiff(s, e) { const a = timeToMinutes(s); const b = timeToMinutes(e); if (isNaN(a) || isNaN(b)) return 0; let diff = b < a ? b + 1440 - a : b - a; return Math.max(0, diff); }
-function formatMinutes(m) { return Math.floor(m/60) + 'h' + String(m%60).padStart(2,'0'); }
+function formatMinutes(m) { if (typeof m !== 'number' || !isFinite(m)) return ''; return Math.floor(m/60) + 'h' + String(m%60).padStart(2,'0'); }
 function nowStr() {
     const n = new Date();
     return String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
@@ -2876,6 +2881,10 @@ function nowStr() {
 function esc(s) {
     if (!s) return '';
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function jsArg(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/[\r\n]+/g,' ').trim();
 }
 
 // --- Undo/Redo ---
@@ -3142,6 +3151,16 @@ function importBackup(e) {
                     saveFavChantiers(mergedFavs);
                 }
             }
+            if (data.templates) {
+                if (mode === '2') { saveAllTemplates(data.templates); }
+                else {
+                    const existingTpls = loadAllTemplates();
+                    const tplNames = new Set(existingTpls.map(t => t.name));
+                    const mergedTpls = existingTpls.slice();
+                    (data.templates || []).forEach(t => { if (!tplNames.has(t.name)) { mergedTpls.push(t); tplNames.add(t.name); } });
+                    saveAllTemplates(mergedTpls);
+                }
+            }
             learnFromEntries();
             render();
             logAudit('import_backup', mode === '1' ? 'fusion' : 'ecrasement');
@@ -3167,6 +3186,8 @@ async function usbConnect() {
         if (data.company) saveCompanyName(data.company);
         if (data.logo) { try { localStorage.setItem(uK('logo'), data.logo); } catch {} }
         if (data.lieux) { var el = loadLieux(); saveLieux([...new Set([...el, ...data.lieux])].sort()); }
+        if (data.favs) { var ef = loadFavChantiers(); const efk = new Set(ef.map(f => (f.num||'')+'|'+(f.lieu||''))); (data.favs||[]).forEach(f => { if (!efk.has((f.num||'')+'|'+(f.lieu||''))) { ef.push(f); efk.add((f.num||'')+'|'+(f.lieu||'')); } }); saveFavChantiers(ef); }
+        if (data.templates) { var et = loadAllTemplates(); const etn = new Set(et.map(t => t.name)); (data.templates||[]).forEach(t => { if (!etn.has(t.name)) { et.push(t); etn.add(t.name); } }); saveAllTemplates(et); }
         if (data.weeks) { Object.keys(data.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(data.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(data.weeks[k])); } catch {} } }); }
         render();
         showToast('Donnees USB chargees', 'success');
@@ -3175,7 +3196,7 @@ async function usbConnect() {
 async function usbSave() {
     if (!_usbFileHandle) { showToast('Connectez d\'abord un fichier USB', 'warning'); return; }
     try {
-        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), lieux: loadLieux(), favs: loadFavChantiers(), weeks: {} };
+        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), lieux: loadLieux(), favs: loadFavChantiers(), templates: loadAllTemplates(), weeks: {} };
         for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isCurrentUserWeekKey(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
         var writable = await _usbFileHandle.createWritable();
         await writable.write(JSON.stringify(data, null, 2));
@@ -3186,7 +3207,7 @@ async function usbSave() {
 async function usbAutoSave() {
     if (!_usbFileHandle) return;
     try {
-        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), weeks: {} };
+        var data = { version: 1, date: new Date().toISOString(), profile: loadProfile(), company: loadCompanyName(), logo: (function(){ var lk = uK('logo'); return lk ? localStorage.getItem(lk) || null : null; })(), lieux: loadLieux(), favs: loadFavChantiers(), templates: loadAllTemplates(), weeks: {} };
         for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (isCurrentUserWeekKey(k)) { try { data.weeks[k] = JSON.parse(localStorage.getItem(k)); } catch {} } }
         var writable = await _usbFileHandle.createWritable();
         await writable.write(JSON.stringify(data, null, 2));
@@ -3987,7 +4008,7 @@ function renderShifts() {
     document.getElementById('shiftCount').textContent = `(${pendingShifts.length})`;
 
     if (!pendingShifts.length) {
-        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Utilisez un modele en haut (Bureau 8h, Chantier...) pour tout remplir en 1 clic, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
+        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Utilisez un modele en haut (Bureau 8h30, Chantier...) pour tout remplir en 1 clic, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
         return;
     }
 
@@ -4390,7 +4411,7 @@ function saveDay(opts) {
     const savedTotal = formatMinutes((totalWork || 0) + (totalRoute || 0));
     showToast(dayName + ' enregistre (' + savedTotal + ')', 'success');
     markSaved();
-    localStorage.setItem(uK('lastSavedDay'), formatDate(dates[dayIdx]));
+    try { localStorage.setItem(uK('lastSavedDay'), formatDate(dates[dayIdx])); } catch {}
 }
 
 function recalcEntryTotals(entry) {
@@ -4531,7 +4552,9 @@ function resetWeek() {
     if (!confirm('Vider toutes les donnees ?')) return;
     logAudit('reset_week', formatDate(currentWeekStart));
     try { localStorage.removeItem(getStorageKey()); } catch {}
+    pendingShifts = [];
     render();
+    if (typeof onDayChange === 'function') onDayChange();
 }
 
 function csvSafe(v) {
@@ -4556,7 +4579,7 @@ function exportCSV() {
                 csv += [
                     e.date, dayName, company, e.nom, e.prenom, e.vehicule,
                     s.periode, s.deplacement === 'petit' ? 'Petit' : 'Grand', s.commentaire || '',
-                    s.departMaison, ci === 0 ? s.arriveeBureaux || '' : '', ci === 0 ? s.departBureaux || '' : '', ci === 0 ? formatMinutes(s.route) : '', s.arriveeMaison,
+                    s.departMaison, ci === 0 ? s.arriveeBureaux || '' : '', ci === 0 ? s.departBureaux || '' : '', ci === 0 ? formatMinutes(s.route || calcDiff(s.departMaison, s.arriveeMaison)) : '', s.arriveeMaison,
                     ci === 0 ? s.kmDepart : '', ci === 0 ? s.kmArrivee : '',
                     c.num, c.lieu, c.lieu2 || '', c.lieu3 || '', c.adresse || '', c.identification || '', c.priorite || '', c.desc, c.arriveeChantier || '', c.debut, c.fin, c.departChantier || '', formatMinutes(c.work), c.notes || ''
                 ].map(csvSafe).join(',') + '\n';
@@ -4603,6 +4626,7 @@ function fillSample() {
 
 // --- Day presets (one-click) ---
 function applyDayPreset(type, quick, autoSmart) {
+    if (!autoSmart && _isDirty && pendingShifts.length && !confirm('Perdre les donnees non enregistrees ?')) return;
     if (!autoSmart) pushUndo();
     pendingShifts = [];
     shiftIdCounter = 0;
@@ -4638,7 +4662,7 @@ function applyDayPreset(type, quick, autoSmart) {
             btn.classList.add(type === 'repos' ? 'repos-active' : 'active');
         }
     } catch(e) {}
-    if (quick) { saveDay({ silent: true }); return; }
+    if (quick && type === 'repos') { saveDay({ silent: true }); return; }
     showToast(type === 'repos' ? 'Jour de repos' : 'Preset applique !', 'info');
 }
 
@@ -5339,12 +5363,34 @@ function universalParse(text, et) {
 
     // Supprime un evenement "chantier 42" redondant quand le meme num est deja
     // porte par un deplacement (arrivee/depart chantier) de la phrase.
+    // Un evenement "chantier" sans numero qui SUIT un depart/arrivee chantier
+    // est lui aussi redondant ("depart chantier" = depart sur le chantier,
+    // pas d'ajout en plus).
+    for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e.kind !== 'chantier') continue;
+        const dup = events.some(x => x.kind === 'arrivee' && x.lieu === 'chantier' && x.num === e.num)
+                 || events.some(x => x.kind === 'depart' && x.lieu === 'chantier' && x.num === e.num)
+                 || (!e.num && events.some(x => (x.kind === 'arrivee' || x.kind === 'depart') && x.lieu === 'chantier'));
+        if (dup) events.splice(i, 1);
+    }
+
+    // Rattache un "chantier 42" suivant a un debut/fin sans numero qui le precede
+    // ("debut 8h au chantier 42" -> le debut s'applique au chantier 42,
+    // pas de doublon cree en plus).
     for (let i = events.length - 1; i >= 0; i--) {
         const e = events[i];
         if (e.kind !== 'chantier' || !e.num) continue;
-        const dup = events.some(x => x.kind === 'arrivee' && x.lieu === 'chantier' && x.num === e.num)
-                 || events.some(x => x.kind === 'depart' && x.lieu === 'chantier' && x.num === e.num);
-        if (dup) events.splice(i, 1);
+        const prevK = events.filter(x => (x.kind === 'debut' || x.kind === 'fin') && !x.num && x.seg < e.seg);
+        if (prevK.length) { const t = prevK[prevK.length - 1]; t.num = e.num; events.splice(i, 1); }
+    }
+
+    // Heure placee AVANT le premier verbe ("8h depart", "9h arrivee au
+    // chantier") : la decoupe par verbe la perdait. Si aucun evenement n'a
+    // trouve d'heure dans sa propre section, on rattache l'heure de tete.
+    const headTime = parts.length ? xTime(t.slice(0, parts[0].start)) : null;
+    if (headTime && events.length && events.every(e => !e.time)) {
+        events.forEach(e => { e.time = headTime; e.label = ((headTime + ' ' + (e.label || '')).trim()); });
     }
 
     // Heure seule accompagnée d'un chantier (ex "8h chantier 42"): on cree un
@@ -5398,7 +5444,12 @@ function universalApply(events) {
             handled = true;
             continue;
         }
-        if (!tarC && (f.kind === 'debut' || f.kind === 'fin' || f.kind === 'arrivee' && f.lieu === 'chantier')) {
+        if (f.num && ((f.kind === 'debut' || f.kind === 'fin') || ((f.kind === 'depart' || f.kind === 'arrivee') && f.lieu === 'chantier'))) {
+            let found = null;
+            if (cur.chantiers) { for (let ci = 0; ci < cur.chantiers.length; ci++) { if (String(cur.chantiers[ci].num || '').toUpperCase() === f.num) { found = cur.chantiers[ci]; break; } } }
+            if (found) { tarC = found; tarS = cur; }
+            else { addChantierToShift(cur.id, f.num); tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id); }
+        } else if (!tarC && (f.kind === 'debut' || f.kind === 'fin' || f.kind === 'arrivee' && f.lieu === 'chantier' || f.kind === 'depart' && f.lieu === 'chantier')) {
             addChantierToShift(cur.id, '');
             tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id);
         }
@@ -5451,12 +5502,50 @@ function applyCommand(cmd) {
     }
 
     // ==========================================
+    // SUPPRESSION EXPLICITE D'UN CHANTIER
+    // Traitee AVANT le moteur universel, sinon "supprime le chantier 42"
+    // se transformait en AJOUT de chantier.
+    // ==========================================
+    const isDeletion = /^(?:supprime[s]?|supprimer|efface|enleve|retire|retirer)\b/i.test(cmd);
+    if (isDeletion) {
+        const delRest = cmd.replace(/^(?:supprime[s]?|supprimer|efface|enleve|retire|retirer)\s*/, '').replace(/^(?:le\s+|la\s+|les\s+|nos\s+)/, '');
+        if (/\bchantiers?\b/.test(delRest) && !/\b(?:lieu|numero|num\b|n°\b|identif|desc|note|adresse|heure|temps|travail)\b/.test(delRest)) {
+            let _found = false;
+            const _numM = delRest.match(/([A-Za-z0-9][A-Za-z0-9\-\/]*)\s*$/i);
+            const _num = _numM ? _numM[1].toUpperCase() : '';
+            outerDel:
+            for (let di = pendingShifts.length - 1; di >= 0; di--) {
+                const dsh = pendingShifts[di];
+                for (let dj = dsh.chantiers.length - 1; dj >= 0; dj--) {
+                    const dc = dsh.chantiers[dj];
+                    if ((_num && String(dc.num || '').toUpperCase() === _num) || (!_num && di === pendingShifts.length - 1 && dj === dsh.chantiers.length - 1)) {
+                        dsh.chantiers.splice(dj, 1);
+                        if (!dsh.chantiers.length) pendingShifts.splice(di, 1);
+                        _found = true; break outerDel;
+                    }
+                }
+            }
+            if (_found) {
+                l = lastShift(); ch = getLastChantier(); s = ch ? findShiftOfChantier(ch.id) : null;
+                renderShifts(); updateCalcs();
+                setMicStatus('Chantier supprime', 'heard');
+                setTimeout(function(){ setMicStatus('',''); }, 2500);
+                return true;
+            }
+            setMicStatus(_num ? 'Aucun chantier ' + _num : 'Aucun chantier a supprimer', 'error');
+            setTimeout(function(){ setMicStatus('',''); }, 2500);
+            return true;
+        }
+    }
+
+    // ==========================================
     // MOTEUR UNIVERSEL DE COMPREHENSION
     // Analyse la phrase comme une suite d'EVENEMENTS (depart/arrivee/debut/fin/
     // chantier/lieu/numero...) puis distribue chacun au bon champ du bon shift,
     // dans l'ordre, en gerant reprises (x/8) et corrections.
     // ==========================================
-    if (!/^(?:semaine|aller)?\s*(?:prochaine|suivante|precedente)/.test(cmd)
+    if (!isDeletion
+        && !/^(?:semaine|aller)?\s*(?:prochaine|suivante|precedente)/.test(cmd)
         && !/ouvre|gabarit|modele|exporte|export\b|backup|sauvegarde|imprime|impression|imprimer|plein\s+ecran|raccourcis|guide\s+de\s+demarrage|vider\s+la\s+semaine|raccourci|reinitialise|feuille\s+de\s+temps|releve|recherche|historique|analytics|statistiques|tableau\s+de\s+bord|orchestrateur|projets?|dashboard/.test(cmd)) {
         const _univFacts = universalParse(cmd, extractTime);
         if (_univFacts && _univFacts.length) {
@@ -5557,6 +5646,7 @@ function applyCommand(cmd) {
         prenom: cmd.match(/^(?:mon\s+prenom(?:,\s*)?(?:est|,\s*)?|le\s+prenom(?:,\s*)?(?:est|,\s*)?)\s+(.+)$/i),
         vehicule: cmd.match(/^(?:mon\s+vehicule\s+est\s+une|ma\s+voiture\s+est\s+une|mon\s+vehicule\s+est|ma\s+voiture\s+est|je\s+roule\s+en|avec\s+mon\s+vehicule)\s+(.+)$/i)
     };
+    if (profMatch.nom && /^je\s+suis\s+/i.test(cmd) && /^(?:a|à|au|aux|en|dan?s|chez|sur|toujours|encore|deja|en\s*[- ]?\s*train|arrive[éc]?)\b/i.test(profMatch.nom[1])) profMatch.nom = null;
     if (profMatch.nom || profMatch.prenom || profMatch.vehicule) {
         const p = loadProfile() || {};
         let changed = false;
@@ -5770,13 +5860,13 @@ function applyCommand(cmd) {
                 const f = fracTxt[1];
                 if (f === 'quart') mn = 15;
                 else if (f === 'demie' || f === 'demi' || f === 'trente') mn = 30;
-                else if (f === 'moins le quart') { mn = 45; if (m[1] === '12') { h = 11; } }
+                else if (f === 'moins le quart') { mn = 45; h = h - 1 < 0 ? 23 : h - 1; }
                 else if (/^moins\s+/.test(f)) { const mm = {dix:10,cinq:5,vingt:20}[String(fracTxt[2]||'0').toLowerCase()]; mn = (60 - (mm || parseInt(fracTxt[2]||'0')||0)); h = h - 1 < 0 ? h : h - 1; if (h < 0) h = 23; }
             }
             if (pm && h < 12) h += 12;
             if(h>=0&&h<=23&&mn>=0&&mn<=59) return String(h).padStart(2,'0')+':'+String(mn).padStart(2,'0');
         }
-        const FR={un:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50};
+        const FR={un:1,une:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50};
         const hK=Object.keys(FR).filter(k=>FR[k]<=23).join('|');
         const mK=Object.keys(FR).filter(k=>FR[k]<=59).join('|');
         m=text.match(new RegExp('('+hK+')\\s*(?:heures?|h)\\s*('+mK+')?','i'));
@@ -5794,7 +5884,7 @@ function applyCommand(cmd) {
     }
 
     function extractTwoTimes(text) {
-        const sep = text.match(/(.+?)\s*[-a]\s*(.+)/);
+        const sep = text.match(/(.+?)\s*[-aà]\s*(.+)/);
         if (sep) {
             const t1 = extractTime(sep[1]);
             const t2 = extractTime(sep[2]);
@@ -6134,6 +6224,7 @@ function render() {
                 toggleBulkDay(idx, ev);
                 return;
             }
+            if (idx !== parseInt(document.getElementById('fDay').value) && _isDirty && !confirm('Perdre les donnees non enregistrees ?')) return;
             _bulkSelectedDays.clear();
             renderBulkToolbar();
             selectedDayIdx = idx;
@@ -6268,7 +6359,7 @@ function render() {
         tbody.appendChild(tr);
     }
 
-    document.getElementById('totalHours').textContent = formatMinutes(totalWork);
+    document.getElementById('totalHours').textContent = formatMinutes(totalWork + totalRoute);
     document.getElementById('workHours').textContent = formatMinutes(totalWork);
     document.getElementById('routeHours').textContent = formatMinutes(totalRoute);
     document.getElementById('totalKm').textContent = totalKm;
@@ -6539,7 +6630,7 @@ function renderIntelligencePanel() {
             html += '<span><strong>' + esc(c.num) + '</strong> <span style="color:var(--text-dim);font-size:0.6rem">' + esc(c.lieu || '') + '</span></span>';
             html += '<div style="display:flex;gap:4px;align-items:center">';
             html += '<span style="font-size:0.58rem;color:var(--accent3)">' + jours + '</span>';
-            html += '<button class="btn sm" onclick="quickAddFavChantier(\'' + esc(c.num) + '\')" style="font-size:0.58rem;padding:1px 5px">+</button>';
+            html += '<button class="btn sm" onclick="quickAddFavChantier(\'' + jsArg(c.num) + '\')" style="font-size:0.58rem;padding:1px 5px">+</button>';
             html += '</div></div>';
         });
         html += '</div>';
@@ -6713,16 +6804,20 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'k') { e.preventDefault(); openDatePickerModal(); return; }
         if (e.key === 'z') { e.preventDefault(); undo(); return; }
         if (e.key === 'y') { e.preventDefault(); redo(); return; }
-        if (e.key === '1') { e.preventDefault(); applyDayPreset('bureau'); return; }
-        if (e.key === '2') { e.preventDefault(); applyDayPreset('chantier'); return; }
-        if (e.key === '3') { e.preventDefault(); applyDayPreset('long'); return; }
-        if (e.key === '4') { e.preventDefault(); applyDayPreset('demijour'); return; }
+        if (!inInput && e.key === '1') { e.preventDefault(); applyDayPreset('bureau'); return; }
+        if (!inInput && e.key === '2') { e.preventDefault(); applyDayPreset('chantier'); return; }
+        if (!inInput && e.key === '3') { e.preventDefault(); applyDayPreset('long'); return; }
+        if (!inInput && e.key === '4') { e.preventDefault(); applyDayPreset('demijour'); return; }
     }
     if (e.key === 'Escape') {
         const modalOverlay = document.getElementById('modalOverlay');
         if (modalOverlay && modalOverlay.style.display === 'flex') { modalOverlay.style.display = 'none'; return; }
         const modal = document.getElementById('shortcutsModal');
         if (modal && modal.style.display === 'flex') { modal.style.display = 'none'; return; }
+        const helpModal = document.getElementById('helpModal');
+        if (helpModal && helpModal.style.display === 'flex') { helpModal.style.display = 'none'; return; }
+        const frModal = document.getElementById('firstRunModal');
+        if (frModal && frModal.style.display === 'flex') { closeFirstRun(); return; }
         const fabMenu = document.getElementById('fabMenu');
         if (fabMenu && fabMenu.classList.contains('show')) { toggleFabMenu(); return; }
     }
@@ -6838,6 +6933,11 @@ function toggleMainMenu(e) {
     content.innerHTML = renderMainMenu();
     const box = document.getElementById('ddFilter');
     if (box) { box.value = ''; box.focus(); }
+}
+
+function hideMainMenu() {
+    const content = document.getElementById('mainMenuContent');
+    if (content) content.style.display = 'none';
 }
 
 // --- Recap by chantier ---
@@ -7774,7 +7874,7 @@ function showProjectTracker() {
     projList.forEach(p => {
         const prioBadge = p.priorite ? '<span style="font-size:0.55rem;padding:1px 4px;border-radius:3px;margin-left:3px;' + (p.priorite === 'urgent' ? 'background:rgba(255,70,70,0.15);color:#ff6b6b' : p.priorite === 'flexible' ? 'background:rgba(70,200,120,0.15);color:#46c878' : 'background:rgba(108,122,255,0.1);color:var(--accent)') + '">' + esc(p.priorite) + '</span>' : '';
         html += '<tr style="border-bottom:1px solid var(--border)" class="project-tracker-row">';
-        html += '<td style="padding:6px 8px;font-weight:600"><span style="cursor:pointer;color:var(--accent)" onclick="showProjectDetail(\'' + esc(p.num) + '\')">' + esc(p.num) + '</span>' + prioBadge + '</td>';
+        html += '<td style="padding:6px 8px;font-weight:600"><span style="cursor:pointer;color:var(--accent)" onclick="showProjectDetail(\'' + jsArg(p.num) + '\')">' + esc(p.num) + '</span>' + prioBadge + '</td>';
         html += '<td style="padding:6px 8px;color:var(--text-dim)">' + esc(p.lieu) + '</td>';
         html += '<td style="padding:6px 8px;color:var(--accent3)">' + (esc(p.identification) || '?') + '</td>';
         allWeeks.forEach(ws => {
@@ -8083,7 +8183,7 @@ function renderOrchestrator() {
     if (isReposToday) html += '<div style="color:var(--accent2);font-weight:600">Jour de repos enregistre</div>';
     else if (todayWork === 0) {
         html += '<div>Aucune saisie pour aujourd\'hui.</div>';
-        html += '<button class="btn sm primary" onclick="goNext(0);scrollPanelIntoView(\'mainFormPanel\')" style="margin-top:6px">Saisir maintenant</button>';
+        html += '<button class="btn sm primary" onclick="goToToday();scrollPanelIntoView(\'mainFormPanel\')" style="margin-top:6px">Saisir maintenant</button>';
         html += ' <button class="btn sm" onclick="applyDayPreset(\'repos\',true)">Marquer repos</button>';
     } else {
         html += '<div>Objectif journalier : <strong style="color:var(--accent2)">' + dailyTarget + 'h</strong></div>';
@@ -8096,7 +8196,7 @@ function renderOrchestrator() {
     html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
     html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent3);margin-bottom:10px">Actions rapides</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    html += orchBtn("applyDayPreset('bureau',true)", 'Bureau 8h', 'var(--accent)');
+    html += orchBtn("applyDayPreset('bureau',true)", 'Bureau 8h30', 'var(--accent)');
     html += orchBtn("applyDayPreset('chantier',true)", 'Chantier', 'var(--accent2)');
     html += orchBtn("applyDayPreset('long',true)", 'Long 11h', 'var(--accent3)');
     html += orchBtn("applyDayPreset('repos',true)", 'Repos', 'var(--red)');
@@ -9078,7 +9178,7 @@ if (_startupUsers.length === 0) {
 </div>
 
 <!-- Help Modal -->
-<div id="helpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+<div id="helpModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:612;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:620px;width:100%;max-height:85vh;overflow-y:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
             <h3 style="font-size:1rem;color:var(--accent)">Guide de demarrage</h3>
@@ -9153,7 +9253,7 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
                 <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),#2fbfa0);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</div>
-                <div><strong style="color:var(--accent2)">Remplissez vos horaires</strong><br>1 clic sur un modele (<b>Bureau 8h</b>, <b>Chantier</b>, <b>Repos</b>) remplit et enregistre. Ou ajoutez une periode (<b>+ Matin</b>) et vos chantiers favoris.</div>
+                <div><strong style="color:var(--accent2)">Remplissez vos horaires</strong><br>1 clic sur un modele (<b>Bureau 8h30</b>, <b>Chantier</b>, <b>Repos</b>) remplit le formulaire, puis <b>Enregistrer</b> (ou la sauvegarde auto). Ou ajoutez une periode (<b>+ Matin</b>) et vos chantiers favoris.</div>
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
                 <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent3),#f06a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</div>
