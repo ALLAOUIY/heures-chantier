@@ -122,7 +122,6 @@
         }
         .dropdown-content .dd-item:hover { background: var(--surface2); }
         .dropdown-content .dd-item.danger { color: var(--red); }
-        .dropdown-content .dd-item { display: block; width: 100%; font-size: 0.78rem; text-align: left; }
         .dropdown-content .dd-sep { height: 1px; background: var(--border); margin: 4px 6px; }
         .dd-search { padding: 2px 4px 8px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
         .dd-search input {
@@ -224,6 +223,10 @@
         .day-tab.weekend:hover { color: #f7b500; }
         .entry-hint { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 0.65rem; color: var(--text-dim); background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; margin-bottom: 8px; }
         .entry-hint b { color: var(--accent2); }
+        .quick-io-card { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(160deg, rgba(108,122,255,0.05), rgba(78,205,196,0.03)); padding: 10px 12px; }
+        .quick-io-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .quick-io-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent); }
+        .quick-io-label { font-size: 0.62rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
         @media (max-width: 600px) { .day-tab { font-size: 0.62rem; padding: 5px 2px; } .entry-hint { display: none; } }
         .sticky-save { position: sticky; bottom: 0; z-index: 50; background: linear-gradient(to top, var(--bg) 70%, transparent); padding: 16px 0 6px 0; margin-top: -4px; }
         .save-indicator {
@@ -1367,12 +1370,11 @@
             </div>
             <div style="font-size:0.68rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px">Reprendre une journee deja saisie</div>
             <div class="preset-bar">
-                <button class="preset-btn" onclick="fillFromLastSameDay()" title="Reprendre le meme jour de la semaine precedente">Copier sem. prec.</button>
+                <button class="preset-btn" onclick="fillFromLastSameDay()" title="Copier les horaires et chantiers du meme jour, il y a 1 a 4 semaines">Copier sem. prec.</button>
                 <button class="preset-btn" onclick="fillFromYesterday()" title="Reprendre toutes les donnees d hier (horaires + chantiers)">Reprendre hier</button>
-                <button class="preset-btn" onclick="repeatYesterday()" title="Copier la journee precedente">Copier hier</button>
             </div>
             <!-- Day Tabs -->
-            <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Entrez vos horaires, ou <b>1 clic</b> sur Bureau / Chantier / Repos (enregistre)</span><span><b>3.</b> Enregistrer</span></div>
+            <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Posez un modele (Bureau / Chantier / Repos) ou entrez vos horaires</span><span><b>3.</b> Cliquez sur Enregistrer &mdash; rien n'est enregistre avant</span></div>
             <div class="day-tabs" id="dayTabs"></div>
             <datalist id="datalistLieux"></datalist>
             <datalist id="datalistChantiers"></datalist>
@@ -1538,8 +1540,12 @@
                 <button class="btn sm accent3" onclick="applyTimerToField(document.getElementById('timerTarget').value)">Appliquer</button>
             </div>
             <!-- Voice / quick input -->
-            <div style="margin-top:10px" id="quickInputZone">
-                <div style="font-size:0.68rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;gap:10px;align-items:center">Remplissage rapide <button class="btn sm" onclick="toggleNlLegend()" title="Afficher / masquer la liste des commandes">Aide commandes</button></div>
+            <div class="quick-io-card" id="quickInputZone">
+                <div class="quick-io-head">
+                    <span class="quick-io-title">Saisie rapide, vocale &amp; clavier</span>
+                    <button class="btn sm" onclick="toggleNlLegend()" title="Afficher / masquer la liste des commandes">Aide commandes</button>
+                </div>
+                <div class="quick-io-label" id="quickGridLabel">Evenements en 1 clic &mdash; touches 1 a 8</div>
                 <div class="quick-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px" id="quickGrid">
                     <button class="btn sm" onclick="quickAction('depart_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">1</span>Départ</button>
                     <button class="btn sm" onclick="quickAction('arrivee_bureaux')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">2</span>Arrivée bureaux</button>
@@ -1550,12 +1556,14 @@
                     <button class="btn sm" onclick="quickAction('depart_chantier')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">7</span>Départ chantier</button>
                     <button class="btn sm" onclick="quickAction('arrivee_maison')" style="font-size:0.68rem"><span style="opacity:0.5;margin-right:2px">8</span>Arrivée maison</button>
                 </div>
+                <div class="quick-io-label" id="shiftActionsLabel">Outils de la derniere periode</div>
                 <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap" id="shiftActionsZone">
                     <button class="btn sm accent3" onclick="if(lastShift()){addChantierToShift(lastShift().id);renderShifts();updateCalcs();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">+ Chantier</button>
                     <button class="btn sm accent3" onclick="if(lastShift()){addChantierToShift(lastShift().id,'Bureaux');renderShifts();updateCalcs();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">+ Bureaux</button>
                     <button class="btn sm" onclick="if(lastShift()){setShiftField(lastShift().id,'deplacement','petit');renderShifts();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">Petit</button>
                     <button class="btn sm" onclick="if(lastShift()){setShiftField(lastShift().id,'deplacement','grand');renderShifts();}else{setMicStatus('Ajoutez d\'abord une periode','error');setTimeout(()=>setMicStatus('',''),3000);}">Grand</button>
                 </div>
+                <div class="quick-io-label">Ou dictez / tapez une phrase complete</div>
                 <div style="display:flex;gap:6px;align-items:center">
                     <input type="text" id="micInput" placeholder="Parlez ou tapez: 8h30, depart maison, lieu Paris, num 42... " 
                         style="flex:1;font-size:0.9rem;padding:10px 12px;border:2px solid var(--accent)"
@@ -4981,7 +4989,7 @@ function setFormView(mode) {
     } else {
         sections.forEach(s => s.classList.remove('collapsed-optional'));
     }
-    const adv = ['quickGrid', 'timerZone', 'shiftActionsZone', 'shiftsToolbar', 'exempleBtn'];
+    const adv = ['quickGrid', 'quickGridLabel', 'shiftActionsZone', 'shiftActionsLabel', 'timerZone', 'shiftsToolbar', 'exempleBtn'];
     adv.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = mode === 'simple' ? 'none' : '';
