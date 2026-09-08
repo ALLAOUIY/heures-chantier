@@ -227,6 +227,8 @@
         .quick-io-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
         .quick-io-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--accent); }
         .quick-io-label { font-size: 0.62rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+        .smart-suggest { display: none; flex-wrap: wrap; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); padding: 6px 10px; margin-bottom: 8px; font-size: 0.7rem; }
+        .smart-suggest .tag { color: var(--accent2); font-weight: 600; }
         @media (max-width: 600px) { .day-tab { font-size: 0.62rem; padding: 5px 2px; } .entry-hint { display: none; } }
         .sticky-save { position: sticky; bottom: 0; z-index: 50; background: linear-gradient(to top, var(--bg) 70%, transparent); padding: 16px 0 6px 0; margin-top: -4px; }
         .save-indicator {
@@ -1353,6 +1355,7 @@
             <span style="font-size:0.72rem;color:var(--text-dim);font-weight:400" id="formDate"></span>
             <span id="liveClock" style="font-size:0.82rem;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;margin-left:6px"></span>
             <span id="todayBadge" style="display:none;font-size:0.6rem;padding:2px 7px;background:rgba(70,200,120,0.15);color:#46c878;border-radius:4px;font-weight:600;margin-left:6px"></span>
+            <button class="btn accent3" onclick="smartAction()" title="Action intelligente : decide toute seule le meilleur geste (enregistrer un brouillon, remplir la journee type, ou afficher le resultat du jour) puis affiche Zones, Entrees, References et Recherche">&#10022; Intelligent</button>
             <div class="view-toggle">
                 <button class="btn active" id="viewSimple" onclick="setFormView('simple')" title="Vue simplifiee">Simple</button>
                 <button class="btn" id="viewFull" onclick="setFormView('full')" title="Vue complete">Tout</button>
@@ -1376,6 +1379,8 @@
             <!-- Day Tabs -->
             <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Posez un modele (Bureau / Chantier / Repos) ou entrez vos horaires</span><span><b>3.</b> Cliquez sur Enregistrer &mdash; rien n'est enregistre avant</span></div>
             <div class="day-tabs" id="dayTabs"></div>
+            <div class="smart-suggest" id="smartSuggestZone"></div>
+            <div style="display:none;font-size:0.62rem;color:var(--text-dim);text-align:right;margin:-2px 0 6px" id="weekProgress"></div>
             <datalist id="datalistLieux"></datalist>
             <datalist id="datalistChantiers"></datalist>
             <!-- Identity -->
@@ -1506,8 +1511,12 @@
                 </div>
             </div>
 
+            <div id="smartResultZone" style="display:none;margin-top:12px"></div>
+
             <div style="display:flex;gap:10px;margin-top:14px">
-                <button class="btn primary" style="flex:1;justify-content:center" onclick="saveDay()" id="mainSaveBtn">Enregistrer la journee</button>
+                <button class="btn primary" style="flex:1.4;justify-content:center" onclick="saveDay()" id="mainSaveBtn">Enregistrer la journee</button>
+                <button class="btn accent2" style="flex:1;justify-content:center" onclick="saveDayAndNext()" title="Enregistrer et passer directement a la prochaine journee vide (Ctrl+Shift+S)">Enregistrer &amp; suivant</button>
+                <button class="btn accent3" style="flex:1;justify-content:center" onclick="quickCompleteDay()" title="Journee typique du jour en 1 clic : suggestions apprises (horaires + chantier habituel), enregistre et passe au jour suivant (Ctrl+Shift+Entree)">Completer &amp; suivant</button>
                 <button class="btn" onclick="fillSample()" id="exempleBtn">Exemple</button>
             </div>
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center" id="shiftsToolbar">
@@ -1539,6 +1548,9 @@
                 </select>
                 <button class="btn sm accent3" onclick="applyTimerToField(document.getElementById('timerTarget').value)">Appliquer</button>
             </div>
+            <!-- Orchestrateur universel : barre d'actions contextuelle en continu -->
+            <div id="orchActionBar" style="display:none;margin-bottom:10px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(135deg,rgba(123,140,255,0.06),rgba(63,224,192,0.04));padding:8px 12px;align-items:center;gap:10px;flex-wrap:wrap"></div>
+
             <!-- Voice / quick input -->
             <div class="quick-io-card" id="quickInputZone">
                 <div class="quick-io-head">
@@ -1565,7 +1577,7 @@
                 </div>
                 <div class="quick-io-label">Ou dictez / tapez une phrase complete</div>
                 <div style="display:flex;gap:6px;align-items:center">
-                    <input type="text" id="micInput" placeholder="Parlez ou tapez: 8h30, depart maison, lieu Paris, num 42... " 
+                    <input type="text" id="micInput" placeholder="Parlez ou tapez: 8h30, depart maison, zone Lyon, le matin, num 42... " 
                         style="flex:1;font-size:0.9rem;padding:10px 12px;border:2px solid var(--accent)"
                         onkeydown="if(event.key==='Enter'){parseMicInput();event.preventDefault();}"
                         onpaste="handleMicPaste(event)">
@@ -1575,7 +1587,8 @@
                 <div class="mic-status" id="voiceStatus" style="display:none"></div>
                 <div class="mic-status" id="micStatus"></div>
                 <div style="font-size:0.6rem;color:var(--text-dim);text-align:center;margin-top:6px;line-height:1.8;display:none" id="nlLegend">
-                    <strong>Periode :</strong> matin, aprem, nuit  
+                    <strong>Periode :</strong> matin, aprem, nuit, l'apres-midi  
+                    <strong>Zone/Lieu :</strong> zone Lyon, a Paris, sur Villeurbanne, quartier X  
                     <strong>Depart :</strong> pars, depart, depart maison  
                     <strong>Arrivee :</strong> arrive, j'arrive, arrivee chantier/bureau/maison, retour  
                     <strong>Travail :</strong> commence, debut, fini, arrete, ferme, pause, fin  
@@ -1588,11 +1601,13 @@
                     <strong>Supprimer :</strong> supprime chantier/lieu/heure/note  
                     <strong>Systeme :</strong> semaine prochaine/precedente, ouvre la vue/historique/projets, exporte excel/csv, backup, imprime, modele bureau/chantier, plein ecran, guide
                 </div>
-                <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
-                    <strong>Vocale :</strong> le micro comprend de longues phrases ("je pars a 7h30, j'arrive au chantier a 8h a Lyon, puis je termine a 17h"), se corrige ("non attends, c'est 8h", "je me suis trompe, debut 9h", "corrige depart maison a 6h45"), s'adapte aux formulations, et pilote tout le systeme ("ouvre la vue", "exporte excel", "semaine prochaine", "modele bureau").
+                <div id="nlNotes" style="display:none">
+                    <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
+                        <strong>Vocale :</strong> le micro comprend de longues phrases ("je pars a 7h30, j'arrive au chantier a 8h a Lyon, puis je termine a 17h"), se corrige ("non attends, c'est 8h", "je me suis trompe, debut 9h", "corrige depart maison a 6h45"), s'adapte aux formulations, et pilote tout le systeme ("ouvre la vue", "exporte excel", "semaine prochaine", "modele bureau").
+                    </div>
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;margin-top:4px;line-height:1.8;opacity:0.7">
-                    <strong>Clavier :</strong> 1-8 rapide  C=chantier  B=bureaux  T=timer  R=repeter  ?=aide  
+                    <strong>Clavier :</strong> 1-8 rapide  C=chantier  B=bureaux  T=timer  R=repeter  ?=aide  F8=voix  F9=Intelligent  Ctrl+5=repos  Ctrl+Shift+S=Enregistrer &amp; suivant  Ctrl+Shift+Entree=Completer &amp; suivant  
                     Ctrl+S=enregistrer  Ctrl+N=matin  Ctrl+E=Excel  Ctrl+Z=annuler  Ctrl+Y=refaire
                 </div>
             <div class="sticky-save" id="stickySave">
@@ -2047,6 +2062,8 @@ function bulkDelete() {
     let entries = loadEntries();
     _bulkSelectedDays.forEach(function(idx) {
         const targetDate = formatDate(dates[idx]);
+        const victim = entries.find(function(e) { return e.date === targetDate; });
+        if (victim) pushTrash(victim);
         entries = entries.filter(function(e) { return e.date !== targetDate; });
     });
     saveEntries(entries);
@@ -4326,11 +4343,11 @@ function saveDay(opts) {
             if (pendingShifts.length === 0) isRepos = true;
         } else {
             for (const s of pendingShifts) {
-                if (!s.chantiers.length) { alert('Chaque periode doit avoir au moins un chantier.'); return; }
+                if (!s.chantiers.length) { alert('Chaque periode doit avoir au moins un chantier.'); return false; }
                 const warnings = validateTimeSequence(s);
                 if (warnings.length) {
                     const proceed = confirm('Attention - incoherences detectees :\n\n' + warnings.join('\n') + '\n\nEnregistrer quand meme ?');
-                    if (!proceed) return;
+                    if (!proceed) return false;
                 }
             }
         }
@@ -4338,10 +4355,10 @@ function saveDay(opts) {
 
     const now = new Date();
     const todayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
-    if (!silent && dayIdx !== todayIdx) {
+    if (!silent && !(opts && opts.skipDayConfirm) && dayIdx !== todayIdx) {
         const targetDay = DAY_NAMES[dayIdx];
         const msg = isRepos ? 'Marquer ' + targetDay + ' comme jour de repos ?' : 'Attention : vous enregistrez pour ' + targetDay + ' mais aujourd\'hui c\'est ' + DAY_NAMES[todayIdx] + '.\n\nVoulez-vous quand meme enregistrer pour ' + targetDay + ' ?';
-        if (!confirm(msg)) return;
+        if (!confirm(msg)) return false;
     }
 
     const nom = document.getElementById('fNom').value.trim();
@@ -4399,7 +4416,7 @@ function saveDay(opts) {
 
     deduplicateEntries(entries);
     const savedOk = saveEntries(entries);
-    if (savedOk === false) { showToast('Journee NON enregistree (stockage plein), saisie conservee', 'error'); return; }
+    if (savedOk === false) { showToast('Journee NON enregistree (stockage plein), saisie conservee', 'error'); return false; }
     const existingProfile = loadProfile();
     saveProfile({ ...existingProfile, nom, prenom, vehicule, lieuDefault: getCurrentLieu() });
 
@@ -4420,6 +4437,221 @@ function saveDay(opts) {
     showToast(dayName + ' enregistre (' + savedTotal + ')', 'success');
     markSaved();
     try { localStorage.setItem(uK('lastSavedDay'), formatDate(dates[dayIdx])); } catch {}
+    return true;
+}
+
+// Enregistre la journee puis enchaîne directement sur la prochaine journee vide :
+// un clic pour completer toute la semaine, sans repasser par les onglets.
+function saveDayAndNext() {
+    if (saveDay({ skipDayConfirm: true }) === false) return;
+    const next = getNextEmptyDayDate();
+    if (!next) { showToast('Toutes les journees a venir sont deja remplies', 'info'); return; }
+    goToDate(next);
+    showToast('Enregistre - jour suivant pret', 'success');
+    const mi = document.getElementById('micInput');
+    if (mi) try { mi.focus(); } catch {}
+}
+function getNextEmptyDayDate() {
+    const dates = getWeekDates();
+    const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
+    const entries = loadEntries();
+    const filled = new Set();
+    entries.forEach(function(e) { if (e && e.date) filled.add(e.date); });
+    for (let i = 1; i <= 90; i++) {
+        const t = new Date(dates[dayIdx]);
+        t.setDate(t.getDate() + i);
+        if (!filled.has(formatDate(t))) return t;
+    }
+    return null;
+}
+
+// Journee typique en 1 clic : horaires deplacement + chantier habituel du jour
+// (appris de l'historique), puis Enregistrer et passage au jour suivant vide.
+function quickCompleteDay() {
+    const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
+    const dayKey = ['lun','mar','mer','jeu','ven','sam','dim'][dayIdx];
+    const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
+    const topCh = getTopChantiers(12).filter(function(c) { return c.jours && c.jours[dayKey]; })[0] || null;
+    if (!smartTimes && !topCh) { showToast('Pas encore de suggestions pour ce jour', 'warning'); return; }
+    pushUndo();
+    if (!pendingShifts.length) addShift('matin');
+    const l = lastShift();
+    if (!l) return;
+    if (smartTimes) {
+        if (smartTimes.departMaison && !l.departMaison) setShiftField(l.id, 'departMaison', smartTimes.departMaison);
+        if (smartTimes.arriveeBureaux && !l.arriveeBureaux) setShiftField(l.id, 'arriveeBureaux', smartTimes.arriveeBureaux);
+        if (smartTimes.departBureaux && !l.departBureaux) setShiftField(l.id, 'departBureaux', smartTimes.departBureaux);
+        if (smartTimes.arriveeMaison && !l.arriveeMaison) setShiftField(l.id, 'arriveeMaison', smartTimes.arriveeMaison);
+    }
+    const hasChantier = l.chantiers.some(function(c) { return c.num || c.lieu || c.debut || c.fin; });
+    if (topCh && !hasChantier) {
+        addChantierToShift(l.id);
+        const nc = getLastChantier();
+        if (nc) {
+            setChantierField(l.id, nc.id, 'num', topCh.num);
+            const st = getSmartChantierTimes(topCh.num);
+            if (st && st.debut) setChantierField(l.id, nc.id, 'debut', st.debut);
+            if (st && st.fin) setChantierField(l.id, nc.id, 'fin', st.fin);
+        }
+    }
+    renderShifts();
+    updateCalcs();
+    if (!l.chantiers.some(function(c) { return c.num || c.debut || c.fin; })) { showToast('Rien a completer automatiquement pour ce jour', 'warning'); return; }
+    if (saveDay({ skipDayConfirm: true }) === false) return;
+    const next = getNextEmptyDayDate();
+    if (!next) { showToast('Toutes les journees a venir sont deja remplies', 'info'); return; }
+    goToDate(next);
+    showToast('Journee type enregistree - jour suivant pret', 'success');
+    const mi = document.getElementById('micInput');
+    if (mi) try { mi.focus(); } catch {}
+}
+
+// == BOUTON INTELLIGENT (100% automatique) ==
+// Decide du meilleur geste selon le contexte, puis affiche le resultat du jour :
+// Zones, Entrees, References et Recherche.
+function smartAction() {
+    const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
+    if (_isDirty && pendingShifts.length) {
+        if (confirm('Enregistrer la saisie en cours pour ' + DAY_NAMES[dayIdx] + ' ?')) {
+            saveDay({ skipDayConfirm: true });
+            showDayResult(dayIdx, false);
+        }
+        return;
+    }
+    const dayKey = ['lun','mar','mer','jeu','ven','sam','dim'][dayIdx];
+    const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
+    const topCh = getTopChantiers(12).filter(function(c) { return c.jours && c.jours[dayKey]; })[0] || null;
+    const dayEmpty = !pendingShifts.length || pendingShifts.every(function(s) { return !s.chantiers.some(function(c) { return c.num || c.lieu || c.debut || c.fin; }); });
+    if (dayEmpty && (smartTimes || topCh)) {
+        pushUndo();
+        if (!pendingShifts.length) addShift('matin');
+        const l = lastShift();
+        if (l) {
+            if (smartTimes) {
+                if (smartTimes.departMaison && !l.departMaison) setShiftField(l.id, 'departMaison', smartTimes.departMaison);
+                if (smartTimes.arriveeBureaux && !l.arriveeBureaux) setShiftField(l.id, 'arriveeBureaux', smartTimes.arriveeBureaux);
+                if (smartTimes.departBureaux && !l.departBureaux) setShiftField(l.id, 'departBureaux', smartTimes.departBureaux);
+                if (smartTimes.arriveeMaison && !l.arriveeMaison) setShiftField(l.id, 'arriveeMaison', smartTimes.arriveeMaison);
+            }
+            if (topCh && !l.chantiers.some(function(c) { return c.num || c.lieu || c.debut || c.fin; })) {
+                addChantierToShift(l.id);
+                const nc = getLastChantier();
+                if (nc) {
+                    setChantierField(l.id, nc.id, 'num', topCh.num);
+                    const st = getSmartChantierTimes(topCh.num);
+                    if (st && st.debut) setChantierField(l.id, nc.id, 'debut', st.debut);
+                    if (st && st.fin) setChantierField(l.id, nc.id, 'fin', st.fin);
+                }
+            }
+        }
+        renderShifts();
+        updateCalcs();
+        showDayResult(dayIdx, true);
+        scrollSmartResult();
+        return;
+    }
+    showDayResult(dayIdx, false);
+    scrollSmartResult();
+}
+function scrollSmartResult() {
+    const el = document.getElementById('smartResultZone');
+    if (el) try { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch {}
+}
+function showDayResult(dayIdx, justFilled) {
+    const zone = document.getElementById('smartResultZone');
+    if (!zone) return;
+    const dates = getWeekDates();
+    const dateStr = formatDate(dates[dayIdx]);
+    const entries = loadEntries();
+    const entry = entries.find(function(e) { return e.date === dateStr; }) || null;
+    const saved = !!entry;
+    const shifts = entry ? (entry.shifts || []) : pendingShifts;
+    const zones = [];
+    const refs = [];
+    const entrees = [];
+    (shifts || []).forEach(function(s) {
+        const pe = { label: 'Periode ' + (s.periode || 'matin'), dep: s.departMaison || '', arrB: s.arriveeBureaux || '', depB: s.departBureaux || '', arrM: s.arriveeMaison || '' };
+        if (pe.dep || pe.arrB || pe.depB || pe.arrM) entrees.push(pe);
+        (s.chantiers || []).forEach(function(c) {
+            if (c.lieu) if (zones.indexOf(c.lieu) === -1) zones.push(c.lieu);
+            if (c.num || c.identification) {
+                const r = { num: c.num || '', id: c.identification || '' };
+                if (!refs.some(function(x) { return x.num === r.num && x.id === r.id; })) refs.push(r);
+            }
+            if (c.arriveeChantier || c.debut || c.fin || c.departChantier) {
+                entrees.push({ label: (c.num || 'Chantier'), arrC: c.arriveeChantier || '', d1: c.debut || '', f1: c.fin || '', depC: c.departChantier || '' });
+            }
+        });
+    });
+    let tWork = 0;
+    let tRoute = 0;
+    if (entry) { tWork = entry.totalWork || 0; tRoute = entry.totalRoute || 0; }
+    else {
+        (shifts || []).forEach(function(s) {
+            tWork += (s.chantiers || []).reduce(function(a, c) { return a + calcDiff(c.debut, c.fin); }, 0);
+            tRoute += calcDiff(s.departMaison, s.arriveeMaison) || 0;
+        });
+    }
+    const km = entry ? (entry.totalKm || entry.km || 0) : 0;
+    const isToday = dateStr === formatDate(new Date());
+    let html = '';
+    html += '<div style="border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:linear-gradient(135deg,rgba(108,122,255,0.12),transparent);border-bottom:1px solid var(--border)">';
+    html += '<div style="font-weight:700;color:var(--accent);font-size:0.8rem">Resultat ' + DAY_NAMES[dayIdx] + ' ' + fmtDateFR(dateStr) + (isToday ? ' <span style="font-size:0.62rem;color:#46c878;font-weight:600">(aujourd&#39;hui)</span>' : '') + '</div>';
+    html += '<div style="display:flex;gap:8px;align-items:center">';
+    if (saved) html += '<span style="font-size:0.62rem;color:#46c878;font-weight:700">Enregistre</span>';
+    else if (justFilled) html += '<span style="font-size:0.62rem;color:var(--accent3);font-weight:700">Brouillon suggere - verifiez puis Enregistrer</span>';
+    else html += '<span style="font-size:0.62rem;color:var(--text-dim)">Non enregistre</span>';
+    html += '<button class="btn sm danger" onclick="document.getElementById(\'smartResultZone\').style.display=\'none\'" title="Fermer">&times;</button>';
+    html += '</div></div>';
+    html += '<div style="padding:10px 12px">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px">';
+    html += '<div style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)"><div style="font-size:0.6rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.4px">Zones</div>' + (zones.length ? '<div style="font-size:0.72rem;margin-top:2px">' + zones.map(esc).join(' &middot; ') + '</div>' : '<div style="font-size:0.66rem;color:var(--text-dim);margin-top:2px">Aucune zone saisie</div>') + '</div>';
+    html += '<div style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)"><div style="font-size:0.6rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.4px">References</div>' + (refs.length ? '<div style="font-size:0.72rem;margin-top:2px">' + refs.map(function(r) { return '<strong>' + esc(r.num) + '</strong>' + (r.id ? ' <span style="color:var(--accent3)">(' + esc(r.id) + ')</span>' : ''); }).join(' &middot; ') + '</div>' : '<div style="font-size:0.66rem;color:var(--text-dim);margin-top:2px">Aucune reference chantier</div>') + '</div>';
+    html += '<div style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)"><div style="font-size:0.6rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.4px">Entrees d&#39;heures</div><div style="font-size:0.7rem;margin-top:2px;line-height:1.5">' + (entrees.length ? entrees.map(function(e) {
+        const parts = [];
+        if (e.dep) parts.push('Maison ' + e.dep);
+        if (e.arrB) parts.push('Bureaux ' + e.arrB);
+        if (e.depB) parts.push('Dep.bureaux ' + e.depB);
+        if (e.arrM) parts.push('Retour ' + e.arrM);
+        if (e.arrC) parts.push('Arr.chantier ' + e.arrC);
+        if (e.d1) parts.push(e.d1);
+        if (e.f1) parts.push('-' + e.f1);
+        if (e.depC) parts.push('Dep.chantier ' + e.depC);
+        return '<div><span style="color:var(--text-dim)">' + esc(e.label) + '</span> : <strong>' + (parts.length ? parts.join(' &middot; ') : '—') + '</strong></div>';
+    }).join('') : '<div style="font-size:0.66rem;color:var(--text-dim)">Aucune entree de temps</div>') + '</div></div>';
+    html += '<div style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)"><div style="font-size:0.6rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.4px">Recherche</div>';
+    html += '<input type="text" id="smartResultSearch" placeholder="Num chantier, lieu, identification..." style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:0.75rem" oninput="smartResultSearch(this.value)">';
+    html += '<div id="smartResultSearchOut" style="font-size:0.66rem;color:var(--text-dim);margin-top:4px">Tapez au moins 2 caracteres.</div></div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px">';
+    html += '<span style="padding:4px 9px;border:1px solid var(--accent);border-radius:20px;font-size:0.66rem;font-weight:600;color:var(--accent)">Travail ' + fmtH(tWork) + '</span>';
+    html += '<span style="padding:4px 9px;border:1px solid var(--accent2);border-radius:20px;font-size:0.66rem;font-weight:600;color:var(--accent2)">Route ' + fmtH(tRoute) + '</span>';
+    html += '<span style="padding:4px 9px;border:1px solid var(--accent4);border-radius:20px;font-size:0.66rem;font-weight:600;color:var(--accent4)">Total ' + fmtH(tWork + tRoute) + '</span>';
+    if (km) html += '<span style="padding:4px 9px;border:1px solid var(--border);border-radius:20px;font-size:0.66rem;font-weight:600;color:var(--text-dim)">' + km + ' km</span>';
+    html += '</div>';
+    if (!saved && !justFilled && !entrees.length) {
+        html += '<div style="font-size:0.7rem;color:var(--text-dim);padding:0 12px 10px">Rien pour ce jour : utilisez un modele (Bureau, Chantier, Repos ci-dessus), la voix, ou appuyez sur <strong>Intelligent</strong> pour proposer votre journee type.</div>';
+    }
+    html += '</div></div>';
+    zone.style.display = 'block';
+    zone.innerHTML = html;
+}
+function smartResultSearch(q) {
+    const out = document.getElementById('smartResultSearchOut');
+    if (!out) return;
+    const query = (q || '').trim();
+    if (query.length < 2) { out.textContent = 'Tapez au moins 2 caracteres.'; return; }
+    const results = globalSearch(query).slice(0, 8);
+    if (!results.length) { out.innerHTML = '<span>Aucun resultat pour "' + esc(query) + '".</span>'; return; }
+    let h = '';
+    results.forEach(function(r) {
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openStoredEntry(\'' + r.date + '\')" title="Cliquer pour ouvrir cette journee">';
+        h += '<span><strong>' + esc(r.num || '--') + '</strong> ' + esc(r.lieu || r.lieu2 || '') + (r.identification ? ' <span style="color:var(--accent3)">(' + esc(r.identification) + ')</span>' : '') + '</span>';
+        h += '<span style="color:var(--text-dim);font-size:0.65rem">' + fmtDateFR(r.date) + ' <span style="color:var(--accent2)">' + fmtH(r.work) + '</span></span>';
+        h += '</div>';
+    });
+    out.innerHTML = h;
 }
 
 function recalcEntryTotals(entry) {
@@ -4498,9 +4730,99 @@ function deduplicateEntries(entries) {
 function deleteEntry(id) {
     if (!confirm('Supprimer cette journee ?')) return;
     let entries = loadEntries();
+    const entry = entries.find(e => e.id === id);
+    if (entry) pushTrash(entry);
     entries = entries.filter(e => e.id !== id);
     saveEntries(entries);
     render();
+}
+
+// === CORBEILLE : suppression douce recuperable ===
+let _trashKey = 'chantier_trash_v1';
+function loadTrash() {
+    try { const arr = JSON.parse(localStorage.getItem(_trashKey)); return Array.isArray(arr) ? arr : []; } catch { return []; }
+}
+function saveTrash(arr) { try { localStorage.setItem(_trashKey, JSON.stringify(arr)); } catch {} }
+function pushTrash(entry) {
+    if (!entry) return;
+    let arr = loadTrash().filter(function(t) { return !(t.entry && t.entry.date === entry.date); });
+    arr.unshift({ id: 'tr' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), entry: entry, deletedAt: Date.now() });
+    if (arr.length > 60) arr = arr.slice(0, 60);
+    saveTrash(arr);
+}
+function trashCount() { return loadTrash().length; }
+function restoreTrashEntry(trashId) {
+    const arr = loadTrash();
+    const item = arr.find(function(t) { return t.id === trashId; });
+    if (!item) return;
+    const entry = item.entry;
+    const d = new Date(entry.date + 'T00:00:00');
+    const key = uK(formatDate(getWeekStart(d)));
+    let entries = [];
+    try { entries = JSON.parse(localStorage.getItem(key)) || []; } catch { entries = []; }
+    const existing = entries.find(function(e) { return e.date === entry.date; });
+    if (existing && !confirm('Une journee existe deja le ' + fmtDateFR(entry.date) + '. Remplacer par la version restauree ?')) { showTrash(); render(); return; }
+    entries = entries.filter(function(e) { return e.date !== entry.date; });
+    entries.push(entry);
+    deduplicateEntries(entries);
+    try { localStorage.setItem(key, JSON.stringify(entries)); } catch { showToast('Erreur de sauvegarde lors de la restauration', 'error'); return; }
+    saveTrash(arr.filter(function(t) { return t.id !== trashId; }));
+    logAudit('restore_entry', entry.date);
+    showToast('Journee restauree', 'success');
+    if (key === getStorageKey()) { render(); if (typeof onDayChange === 'function') onDayChange(); }
+    showHistory();
+}
+function deleteTrashEntry(trashId) {
+    if (!confirm('Supprimer definitivement (irreversible) ?')) return;
+    saveTrash(loadTrash().filter(function(t) { return t.id !== trashId; }));
+    showToast('Supprime de facon definitive', 'info');
+    showTrash();
+}
+function clearTrash() {
+    const n = trashCount();
+    if (!n) return;
+    if (!confirm('Vider la corbeille (' + n + ' journee(s)) de facon definitive ?')) return;
+    saveTrash([]);
+    logAudit('clear_trash', String(n));
+    showToast('Corbeille videe', 'info');
+    showTrash();
+}
+function showTrash() {
+    const panel = document.getElementById('historyPanel');
+    const body = document.getElementById('historyBody');
+    if (!panel || !body) return;
+    const items = loadTrash();
+    let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+    html += '<div style="font-size:0.8rem;font-weight:600;color:var(--accent)">Corbeille <span style="color:var(--text-dim);font-weight:400">(' + items.length + ' journee(s) recuperable(s))</span></div>';
+    html += '<div style="display:flex;gap:6px">';
+    html += '<button class="btn sm" onclick="showHistory()">Historique</button>';
+    html += items.length ? '<button class="btn sm danger" onclick="clearTrash()">Vider</button>' : '';
+    html += '</div></div>';
+    if (!items.length) {
+        html += '<div style="color:var(--text-dim);text-align:center;padding:20px">Corbeille vide. Les journees supprimees restent recuperables ici (60 dernieres).</div>';
+    } else {
+        items.forEach(function(t) {
+            const e = t.entry;
+            const d = new Date(e.date + 'T00:00:00');
+            const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+            const work = e.totalWork || 0;
+            const refs = [];
+            (e.shifts || []).forEach(function(s) { (s.chantiers || []).forEach(function(c) { if (c.num && refs.indexOf(c.num) === -1) refs.push(c.num); }); });
+            html += '<div style="padding:9px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">';
+            html += '<div style="min-width:0">';
+            html += '<div style="font-size:0.76rem;font-weight:600">' + DAY_NAMES[dayIdx] + ' ' + fmtDateFR(e.date) + (t.deletedAt ? ' <span style="color:var(--text-dim);font-size:0.62rem;font-weight:400">suppr. ' + fmtDateFR(formatDate(new Date(t.deletedAt))) + '</span>' : '') + '</div>';
+            html += '<div style="font-size:0.66rem;color:var(--text-dim);margin-top:2px">' + (refs.length ? refs.join(' &middot; ') : 'Aucune reference') + ' | ' + formatMinutes(work) + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:6px">';
+            html += '<button class="btn sm accent2" onclick="restoreTrashEntry(\'' + t.id + '\')">Restaurer</button>';
+            html += '<button class="btn sm danger" onclick="deleteTrashEntry(\'' + t.id + '\')">Effacer</button>';
+            html += '</div></div>';
+        });
+    }
+    panel.querySelector('.form-header span').textContent = 'Corbeille';
+    body.innerHTML = html;
+    panel.style.display = '';
+    scrollPanelIntoView('historyPanel');
 }
 
 function moveEntryModal(entryId) {
@@ -4557,12 +4879,16 @@ function showModal(html) {
 }
 
 function resetWeek() {
+    if (_sessionUser && !_sessionUser.isAdmin) { showToast('Seul un administrateur peut tout reinitialiser', 'warning'); return; }
     if (!confirm('Vider toutes les donnees ?')) return;
     logAudit('reset_week', formatDate(currentWeekStart));
+    const wEntries = loadEntries();
+    wEntries.forEach(function(e) { pushTrash(e); });
     try { localStorage.removeItem(getStorageKey()); } catch {}
     pendingShifts = [];
     render();
     if (typeof onDayChange === 'function') onDayChange();
+    showToast('Semaine videe (recuperable dans la corbeille)', 'success');
 }
 
 function csvSafe(v) {
@@ -4953,6 +5279,7 @@ function onDayChange() {
         loadEntryIntoForm(found);
         showToast('Donnees du ' + DAY_NAMES[dayIdx] + ' chargees');
     }
+    renderSmartSuggest();
 }
 
 function updateTodayBadge() {
@@ -4978,9 +5305,10 @@ function updateTodayBadge() {
 }
 
 // --- Simplified view toggle ---
-let formViewMode = 'simple';
+let formViewMode = (function() { try { return localStorage.getItem(uK('formView')) === 'full' ? 'full' : 'simple'; } catch { return 'simple'; } })();
 function setFormView(mode) {
     formViewMode = mode;
+    try { localStorage.setItem(uK('formView'), mode); } catch {}
     document.getElementById('viewSimple').classList.toggle('active', mode === 'simple');
     document.getElementById('viewFull').classList.toggle('active', mode === 'full');
     const sections = document.querySelectorAll('#mainFormPanel .form-section');
@@ -5044,6 +5372,8 @@ function getFieldStatusSummary() {
 function toggleNlLegend() {
     const el = document.getElementById('nlLegend');
     if (el) el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    const notes = document.getElementById('nlNotes');
+    if (notes) notes.style.display = notes.style.display === 'block' ? 'none' : 'block';
 }
 
 var _voiceRecognition = null;
@@ -5490,6 +5820,60 @@ function applyCommand(cmd) {
     let ch = getLastChantier();
     let s = ch ? findShiftOfChantier(ch.id) : null;
     const now = nowStr();
+
+    // ==========================================
+    // ZONES & PERIODES CITEES (saisie vocale intelligente)
+    // "zone Lyon", "a Paris", "sur Villeurbanne" -> remplit le lieu du
+    // chantier cible. "le matin" / "apres-midi" / "nuit" -> cree la periode.
+    // Doit etre traite avant toute autre logique. Les lieux generiques
+    // (maison/bureaux/chantier) et les heures sont exclus pour ne jamais
+    // empecher les commandes de deplacement existantes.
+    // ==========================================
+    const zoneTokens = [];
+    const zRe = /(?:^|\s)(?:du\s+cote\s+de|pres\s+de|a\s+la|aux|au|a|chez|sur|dans|vers)\s+([a-zéèêàâîôûç'\u2019\-]{3,})/gi;
+    let zM;
+    while ((zM = zRe.exec(cmd)) !== null) {
+        const tk = zM[1].replace(/[.,;!?]$/, '').toLowerCase();
+        if (!tk || /[0-9]/.test(tk)) continue;
+        if (/^(?:chantier|site|intervention|ouvrage|bureau|bureaux|maison|domicile|atelier|agence|entrepot|depot|siege|vehicule|voiture|travail|terrain|moi|bas|droite|gauche|dehors|dedans|la|les|mon|ma|ton|ta|son|sa|pause|midi)$/.test(tk)) continue;
+        zoneTokens.push(tk);
+    }
+    const kwZoneM = cmd.match(/\b(?:zone|zonne|ville|region|commune|quartier)(?:\s+(?:de|d'))?\s+([a-zéèêàâîôûç][a-zéèêàâîôûç'\u2019\- ]*?)(?=\s+(?:et|puis|ensuite|alors|apres|pour|retour|debut|fin|[0-9])|[.,;!?]|$)/i);
+    // La zone n'est remplie que si la phrase n'est pas une phrase riche en
+    // evenements (heure + verbe deplacement) : sinon le moteur universel
+    // s'en charge (chantier + trajet), la zone etant ignoree.
+    const hasMotionOrTime = extractTime(cmd) || /depart|pars|arrive|rentre|retour|debut|fin\b|commence|demarre|termine|arette|aller|trajet|voyage|suis\b/.test(cmd);
+    if ((zoneTokens.length || kwZoneM) && !/,|=/.test(cmd) && !hasMotionOrTime) {
+        const zoneVal = (kwZoneM ? kwZoneM[1] : zoneTokens[0]).trim().replace(/[.,;!?]$/,'');
+        if (zoneVal && !/^(?:Maison|Domicile|Bureaux|Bureau|Chantier|Site)$/i.test(zoneVal)) {
+            if (!l) { addShift('matin'); l = lastShift(); renderShifts(); }
+            if (!s || !ch) { if (l && (!l.chantiers || !l.chantiers.length)) { addChantierToShift(l.id); ch = getLastChantier(); s = ch ? findShiftOfChantier(ch.id) : null; } }
+            if (ch && s) {
+                const zoneCap = zoneVal.charAt(0).toUpperCase() + zoneVal.slice(1);
+                // Un batiment court ("B", "Bat A", "zone 3") => lieu2 ; sinon ville/zone => lieu.
+                const isBuilding = /^[a-z]\d{0,2}$/.test(zoneVal) || /^bat(?:iment)?\s+/.test(zoneVal) || /^\d{1,2}$/.test(zoneVal);
+                setChantierField(s.id, ch.id, isBuilding ? 'lieu2' : 'lieu', zoneCap);
+                if (!isBuilding) { addLieu(zoneCap); }
+                setMicStatus('Zone: ' + zoneCap, 'heard');
+                setTimeout(function(){ setMicStatus('',''); }, 2500);
+                return true;
+            }
+        }
+    }
+
+    // Periode citee ("le matin", "l'apres-midi", "la nuit", "soir") : cree la
+    // periode si absente. Strictement gardee : aucune heure, aucun verbe de
+    // deplacement, aucun chantier, sinon on laisse passer la commande.
+    const pmM = cmd.match(/\b(le|la|l'|du|de l'|en)?\s*(matin|matinee|apres[- ]?midi|aprem|nuit|soir|soiree)\b/);
+    if (pmM && !/[0-9]/.test(cmd) && !extractTime(cmd) && !/depart|pars|arrive|rentre|retour|debut|fin\b|commence|demarre|termine|arette|aller|trajet|voyage|suis\b/.test(cmd) && !/chantier\b|journee/.test(cmd)) {
+        const ptxt = pmM[2];
+        const periode = /matin|matinee/.test(ptxt) ? 'matin' : /apres[- ]?midi|aprem/.test(ptxt) ? 'aprem' : 'nuit';
+        const existing = pendingShifts.find(function(sh) { return (sh.periode||'matin') === periode; });
+        if (!existing) { addShift(periode); renderShifts(); updateCalcs(); setMicStatus('+ Periode ' + periode, 'heard'); setTimeout(function(){ setMicStatus('',''); }, 2500); return true; }
+        setMicStatus('Periode ' + periode + ' deja ouverte', 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        return true;
+    }
 
     // ==========================================
     // SAISIE / RESSAISIE D'UN JOUR PRECIS PAR DATE
@@ -6458,7 +6842,20 @@ function render() {
     renderChart();
     renderFavChantiers();
     if (feuilleActive) renderFeuille();
+    renderSmartSuggest();
+    updateWeekProgress();
+    renderOrchBar();
     setFormView(formViewMode);
+}
+
+function updateWeekProgress() {
+    const el = document.getElementById('weekProgress');
+    if (!el) return;
+    const dates = getWeekDates();
+    const entries = loadEntries();
+    const n = dates.filter(function(d) { return entries.some(function(e) { return e.date === formatDate(d); }); }).length;
+    el.textContent = n + '/7 jours saisis cette semaine';
+    el.style.display = n ? '' : 'none';
 }
 
 function getWeekNumber(d) {
@@ -6569,6 +6966,35 @@ function getSmartItinerary(from, to) {
 function getTopChantiers(limit) {
     const intel = loadIntel();
     return Object.entries(intel.lieuPatterns).filter(([k]) => !k.startsWith('_')).map(([k, v]) => ({ num: k, uses: v.debut.length + v.fin.length, lieu: Object.keys(v.lieux).sort((a, b) => v.lieux[b] - v.lieux[a])[0] || '', identification: Object.keys(v.identifications).sort((a, b) => v.identifications[b] - v.identifications[a])[0] || '', jours: v.jours })).sort((a, b) => b.uses - a.uses).slice(0, limit || 10);
+}
+
+// Bandeau "suggestions du jour" affiche sous les onglets : heures type apprises du
+// jour selectionne (appliquables en 1 clic) + chantiers habituels de ce jour.
+function renderSmartSuggest() {
+    const zone = document.getElementById('smartSuggestZone');
+    if (!zone) return;
+    try { learnIntelligence(); } catch {}
+    const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
+    const dayKey = ['lun','mar','mer','jeu','ven','sam','dim'][dayIdx];
+    const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
+    const chips = [];
+    if (smartTimes && smartTimes.departMaison) chips.push('Dep. ' + smartTimes.departMaison);
+    if (smartTimes && smartTimes.departBureaux) chips.push('Dep. bureaux ' + smartTimes.departBureaux);
+    if (smartTimes && smartTimes.arriveeMaison) chips.push('Retour ' + smartTimes.arriveeMaison);
+    let html = '';
+    if (chips.length) {
+        html += '<span class="tag">' + DAY_NAMES[dayIdx] + ' type : ' + esc(chips.join(' &middot; ')) + '</span>';
+        html += '<button class="btn sm accent2" style="font-size:0.65rem;padding:3px 9px" onclick="applySmartTimes()" title="Remplir les horaires de deplacement avec les heures les plus frequentes de ce jour">Appliquer horaires</button>';
+    } else {
+        html += '<span class="tag">Astuce : <b>1</b> clic sur un modele (Bureau / Chantier / Repos) ou dictez &laquo; 8h30 - 17h00, chantier CHT-042 &raquo;</span>';
+        html += '<button class="btn sm" style="font-size:0.65rem;padding:3px 9px" onclick="toggleNlLegend()" title="Afficher la liste des commandes vocales">Voir les commandes</button>';
+    }
+    const topCh = getTopChantiers(12).filter(function(c) { return c.jours && c.jours[dayKey]; }).slice(0, 3);
+    topCh.forEach(function(c) {
+        html += '<button class="btn sm accent3" style="font-size:0.65rem;padding:3px 9px" onclick="quickAddFavChantier(\'' + jsArg(c.num) + '\')" title="Ajouter le chantier ' + esc(c.num) + ' a ' + DAY_NAMES[dayIdx] + '">+ ' + esc(c.num) + '</button>';
+    });
+    zone.innerHTML = html;
+    zone.style.display = 'flex';
 }
 
 function getSuggestedComment(dayIdx, periode) {
@@ -6805,6 +7231,8 @@ document.addEventListener('keydown', function(e) {
     if (e.repeat) return;
     const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable;
     if (e.ctrlKey || e.metaKey) {
+        if (e.shiftKey && e.key === 'Enter' && !inInput) { e.preventDefault(); quickCompleteDay(); return; }
+        if (e.shiftKey && e.key === 'S') { e.preventDefault(); saveDayAndNext(); return; }
         if (e.key === 's') { e.preventDefault(); saveDay(); return; }
         if (e.key === 'e') { e.preventDefault(); exportXLSX(); return; }
         if (e.key === 'p') { e.preventDefault(); window.print(); return; }
@@ -6816,6 +7244,7 @@ document.addEventListener('keydown', function(e) {
         if (!inInput && e.key === '2') { e.preventDefault(); applyDayPreset('chantier'); return; }
         if (!inInput && e.key === '3') { e.preventDefault(); applyDayPreset('long'); return; }
         if (!inInput && e.key === '4') { e.preventDefault(); applyDayPreset('demijour'); return; }
+        if (!inInput && e.key === '5') { e.preventDefault(); applyDayPreset('repos'); return; }
     }
     if (e.key === 'Escape') {
         const modalOverlay = document.getElementById('modalOverlay');
@@ -6830,6 +7259,7 @@ document.addEventListener('keydown', function(e) {
         if (fabMenu && fabMenu.classList.contains('show')) { toggleFabMenu(); return; }
     }
     if (e.key === 'F8') { e.preventDefault(); toggleVoice(); return; }
+    if (e.key === 'F9' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); smartAction(); return; }
     if (!inInput) {
         if (e.key === '?') { toggleShortcutsModal(); return; }
         if (e.key === 'Escape') { hideMainMenu(); }
@@ -7692,6 +8122,7 @@ function showHistory() {
     html += '<div><label style="font-size:0.65rem;color:var(--text-dim)">Nouvelle date</label><input type="date" id="corrNewDate" style="padding:6px 8px;font-size:0.78rem;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text)"></div>';
     html += '<button class="btn accent2" onclick="correctEntryDate()" style="font-size:0.72rem">Corriger</button>';
     html += '<button class="btn danger" onclick="deleteEntryByDate()" style="font-size:0.72rem">Supprimer</button>';
+    html += '<button class="btn" onclick="showTrash()" style="font-size:0.72rem">Corbeille (' + trashCount() + ')</button>';
     html += '</div>';
     html += '<div id="corrResult" style="margin-top:6px;font-size:0.7rem"></div>';
     html += '</div>';
@@ -7812,6 +8243,8 @@ function deleteEntryByDate() {
     let entries;
     try { entries = JSON.parse(localStorage.getItem(key)) || []; } catch { entries = []; }
     const before = entries.length;
+    const victim = entries.find(e => e.date === dateStr);
+    if (victim) pushTrash(victim);
     entries = entries.filter(e => e.date !== dateStr);
     if (entries.length === before) { document.getElementById('corrResult').innerHTML = '<span style="color:var(--red)">Aucune entree pour ' + dateStr + '</span>'; return; }
     try { localStorage.setItem(key, JSON.stringify(entries)); } catch { showToast('Erreur de sauvegarde', 'error'); return; }
@@ -8302,6 +8735,175 @@ function roundRect(ctx, x, y, w, h, r) {
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
+}
+
+// =====================================================================
+// ORCHESTRATEUR UNIVERSEL
+// Un seul cœur qui coordonne toute l'application : prochaine action
+// recommandee, barre d'actions contextuelle, commande vocale/texte
+// universelle (zones + periodes), et dispatche vers le bon module.
+// =====================================================================
+function orchContext() {
+    const entries = loadEntries();
+    const todayKey = formatDate(new Date());
+    const today = entries.find(function(e) { return e.date === todayKey; }) || null;
+    const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
+    const dayKey = ['lun','mar','mer','jeu','ven','sam','dim'][dayIdx];
+    const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
+    const topCh = getTopChantiers(12).filter(function(c) { return c.jours && c.jours[dayKey]; })[0] || null;
+    const hasDraft = pendingShifts.some(function(s) { return s.departMaison || s.arriveeMaison || (s.chantiers || []).some(function(c) { return c.num || c.lieu || c.debut || c.fin; }); });
+    const weekTarget = (loadProfile().overtime || 40) || 40;
+    let weekWork = 0;
+    const weekDates = getWeekDates();
+    entries.forEach(function(e) { if (weekDates.some(function(d) { return formatDate(d) === e.date; })) weekWork += e.totalWork; });
+    const pctWeek = weekTarget > 0 ? Math.round(weekWork / weekTarget * 100) : 0;
+    return { entries: entries, today: today, todayKey: todayKey, dayIdx: dayIdx, dayKey: dayKey, smartTimes: smartTimes, topCh: topCh, hasDraft: hasDraft, weekWork: weekWork, pctWeek: pctWeek, weekTarget: weekTarget };
+}
+
+// Recommend la PROCHAINE action la plus utile selon le contexte courant.
+function orchRecommend(ctx) {
+    if (!ctx) ctx = orchContext();
+    if (ctx.hasDraft) return { label: 'Enregistrer la journee', hint: 'saisie en cours', fn: "saveDay()", style: 'primary', icon: '&#10003;' };
+    if (ctx.today && ctx.today.isRepos) return { label: 'Jour de repos', hint: 'deja enregistre', fn: null, style: '', icon: '&#9924;' };
+    if (ctx.today && ctx.today.totalWork > 0 && ctx.pctWeek >= 100) return { label: 'Objectif semaine atteint', hint: 'regardez les statistiques', fn: "toggleOrchestrator();showAnalytics()", style: 'accent4', icon: '&#127942;' };
+    if (ctx.today && !ctx.today.isRepos && ctx.today.totalWork === 0) {
+        if (ctx.smartTimes || ctx.topCh) return { label: 'Completer la journee type', hint: 'suggestions apprises disponibles', fn: "smartAction()", style: 'accent3', icon: '&#10022;' };
+        return { label: 'Saisir aujourd&#39;hui', hint: 'journee non saisie', fn: "applyDayPreset('chantier',true);scrollPanelIntoView('mainFormPanel')", style: 'accent', icon: '&#9998;' };
+    }
+    if (ctx.pctWeek < 100) {
+        const nextIdx = ctx.entries.some(function(e) { return e.date === ctx.todayKey; }) ? ctx.dayIdx : ctx.dayIdx;
+        if (ctx.smartTimes || ctx.topCh) return { label: 'Journee type du ' + ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][ctx.dayIdx], hint: 'saisie vide : completable en 1 clic', fn: "quickCompleteDay()", style: 'accent2', icon: '&#10022;' };
+        return { label: 'Saisie en cours', hint: 'rien a recommander', fn: null, style: '', icon: '&#128172;' };
+    }
+    return { label: 'Tout est a jour', hint: 'objectif semaine atteint', fn: null, style: '', icon: '&#10003;' };
+}
+
+// Barre d'actions contextuelle en continu (reevaluee a chaque render()).
+function renderOrchBar() {
+    const bar = document.getElementById('orchActionBar');
+    if (!bar) return;
+    const ctx = orchContext();
+    const r = orchRecommend(ctx);
+    let html = '';
+    html += '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">';
+    html += '<span style="font-size:1rem;line-height:1">' + (r.icon || '&#9673;') + '</span>';
+    html += '<div style="min-width:0">';
+    html += '<div style="font-size:0.74rem;font-weight:700;color:var(--text)">' + (r.label || '') + '</div>';
+    html += '<div style="font-size:0.62rem;color:var(--text-dim)">' + (r.hint || '') + '</div>';
+    html += '</div></div>';
+    if (r.fn) html += '<button class="btn ' + (r.style ? r.style : '') + ' sm" onclick="' + r.fn + '" style="flex:0 0 auto">Go</button>';
+    html += '<div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>';
+    html += '<button class="btn sm" onclick="orchPrompt()" title="Commande universelle : phrase complete (zones, periodes, presets, navigation...)">&#128241; Commande</button>';
+    html += '<button class="btn sm" onclick="toggleVoice()" title="Dicter au micro">&#127908;</button>';
+    html += '<button class="btn sm" onclick="openOrchPanel()" title="Orchestrateur universel">&#9673;</button>';
+    bar.style.display = 'flex';
+    bar.innerHTML = html;
+}
+
+// Coeur de commande universel : le champ central accepte une phrase complete
+// (comme le champ vocal) ET le dispatche vers le bon module selon le contexte.
+function orchPrompt() {
+    const val = prompt('Commande universelle (ex. : "8h30-17h00", "chantier 42", "zone Lyon", "apres-midi", "exporte excel", "ouvre le 5 fevrier", "guide") :');
+    if (!val || !val.trim()) return;
+    const cmd = val.trim();
+    try {
+        const handled = applyCommand(cmd);
+        if (handled) { renderShifts(); updateCalcs(); return; }
+    } catch (err) {}
+    // Falls back : navigation / actions systeme
+    dispatchUniversalCommand(cmd);
+}
+
+// Dispatche une commande n'ayant pas ete traitee par le moteur vocale vers
+// les modules systeme (presets, export, navigation, lecture...).
+function dispatchUniversalCommand(cmd) {
+    const c = cmd.toLowerCase();
+    if (/exporte?\s+(?:excel|xlsx|tableur)/.test(c)) { exportXLSX(); setMicStatus('Excel exporte', 'heard'); return; }
+    if (/exporte?\s+csv/.test(c)) { exportCSV(); setMicStatus('CSV exporte', 'heard'); return; }
+    if (/imprime|impression/.test(c)) { window.print(); setMicStatus('Impression...', 'heard'); return; }
+    if (/exporte?\s+backup|backup|sauvegarde/.test(c)) { exportBackup(); setMicStatus('Backup exporte', 'heard'); return; }
+    if (/guide|aide|demarrage/.test(c)) { openHelpModal(); setMicStatus('Guide ouvert', 'heard'); return; }
+    if (/raccourcis?/.test(c)) { toggleShortcutsModal(); setMicStatus('Raccourcis', 'heard'); return; }
+    if (/releve|feuille\s+de\s+(?:temps|point)/.test(c)) { showReleveWeek(); setMicStatus('Releve ouvert', 'heard'); return; }
+    if (/historique/.test(c)) { showHistory(); setMicStatus('Historique', 'heard'); return; }
+    if (/analytics|statistiques|tableau\s+de\s+bord/.test(c)) { showAnalytics(); setMicStatus('Analytics', 'heard'); return; }
+    if (/orchestrateur/.test(c)) { openOrchPanel(); setMicStatus('Orchestrateur', 'heard'); return; }
+    if (/prochaines?\s+semaines|prochaine\s+semaine/.test(c)) { changeWeek(1); setMicStatus('Semaine suivante', 'heard'); return; }
+    if (/semaine\s+precedente|precedente\s+semaine/.test(c)) { changeWeek(-1); setMicStatus('Semaine precedente', 'heard'); return; }
+    if (/aujourd/ .test(c)) { goToToday(); setMicStatus("Aujourd'hui", 'heard'); return; }
+    if (/jour\s+de\s+repos|repos$/.test(c)) { applyDayPreset('repos', true); setMicStatus('Repos', 'heard'); return; }
+    if (/bureau|8h30/.test(c)) { applyDayPreset('bureau', true); setMicStatus('Bureau', 'heard'); return; }
+    if (/chantier/.test(c)) { applyDayPreset('chantier', true); setMicStatus('Chantier', 'heard'); return; }
+    setMicStatus('Commande non reconnue', 'error');
+    setTimeout(function(){ setMicStatus('',''); }, 3000);
+}
+
+// Panneau d'orchestration universel : recoit une phrase complete et affiche
+// ce qui a ete rempli (zones, periodes, heures...) dans un recapitulatif.
+function openOrchPanel() {
+    const panel = document.getElementById('historyPanel');
+    const body = document.getElementById('historyBody');
+    if (!panel || !body) return;
+    let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+    html += '<div style="font-size:0.8rem;font-weight:600;color:var(--accent)">Orchestrateur universel</div>';
+    html += '<button class="btn sm" onclick="document.getElementById(\'historyPanel\').style.display=\'none\'">Fermer</button>';
+    html += '</div>';
+    html += '<div style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px">';
+    html += '<div style="font-size:0.66rem;color:var(--text-dim);margin-bottom:6px">Parlez ou tapez une phrase complete : zones, periodes, heures, chantiers, presets...</div>';
+    html += '<div style="display:flex;gap:6px">';
+    html += '<input type="text" id="orchUniInput" placeholder="8h30-17h00 chantier 42 zone Lyon apres-midi..." style="flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:0.82rem" onkeydown="if(event.key===\'Enter\'){orchUniRun();event.preventDefault();}">';
+    html += '<button class="btn primary" onclick="orchUniRun()">Executer</button>';
+    html += '</div>';
+    html += '<div id="orchUniOut" style="font-size:0.75rem;color:var(--text-dim);margin-top:8px;line-height:1.6">En attente d\'une commande...</div>';
+    html += '</div>';
+    html += '<div style="margin-top:10px;font-size:0.7rem;color:var(--text-dim)">Cette zone enregistre les <strong>zones</strong> (lieu/ville) et <strong>periodes</strong> (matin/aprem/nuit) citees dans vos phrases et les remplit dans les bonnes cases.</div>';
+    panel.querySelector('.form-header span').textContent = 'Orchestrateur universel';
+    body.innerHTML = html;
+    panel.style.display = '';
+    scrollPanelIntoView('historyPanel');
+    setTimeout(function() { const i = document.getElementById('orchUniInput'); if (i) i.focus(); }, 100);
+}
+
+// Execute la commande dans le panneau d'orchestration universel et affiche le
+// resultat (zones, periodes, heures remplies) comme un "journal".
+function orchUniRun() {
+    const inp = document.getElementById('orchUniInput');
+    const out = document.getElementById('orchUniOut');
+    if (!inp || !out) return;
+    const cmd = inp.value.trim();
+    if (!cmd) return;
+    const before = filledCount();
+    let handled = false;
+    try { handled = applyCommand(cmd); } catch (e) {}
+    if (handled) { renderShifts(); updateCalcs(); }
+    const after = filledCount();
+    const ctx = orchContext();
+    let log = '';
+    if (handled) {
+        const dif = after - before;
+        log += '&#10003; Commande appliquee ! ';
+        if (dif > 0) log += '<strong style="color:var(--accent2)">+' + dif + ' champ(s) rempli(s)</strong>. ';
+        else log += 'Valeurs ajustees. ';
+        log += 'Retournez au formulaire pour verifier.';
+        if (ctx.hasDraft) log += ' <button class="btn sm primary" onclick="saveDay()" style="margin-top:4px">Enregistrer maintenant</button>';
+        log += '<br><span style="color:var(--text-dim)">Prochaine action : ' + (orchRecommend(ctx).label || '') + '</span>';
+    } else {
+        try {
+            dispatchUniversalCommand(cmd);
+            log = 'Commande systeme envoyee (preset, export, navigation...).';
+            setTimeout(function(){ setMicStatus('',''); }, 3000);
+        } catch (e) {
+            log = "&#10007; Commande non reconnue. Exemple : \"8h30-17h00 chantier 42 zone Lyon\".";
+        }
+    }
+    out.innerHTML = log;
+}
+
+// Raccourci global : Ctrl+Espace ouvre le coeur de commande universel.
+function orchShortcutHandler() {
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); orchPrompt(); return; }
+    });
 }
 
 // --- Weekly bar chart ---
@@ -9066,6 +9668,7 @@ function bootApp() {
     startLiveClock();
     initAutoDetect();
     restoreTimerState();
+    orchShortcutHandler();
     checkBackupReminder();
     renderBackupBadge();
     handleRoute();
@@ -9199,7 +9802,7 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">2. Saisir une journee</strong><br>
-                Saisissez directement dans le champ de texte en haut de la page, ex. : <code style="color:var(--accent4)">8h30-17h00</code>, ajoutez un chantier avec <code style="color:var(--accent4)">chantier CHT-042</code>, puis cliquez <b>Enregistrer la journee</b>. Utilisez <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">1</kbd> a <kbd style="background:var(--border);padding:1px 5px;border-radius:3px;font-size:0.72rem">8</kbd> pour entrer depart/arrivee maison, bureaux, chantier.
+                Choisissez le jour avec les onglets (<b>lun.</b> a <b>dim.</b>) en haut, puis soit 1 clic sur un modele (<b>Bureau 8h30</b>, <b>Chantier</b>, <b>Repos</b>), soit dictez/tapez dans le champ : ex. <code style="color:var(--accent4)">8h30-17h00, chantier CHT-042</code>. Le bandeau <b>suggestions du jour</b> propose vos horaires type et chantiers habituels en 1 clic. Terminez par <b>Enregistrer la journee</b>, <b>Enregistrer &amp; suivant</b> pour enchaîner sur la journee suivante, ou <b>Completer &amp; suivant</b> pour poser d'un clic votre journee type (suggestions apprises) et enchaîner.
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">3. Comptes et sessions (multi-utilisateurs)</strong><br>
@@ -9215,7 +9818,7 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">6. Trucs et astuces</strong><br>
-                Le raccourci clavier <kbd>?</kbd> ou l'option <b>Raccourcis clavier</b> du Menu affiche tous les raccourcis. La saisie vocale et le remplissage rapide aident a gagner du temps. En cas de probleme, utilisez <b>Copier sem. prec.</b> ou <b>Repeter veille</b> pour dupliquer une journee.
+                Le raccourci clavier <kbd>?</kbd> ou l'option <b>Raccourcis clavier</b> du Menu affiche tous les raccourcis. <b>Enregistrer &amp; suivant</b> (ou <kbd>Ctrl+Shift+S</kbd>) enchaîne les jours sans re-cliquer. Le bandeau <b>suggestions du jour</b> applique vos horaires type d'un clic. En cas de probleme, utilisez <b>Copier sem. prec.</b> ou <b>Reprendre hier</b> pour dupliquer une journee.
             </div>
         </div>
     </div>
