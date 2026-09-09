@@ -1654,6 +1654,14 @@
                 </div>
                 <div class="mic-status" id="voiceStatus" style="display:none"></div>
                 <div class="mic-status" id="micStatus"></div>
+                <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+                    <span style="font-size:0.62rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.4px">Dictee longue</span>
+                    <select id="longDictMinutes" title="Duree d'ecoute continue" style="font-size:0.7rem;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
+                        <option value="5" selected>5 min</option>
+                        <option value="10">10 min</option>
+                    </select>
+                    <button class="btn sm" id="longDictBtn" onclick="toggleLongDictation()" title="Garde le micro ouvert pendant la duree choisie: chaque phrase est analysee et notee au fur et a mesure (horaires, chantiers, lieux, clients, vehicules, statuts...). Recliquez pour arreter.">Dictee longue</button>
+                </div>
                 <div style="font-size:0.6rem;color:var(--text-dim);text-align:center;margin-top:6px;line-height:1.8;display:none" id="nlLegend">
                     <strong>Periode :</strong> matin, aprem, nuit, l'apres-midi  
                     <strong>Zone/Lieu :</strong> zone Lyon, a Paris, sur Villeurbanne, quartier X  
@@ -1671,7 +1679,7 @@
                 </div>
                 <div id="nlNotes" style="display:none">
                     <div style="font-size:0.62rem;color:var(--accent3);text-align:center;margin-top:6px;line-height:1.7;background:rgba(255,107,157,0.06);padding:6px 8px;border-radius:6px">
-                        <strong>Vocale :</strong> le micro comprend de longues phrases ("je pars a 7h30, j'arrive au chantier a 8h a Lyon, puis je termine a 17h"), se corrige ("non attends, c'est 8h", "je me suis trompe, debut 9h", "corrige depart maison a 6h45"), s'adapte aux formulations, et pilote tout le systeme ("ouvre la vue", "exporte excel", "semaine prochaine", "modele bureau").
+                        <strong>Vocale :</strong> le micro comprend de longues phrases ("je pars a 7h30, j'arrive au chantier a 8h a Lyon, puis je termine a 17h"), se corrige ("non attends, c'est 8h", "je me suis trompe, debut 9h", "corrige depart maison a 6h45"), s'adapte aux formulations, et pilote tout le systeme ("ouvre la vue", "exporte excel", "semaine prochaine", "modele bureau"). La <strong>Dictee longue</strong> (5 ou 10 min) garde le micro ouvert et note chaque phrase au fur et a mesure — dictez toute une conversation ("dictée longue", "arrete la dictee").
                     </div>
                 </div>
                 <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;margin-top:4px;line-height:1.8;opacity:0.7">
@@ -6413,8 +6421,32 @@ function toggleNlLegend() {
 var _voiceRecognition = null;
 var _voiceListening = false;
 var _voiceTimer = null;
+var _voiceLongSession = null;
+var _voiceLongTicker = null;
+function _micFabSet(on, cls, msg) {
+    var micFab = document.getElementById('micFab');
+    var micFabStatus = document.getElementById('micFabStatus');
+    if (micFab) micFab.classList.toggle('recording', on);
+    if (micFabStatus) {
+        if (msg) { micFabStatus.classList.add('show'); micFabStatus.textContent = msg; micFabStatus.className = 'mic-fab-status show ' + (cls || ''); }
+        else { micFabStatus.classList.remove('show'); micFabStatus.className = 'mic-fab-status'; micFabStatus.textContent = ''; }
+    }
+}
+function _voiceStatusSet(on, label) {
+    _voiceListening = on;
+    var voiceBtn = document.getElementById('voiceBtn');
+    var voiceStatus = document.getElementById('voiceStatus');
+    if (voiceBtn) voiceBtn.classList.toggle('recording', on);
+    if (voiceStatus) {
+        voiceStatus.style.display = on ? 'block' : 'none';
+        voiceStatus.textContent = label || (on ? 'Ecoute... parlez' : '');
+        voiceStatus.className = 'mic-status ' + (on ? 'listening' : '');
+    }
+    if (on) _micFabSet(true, 'listening', label || 'Ecoute... parlez');
+    else _micFabSet(false);
+}
 function toggleVoice() {
-    if (_voiceListening) { stopVoice(); return; }
+    if (_voiceListening || _voiceLongSession) { stopVoice(); return; }
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
         setMicStatus('Micro non supporte par ce navigateur', 'error');
@@ -6428,33 +6460,10 @@ function toggleVoice() {
         r.continuous = false;
         r.interimResults = true;
         r.maxAlternatives = 1;
-        var voiceStatus = document.getElementById('voiceStatus');
-        var voiceBtn = document.getElementById('voiceBtn');
-        var micFab = document.getElementById('micFab');
-        var micFabStatus = document.getElementById('micFabStatus');
         var input = document.getElementById('micInput');
-        var setFab = function(on, cls, msg) {
-            if (micFab) micFab.classList.toggle('recording', on);
-            if (micFabStatus) {
-                if (msg) { micFabStatus.classList.add('show'); micFabStatus.textContent = msg; micFabStatus.className = 'mic-fab-status show ' + (cls || ''); }
-                else { micFabStatus.classList.remove('show'); micFabStatus.className = 'mic-fab-status'; micFabStatus.textContent = ''; }
-            }
-        };
-        var setListening = function(on) {
-            _voiceListening = on;
-            if (voiceBtn) { voiceBtn.classList.toggle('recording', on); }
-            if (voiceStatus) {
-                voiceStatus.style.display = on ? 'block' : 'none';
-                voiceStatus.textContent = on ? 'Ecoute... parlez' : '';
-                voiceStatus.className = 'mic-status ' + (on ? 'listening' : '');
-            }
-            if (on) setFab(true, 'listening', 'Ecoute... parlez');
-            else setFab(false);
-        };
         r.onstart = function() {
-            setListening(true);
+            _voiceStatusSet(true, 'Ecoute... parlez');
             if (input) input.value = '';
-            if (voiceStatus) voiceStatus.textContent = 'Ecoute... parlez';
         };
         r.onresult = function(event) {
             var transcript = '';
@@ -6464,21 +6473,21 @@ function toggleVoice() {
             if (input) input.value = transcript.trim();
         };
         r.onerror = function(event) {
-            setListening(false);
+            _voiceStatusSet(false);
             var msg = event && event.error === 'not-allowed' ? 'Acces micro refuse' : 'Erreur reconnaissance vocale';
             setMicStatus(msg, 'error');
-            setFab(false, 'heard', msg);
-            setTimeout(function() { setFab(false); setMicStatus('', ''); }, 3000);
-            if (voiceStatus) voiceStatus.style.display = 'none';
+            _micFabSet(true, 'heard', msg);
+            setTimeout(function() { _micFabSet(false); setMicStatus('', ''); }, 3000);
         };
         r.onend = function() {
             clearTimeout(_voiceTimer);
             var wasListening = _voiceListening;
-            setListening(false);
+            _voiceStatusSet(false);
             var val = input ? input.value.trim() : '';
             if (wasListening && val) {
+                var voiceStatus = document.getElementById('voiceStatus');
                 if (voiceStatus) { voiceStatus.style.display = 'block'; voiceStatus.textContent = 'Analyse: "' + val + '"'; voiceStatus.className = 'mic-status heard'; }
-                setFab(true, 'heard', 'Analyse: "' + val + '"');
+                _micFabSet(true, 'heard', 'Analyse: "' + val + '"');
                 parseMicInput();
             }
         };
@@ -6492,50 +6501,156 @@ function toggleVoice() {
     }
 }
 function stopVoice() {
+    _clearLongDictation(false);
     try { if (_voiceRecognition) _voiceRecognition.stop(); } catch (e) {}
-    var voiceStatus = document.getElementById('voiceStatus');
-    if (voiceStatus) { voiceStatus.style.display = 'none'; }
-    var micFab = document.getElementById('micFab');
-    var micFabStatus = document.getElementById('micFabStatus');
-    if (micFab) micFab.classList.remove('recording');
-    if (micFabStatus) { micFabStatus.classList.remove('show'); micFabStatus.className = 'mic-fab-status'; micFabStatus.textContent = ''; }
+    _voiceStatusSet(false);
 }
-function parseMicInput() {
-    const input = document.getElementById('micInput');
-    const raw = input.value.trim();
-    if (!raw) return;
-
+function toggleLongDictation() {
+    if (_voiceLongSession || _voiceListening) { stopVoice(); return; }
+    var sel = document.getElementById('longDictMinutes');
+    var minutes = sel ? parseInt(sel.value, 10) || 5 : 5;
+    startLongDictation(minutes);
+}
+function startLongDictation(minutes) {
+    minutes = parseInt(minutes, 10) || 5;
+    minutes = Math.max(1, Math.min(15, minutes));
+    if (_voiceLongSession || _voiceListening) { stopVoice(); }
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { setMicStatus('Micro non supporte par ce navigateur', 'error'); setTimeout(function() { setMicStatus('', ''); }, 3000); return; }
+    try {
+        var r = new SR();
+        _voiceRecognition = r;
+        r.lang = 'fr-FR';
+        r.continuous = true;
+        r.interimResults = true;
+        r.maxAlternatives = 1;
+        _voiceLongSession = { minutes: minutes, endAt: Date.now() + minutes * 60000, count: 0, unmatched: 0, lastRaw: '' };
+        var input = document.getElementById('micInput');
+        var refresh = function() {
+            if (!_voiceLongSession) return;
+            var remain = Math.max(0, _voiceLongSession.endAt - Date.now());
+            var m = Math.floor(remain / 60000), s = Math.floor((remain % 60000) / 1000);
+            var label = 'Dictee longue: ' + m + 'min ' + (s < 10 ? '0' : '') + s + 's restantes, ' + _voiceLongSession.count + ' phrase(s) notee(s)';
+            if (_voiceListening) { _voiceStatusSet(true, label); }
+            else {
+                var vsEl = document.getElementById('voiceStatus');
+                if (vsEl) { vsEl.style.display = 'block'; vsEl.textContent = label; vsEl.className = 'mic-status listening'; }
+                _micFabSet(true, 'listening', label);
+            }
+            var longBtn = document.getElementById('longDictBtn');
+            if (longBtn) longBtn.textContent = 'Arreter la dictee';
+        };
+        r.onstart = function() { refresh(); };
+        r.onresult = function(event) {
+            if (!_voiceLongSession) return;
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+                var res = event.results[i];
+                if (!res.isFinal) continue;
+                var txt = res[0].transcript.trim();
+                if (!txt) continue;
+                _voiceLongSession.lastRaw = txt;
+                if (input) input.value = txt;
+                var done = runSpeechText(txt);
+                if (done && done.matched > 0) _voiceLongSession.count++;
+                else _voiceLongSession.unmatched++;
+                if (input) input.value = '';
+            }
+            refresh();
+        };
+        r.onerror = function(event) {
+            if (!_voiceLongSession) { _voiceStatusSet(false); return; }
+            var msg = event && event.error === 'not-allowed' ? 'Acces micro refuse' : 'Erreur reconnaissance vocale';
+            setMicStatus('Dictee: ' + msg, 'error');
+            if (event && event.error !== 'aborted' && Date.now() < _voiceLongSession.endAt) {
+                setTimeout(function() { try { if (_voiceLongSession && _voiceRecognition === r) r.start(); } catch (e) {} }, 1200);
+            }
+            refresh();
+        };
+        r.onend = function() {
+            clearTimeout(_voiceTimer);
+            if (!_voiceLongSession) { _voiceStatusSet(false); return; }
+            if (Date.now() >= _voiceLongSession.endAt) { endLongDictation(true); return; }
+            setTimeout(function() { try { if (_voiceLongSession && _voiceRecognition === r && !_voiceListening) r.start(); } catch (e) {} }, 350);
+        };
+        r.start();
+        _voiceLongTicker = setInterval(refresh, 1000);
+        setMicStatus('Dictee longue: ' + minutes + ' min. Parlez naturellement, tout sera note au fur et a mesure', 'heard');
+        setTimeout(function() { setMicStatus('', ''); }, 4500);
+        var longBtn = document.getElementById('longDictBtn');
+        if (longBtn) longBtn.textContent = 'Arreter la dictee';
+    } catch (e) {
+        _voiceLongSession = null;
+        setMicStatus('Micro indisponible', 'error');
+        setTimeout(function() { setMicStatus('', ''); }, 3000);
+    }
+}
+function endLongDictation(showRecap) {
+    var session = _voiceLongSession;
+    _clearLongDictation(true);
+    try { if (_voiceRecognition) _voiceRecognition.stop(); } catch (e) {}
+    if (showRecap && session) {
+        var recap = 'Dictee terminee: ' + session.count + ' phrase(s) notee(s)';
+        if (session.unmatched) recap += ', ' + session.unmatched + ' non comprise(s)';
+        setMicStatus(recap, 'heard');
+        setTimeout(function() { setMicStatus('', ''); }, 6000);
+        if (session.count > 0) {
+            var extra = daySummary();
+            showToast('Recap jour: ' + (extra || 'voir le formulaire'), 'success');
+        }
+        if (session.unmatched && session.lastRaw) {
+            setTimeout(function() { showToast('Non compris: "' + session.lastRaw + '"', 'warning'); }, 1200);
+        }
+    }
+}
+function _clearLongDictation(resetLabel) {
+    if (_voiceLongTicker) { clearInterval(_voiceLongTicker); _voiceLongTicker = null; }
+    _voiceLongSession = null;
+    if (resetLabel) {
+        var longBtn = document.getElementById('longDictBtn');
+        if (longBtn) longBtn.textContent = 'Dictee longue';
+    }
+}
+function runSpeechText(raw) {
+    const res = { matched: 0, reports: [] };
     const text = cleanSpeech(raw);
+    if (!text) return res;
+
     if (!pendingShifts.length && !/repos|repas/.test(text) && !/\b(matin|matinée|matin ee|aprem|apres|après|apres midi|nuit)\b/.test(text)) {
         const h = new Date().getHours();
         addShift(h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
     }
 
     const segments = splitSpeech(text);
-    let matched = 0;
-    const reports = [];
     for (const seg of segments) {
         const before = filledCount();
         let ok = false;
         try { ok = applyCommand(seg); } catch (e) { ok = false; }
         if (ok) {
-            matched++;
+            res.matched++;
             const after = filledCount();
             const added = diffReport(before, after);
-            if (added) reports.push(added);
+            if (added) res.reports.push(added);
         }
     }
     renderShifts();
     updateCalcs();
-    if (matched > 0) {
+    return res;
+}
+function parseMicInput() {
+    const input = document.getElementById('micInput');
+    const raw = input.value.trim();
+    if (!raw) return;
+
+    const res = runSpeechText(raw);
+    if (res.matched > 0) {
         input.value = '';
         var summary;
-        if (reports.length) {
-            summary = reports.join('. ') + '.';
+        if (res.reports.length) {
+            summary = res.reports.join('. ') + '.';
             var extra = daySummary();
             if (extra) summary += ' ' + extra;
         } else {
-            summary = (matched + ' commande(s) appliquee(s)');
+            summary = (res.matched + ' commande(s) appliquee(s)');
         }
         setMicStatus(summary, 'heard');
         setTimeout(function() { setMicStatus('',''); }, 5000);
@@ -7329,6 +7444,17 @@ function applyCommand(cmd) {
     if (/raccourcis|raccourci\s+clavier|aide\s+clavier|shortcuts/.test(cmd)) { toggleShortcutsModal(); sysHandled = sysMsg('Raccourcis'); }
     if (/guide\s+de\s+demarrage|guide\s+debut|aide\s+globale|demarrage/.test(cmd)) { openHelpModal(); sysHandled = sysMsg('Guide de demarrage'); }
     if (/vider\s+la\s+semaine|supprime\s+(?:toute\s+)?la\s+semaine|raz\s+semaine|reinitialise\s+la\s+semaine/.test(cmd)) { resetWeek(); sysHandled = sysMsg('Semaine videe'); }
+
+    if (/dict[ée]e\s+(?:longue|(\d+)\s*(?:minutes?|min))|mode\s+longue|ecoute(?:z)?\s+pendant\s+(\d+)\s*(?:minutes?|min)/.test(cmd)) {
+        var _ldMatch = cmd.match(/(\d+)\s*(?:minutes?|min)/);
+        var _ldMin = _ldMatch ? parseInt(_ldMatch[1], 10) : 5;
+        startLongDictation(_ldMin);
+        sysHandled = sysMsg('Dictee longue ' + _ldMin + ' min');
+    }
+    if (/arrete\s+(?:la\s+)?dict[ée]e\b|stop\s+(?:la\s+)?dict[ée]e\b/.test(cmd)) {
+        stopVoice();
+        sysHandled = sysMsg('Dictee arretee');
+    }
 
     if (sysHandled) return true;
 
