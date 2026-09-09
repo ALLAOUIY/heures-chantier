@@ -1375,6 +1375,15 @@
         <div class="form-body" id="billingBody" style="padding:12px"></div>
     </div>
 
+    <!-- Print model panel -->
+    <div class="form-panel" id="printModelPanel" style="display:none">
+        <div class="form-header">
+            <span>Modele de feuille a imprimer</span>
+            <button class="btn sm" onclick="document.getElementById('printModelPanel').style.display='none'">X</button>
+        </div>
+        <div class="form-body" id="printModelBody" style="padding:12px"></div>
+    </div>
+
     <!-- Form -->
     <div class="form-panel" id="mainFormPanel">
         <div class="form-header">
@@ -7421,6 +7430,7 @@ function applyCommand(cmd) {
     if (/ouvre.*(?:planning|planification)|planning|planifie/.test(cmd)) { showPlanning(); sysHandled = sysMsg('Planning'); }
     if (/ouvre.*(?:factur|clients?\b)|facturation|factur\b/.test(cmd)) { showBillingPanel(); sysHandled = sysMsg('Facturation'); }
     if (/ouvre.*(?:vehicules?|parc\s+auto)|vehicules/.test(cmd)) { showVehiclesPanel(); sysHandled = sysMsg('Vehicules'); }
+    if (/modele\s+de\s+feuille|feuille\s+a\s+imprimer|apparence\s+(?:des\s+)?releve|personnalis(?:e|ation).*releve/.test(cmd)) { showPrintModelPanel(); sysHandled = sysMsg('Modele de feuille'); }
     if (/exporte\s*(?:en\s*)?pdf|exporte?.*pdf/.test(cmd)) { exportWeekPDF(); sysHandled = sysMsg('Export PDF'); }
     if (/aper(?:cu)?\s+global|vue\s+globale|vue\s+d\s?ensemble\s+complet|toutes\s+(?:les\s+)?semaines|aper(?:cu)?\s+complet/.test(cmd)) { openEnhancedRecap(); sysHandled = sysMsg('Aper\u00e7u global'); }
     if (/heures?\s+(?:supl|supp|supplementaires)|supl(?:ementaires)?\s+hebdo|heures? sup\b/.test(cmd)) { showDailyOvertime(); sysHandled = sysMsg('Heures supp'); }
@@ -8575,6 +8585,7 @@ function renderMainMenu() {
     h += I('showPlanning()', 'Planning multi-semaines');
     h += I('showBillingPanel()', 'Facturation & clients');
     h += I('showVehiclesPanel()', 'Vehicules');
+    h += I('showPrintModelPanel()', 'Modele de feuille', false, 'Choisir, personnaliser ou numeriser le modele de la feuille a imprimer');
     h += I('showGlobalSearch()', 'Recherche');
     h += I('renderTemplatesPanel()', 'Templates');
     h += I('showAnalytics()', 'Analytics');
@@ -8740,6 +8751,7 @@ function showRecap() {
     html += '</div>';
     html += '<div style="margin-top:8px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:0.82rem"><strong>TOTAL SEMAINE:</strong> ' + totalDays + ' jours | ' + formatMinutes(totalWork) + ' travail</div>';
     body.innerHTML = html;
+    applySheetClass();
     document.getElementById('recapPanel').style.display = 'block';
     scrollPanelIntoView('recapPanel');
 }
@@ -8934,6 +8946,7 @@ function showMonthlyRecap(targetYear, targetMonth) {
 
     html += '<div style="margin-top:14px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
     body.innerHTML = html;
+    applySheetClass();
     document.getElementById('recapPanel').style.display = '';
 }
 
@@ -9038,6 +9051,7 @@ function showAnnualRecap() {
 
     html += '<div style="margin-top:14px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div>';
     body.innerHTML = html;
+    applySheetClass();
     document.getElementById('recapPanel').style.display = '';
 }
 
@@ -9046,7 +9060,7 @@ function getCompName() { return loadCompanyName(); }
 function getLogoSrc() { try { return localStorage.getItem(uK('logo')) || ''; } catch { return ''; } }
 function fmtH(mins) { if (!mins) return '0:00'; const h = Math.floor(mins / 60); const m = mins % 60; return h + ':' + String(m).padStart(2, '0'); }
 function fmtDateFR(dateStr) { const d = new Date(dateStr + 'T00:00:00'); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
-function openRelevePanel(html) { const body = document.getElementById('recapBody'); body.innerHTML = html; document.getElementById('recapPanel').style.display = ''; scrollPanelIntoView('recapPanel'); }
+function openRelevePanel(html) { const body = document.getElementById('recapBody'); body.innerHTML = html; applySheetClass(); document.getElementById('recapPanel').style.display = ''; scrollPanelIntoView('recapPanel'); }
 function renderRecapError(title) {
     try {
         const html = '<div style="padding:14px;text-align:center;color:var(--text-dim)"><div style="font-size:1.3rem;margin-bottom:6px">&#9888;&#65039;</div><div style="font-weight:600;font-size:0.82rem">' + esc(title) + ' : une erreur est survenue.</div><div style="font-size:0.68rem;margin-top:6px">Vos donnees ne sont pas perdues. Reessayez ou consultez la console.</div><div style="margin-top:12px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div></div>';
@@ -9060,6 +9074,392 @@ function renderRecapError(title) {
 }
 function scrollPanelIntoView(id) { var el = document.getElementById(id); if (el) setTimeout(function() { el.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }
 function printReleve() { window.print(); }
+
+// --- MODELE DE FEUILLE A IMPRIMER ---
+var PRINT_MODELS = [
+    { id: 'classic', name: 'Classique', desc: 'Standard sobre et lisible', ink: '#1a1a2e', line: '#1a1a2e', soft: '#f0f0f5', soft2: '#f8f9fc', accent: '#2563eb', accent2: '#16a34a', accent3: '#dc2626', accent4: '#ea580c' },
+    { id: 'marine', name: 'Marine', desc: 'Bleu profond professionnel', ink: '#0f2a43', line: '#0f2a43', soft: '#e8eef5', soft2: '#f4f8fb', accent: '#1d5fa8', accent2: '#12805c', accent3: '#c0273f', accent4: '#c25e1a' },
+    { id: 'slate', name: 'Ardoise', desc: 'Gris anthracite epure', ink: '#26323e', line: '#26323e', soft: '#e9edf2', soft2: '#f5f7f9', accent: '#43536b', accent2: '#3f6f5a', accent3: '#a33a4a', accent4: '#9c5a2a' },
+    { id: 'emerald', name: 'Emeraude', desc: 'Vert prestige', ink: '#0c2a24', line: '#0c2a24', soft: '#e5f0ec', soft2: '#f3f8f6', accent: '#0e7a5f', accent2: '#128a5c', accent3: '#c02c3a', accent4: '#c2591a' },
+    { id: 'bordeaux', name: 'Bordeaux', desc: 'Vin profond elegant', ink: '#2b0f1e', line: '#2b0f1e', soft: '#f2e6ea', soft2: '#f9f3f5', accent: '#8e1f4a', accent2: '#1a7a55', accent3: '#a5172b', accent4: '#b04e16' },
+    { id: 'dusk', name: 'Crepuscule', desc: 'Indigo et violet soiree', ink: '#1d1b3a', line: '#1d1b3a', soft: '#eae9f4', soft2: '#f6f5fa', accent: '#5b3fb0', accent2: '#137a66', accent3: '#b02f4f', accent4: '#b05a20' },
+    { id: 'mono', name: 'Mono sepia', desc: 'Noir et blanc dore', ink: '#202020', line: '#202020', soft: '#f1ede6', soft2: '#f8f5f0', accent: '#8a6a2f', accent2: '#6f6f6f', accent3: '#754b1e', accent4: '#8a6a2f' }
+];
+var PRINT_FONTS = [
+    { id: 'system', name: 'Systeme', stack: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif" },
+    { id: 'serif', name: 'Serif classique', stack: "Georgia, 'Times New Roman', serif" },
+    { id: 'condensed', name: 'Condense compact', stack: "'Arial Narrow', 'Segoe UI', Arial, sans-serif" }
+];
+var PM_UI_CSS = '.pm-ui{font-size:.8rem}.pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:8px;margin-bottom:6px}.pm-card{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px;text-align:left}.pm-card:hover{border-color:var(--accent)}.pm-card.pm-card-sel{border-color:var(--accent);background:rgba(37,99,235,0.08);box-shadow:0 0 0 1px var(--accent)}.pm-swatch{width:100%;height:8px;border-radius:4px}.pm-card-name{font-size:.72rem;font-weight:600}.pm-section-title{margin:12px 0 6px;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent2)}.pm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:.8rem}.pm-row select{max-width:210px}.pm-preview{border:1px dashed var(--border);border-radius:10px;padding:10px;margin-top:6px;background:#fafbfc}.pm-preview-title{font-size:.68rem;color:var(--text-dim);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}.pm-preview-sheet{width:100%;max-width:520px;margin:0 auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);border-radius:4px}.pm-scan-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.pm-ui input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer}';
+
+function defaultPrintModel() {
+    return { templateId: 'classic', accent: '', accent2: '', font: 'system', density: 'std', headerStyle: 'classic', mono: false, showLogo: true, watermark: '', scan: null, scanOpacity: 20, scanPos: 'center' };
+}
+function loadPrintModel() {
+    var d = defaultPrintModel();
+    try {
+        var raw = localStorage.getItem(uK('printModel'));
+        if (!raw) return d;
+        var m = JSON.parse(raw);
+        Object.keys(d).forEach(function(k) { if (m[k] !== undefined && m[k] !== null) d[k] = m[k]; });
+    } catch (e) {}
+    return d;
+}
+function savePrintModel(m) {
+    try { localStorage.setItem(uK('printModel'), JSON.stringify(m)); return true; }
+    catch (e) { showToast('Modele non sauvegarde : stockage plein', 'error'); return false; }
+}
+function pmPalette(m) {
+    if (!m) m = loadPrintModel();
+    for (var i = 0; i < PRINT_MODELS.length; i++) { if (PRINT_MODELS[i].id === m.templateId) return PRINT_MODELS[i]; }
+    return PRINT_MODELS[0];
+}
+function pmFont(m) {
+    if (!m) m = loadPrintModel();
+    for (var i = 0; i < PRINT_FONTS.length; i++) { if (PRINT_FONTS[i].id === m.font) return PRINT_FONTS[i]; }
+    return PRINT_FONTS[0];
+}
+function pmAccents(m) {
+    if (!m) m = loadPrintModel();
+    var p = pmPalette(m);
+    return { accent: m.accent || p.accent, accent2: m.accent2 || p.accent2 };
+}
+function printModelCss(m) {
+    if (!m) m = loadPrintModel();
+    var p = pmPalette(m);
+    var a = pmAccents(m);
+    var f = pmFont(m);
+    var lines = [];
+    lines.push('@media print {');
+    lines.push('#recapBody.rel-sheet { color:' + p.ink + ' !important; font-family:' + f.stack + ' !important; }');
+    lines.push('#recapBody.rel-sheet * { font-family:' + f.stack + ' !important; color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header { border-bottom-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header .company-name { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header .employee { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header .meta { color:#777 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header .date-block .period { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-header .date-block .range { color:#666 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-shift-block { border-left-color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-shift-block.nuit { border-left-color:' + p.accent3 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-shift-block.aprem { border-left-color:' + a.accent2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-shift-title { color:' + p.ink + ' !important; border-bottom-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table th { background:' + p.soft + ' !important; color:' + p.ink + ' !important; border-bottom-color:' + p.line + ' !important; border-top-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table td { border-bottom-color:#bbb !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table tbody tr:nth-child(even) td { background:' + p.soft2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .total-row td { background:' + p.soft + ' !important; border-top-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .td-accent { color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .td-green { color:' + a.accent2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .td-orange { color:' + p.accent4 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .td-dim { color:#666 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-table .urgent { color:' + p.accent3 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-totals .total-block { border-color:' + p.line + ' !important; background:#fff !important; }');
+    lines.push('#recapBody.rel-sheet .rel-totals .total-value { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-totals .total-value.accent { color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-totals .total-value.green { color:' + a.accent2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-salary-box { border-color:' + p.line + ' !important; background:' + p.soft + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-salary-box strong { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-salary-box .normal { color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-salary-box .ot { color:' + p.accent3 + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-day-separator { border-top-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-day-separator .day-name { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-project-recap .section-title { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-route-section { border-color:#ddd !important; background:#fff !important; }');
+    lines.push('#recapBody.rel-sheet .rel-route-section .section-title { color:' + p.ink + ' !important; }');
+    lines.push('#recapBody.rel-sheet .rel-legal { color:#777 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-footer { color:#777 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-footer .confidential { color:#aaa !important; }');
+    lines.push('#recapBody.rel-sheet .rel-sig-line { border-top-color:#999 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-sig-title { color:#999 !important; }');
+    lines.push('#recapBody.rel-sheet .rel-badge-repos { color:#777 !important; border-color:#ddd !important; }');
+    lines.push('#recapBody.rel-sheet [style*="color:var(--accent)"] { color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet [style*="color:var(--accent2)"] { color:' + a.accent2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet [style*="color:var(--accent3)"] { color:' + p.accent3 + ' !important; }');
+    lines.push('#recapBody.rel-sheet [style*="color:var(--accent4)"] { color:' + p.accent4 + ' !important; }');
+    lines.push('#recapBody.rel-sheet [style*="border:2px solid"] { border-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .print-totals { background:' + p.soft + ' !important; border-color:' + p.line + ' !important; }');
+    lines.push('#recapBody.rel-sheet .print-totals .total-value.accent { color:' + a.accent + ' !important; }');
+    lines.push('#recapBody.rel-sheet .print-totals .total-value.green { color:' + a.accent2 + ' !important; }');
+    lines.push('#recapBody.rel-sheet h1 { color:' + p.ink + ' !important; -webkit-text-fill-color:' + p.ink + ' !important; }');
+    if (m.headerStyle === 'banner') {
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header { background:' + p.ink + ' !important; border-bottom-color:' + p.ink + ' !important; padding:14pt 16pt !important; border-radius:5pt; color:#fff !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header .company-name { color:#fff !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header .employee { color:rgba(255,255,255,0.88) !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header .meta { color:rgba(255,255,255,0.72) !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header .date-block .period { color:#fff !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-banner .rel-header .date-block .range { color:rgba(255,255,255,0.78) !important; }');
+    }
+    if (m.headerStyle === 'minimal') {
+        lines.push('#recapBody.rel-sheet.pt-hdr-minimal .rel-header { border-bottom-width:1pt !important; padding:8pt 0 6pt 0 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hdr-minimal .rel-header .company-name { font-size:11pt !important; }');
+    }
+    if (m.density === 'compact') {
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-table th { padding:3pt 5pt !important; font-size:6.5pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-table td { padding:2.5pt 5pt !important; font-size:7.5pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-header { padding:8pt 0 6pt 0 !important; margin-bottom:6pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-salary-box { padding:6pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-totals { margin:8pt 0 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-compact .rel-sig-line { margin-top:34pt !important; }');
+    }
+    if (m.density === 'air') {
+        lines.push('#recapBody.rel-sheet.pt-dens-air .rel-table th { padding:7pt 9pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-air .rel-table td { padding:6.5pt 9pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-air .rel-header { padding:18pt 0 14pt 0 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-air .rel-shift-block { margin-bottom:14pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-dens-air .rel-sig-line { margin-top:52pt !important; }');
+    }
+    if (m.showLogo !== false) {
+        lines.push('#recapBody.rel-sheet.pt-hlogo .rel-header .logo { width:70pt !important; height:70pt !important; }');
+        lines.push('#recapBody.rel-sheet.pt-hlogo .rel-header .logo img { width:70pt !important; height:70pt !important; }');
+    } else {
+        lines.push('#recapBody.rel-sheet.pt-nologo .rel-header .logo, #recapBody.rel-sheet.pt-nologo .rel-header .logo img, #recapBody.rel-sheet.pt-nologo .rel-header .logo .logo-placeholder { display:none !important; }');
+        lines.push('#recapBody.rel-sheet.pt-nologo .rel-header .info { margin-right:0 !important; }');
+    }
+    if (m.mono) {
+        lines.push('#recapBody.rel-sheet.pt-mono * { color:#222 !important; background:transparent !important; border-color:#bbb !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-header { border-bottom-color:#222 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-table th { background:#eee !important; border-color:#222 !important; color:#222 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-shift-block { border-left-color:#222 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-salary-box { border-color:#222 !important; background:#f2f2f2 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-day-separator { border-top-color:#222 !important; }');
+        lines.push('#recapBody.rel-sheet.pt-mono .rel-table .td-accent, #recapBody.rel-sheet.pt-mono .rel-table .td-green, #recapBody.rel-sheet.pt-mono .rel-table .td-orange, #recapBody.rel-sheet.pt-mono .rel-totals .total-value.accent, #recapBody.rel-sheet.pt-mono .rel-totals .total-value.green { color:#222 !important; }');
+    }
+    if ((m.watermark || '').trim() || m.scan) {
+        lines.push('#recapBody.rel-sheet { position:relative !important; }');
+        lines.push('#recapBody.rel-sheet > * { position:relative !important; z-index:1; }');
+    }
+    if (m.scan) {
+        lines.push('#recapBody.rel-sheet.print-scan::before { content:""; display:block; position:absolute; top:0; left:0; width:100%; height:100%; background-image:url(' + m.scan + '); background-repeat:no-repeat; background-size:contain; background-position:50% 50%; opacity:' + (m.scanOpacity / 100) + '; z-index:0; pointer-events:none; }');
+        if (m.scanPos === 'top') lines.push('#recapBody.rel-sheet.print-scan::before { background-position:50% 0% !important; }');
+        if (m.scanPos === 'bottom') lines.push('#recapBody.rel-sheet.print-scan::before { background-position:50% 100% !important; }');
+    }
+    if ((m.watermark || '').trim()) {
+        lines.push('#recapBody.rel-sheet.pt-wm::after { content:attr(data-wm); display:block; position:absolute; left:50%; top:45%; transform:translate(-50%,-50%) rotate(-30deg); font-size:52pt; font-weight:700; color:rgba(150,150,150,0.12); white-space:nowrap; z-index:0; pointer-events:none; }');
+    }
+    lines.push('}');
+    return lines.join('\n');
+}
+function applyPrintModel() {
+    var st = document.getElementById('pmThemeStyle');
+    if (!st) { st = document.createElement('style'); st.id = 'pmThemeStyle'; document.head.appendChild(st); }
+    st.textContent = printModelCss(loadPrintModel());
+    var ui = document.getElementById('pmUiStyle');
+    if (!ui) { ui = document.createElement('style'); ui.id = 'pmUiStyle'; ui.textContent = PM_UI_CSS; document.head.appendChild(ui); }
+    applySheetClass();
+}
+function applySheetClass() {
+    var body = document.getElementById('recapBody');
+    if (!body) return;
+    var m = loadPrintModel();
+    var cls = 'rel-sheet pt-' + (m.templateId || 'classic');
+    if (m.mono) cls += ' pt-mono';
+    if (m.showLogo === false) cls += ' pt-nologo'; else cls += ' pt-hlogo';
+    if (m.headerStyle === 'banner') cls += ' pt-hdr-banner';
+    if (m.headerStyle === 'minimal') cls += ' pt-hdr-minimal';
+    if (m.density === 'compact') cls += ' pt-dens-compact';
+    if (m.density === 'air') cls += ' pt-dens-air';
+    if ((m.watermark || '').trim()) { cls += ' pt-wm'; body.setAttribute('data-wm', m.watermark.trim()); } else { body.removeAttribute('data-wm'); }
+    if (m.scan) { cls += ' print-scan'; body.setAttribute('data-scan', m.scan); } else { body.removeAttribute('data-scan'); }
+    body.className = cls;
+}
+function showPrintModelPanel() { renderPrintModelPanel(); }
+function renderPrintModelPanel() {
+    var body = document.getElementById('printModelBody');
+    if (!body) return;
+    var m = loadPrintModel();
+    var p = pmPalette(m);
+    var a = pmAccents(m);
+    var cards = '';
+    for (var i = 0; i < PRINT_MODELS.length; i++) {
+        var t = PRINT_MODELS[i];
+        var sel = t.id === m.templateId ? ' pm-card-sel' : '';
+        cards += '<button class="pm-card' + sel + '" onclick="selectPrintModel(\'' + t.id + '\')" title="' + esc(t.desc) + '">';
+        cards += '<span class="pm-swatch" style="background:' + t.ink + '"></span>';
+        cards += '<span class="pm-swatch" style="background:' + t.accent + '"></span>';
+        cards += '<span class="pm-swatch" style="background:' + t.accent2 + '"></span>';
+        cards += '<span class="pm-card-name">' + t.name + '</span>';
+        cards += '</button>';
+    }
+    var fontOpts = '', densOpts = '', hdrOpts = '', posOpts = '';
+    var densDefs = [['std', 'Standard'], ['compact', 'Compact'], ['air', 'Aere']];
+    var hdrDefs = [['classic', 'Classique (ligne)'], ['banner', 'Banniere coloree'], ['minimal', 'Minimal']];
+    var posDefs = [['center', 'Centre'], ['top', 'Haut'], ['bottom', 'Bas']];
+    for (var j = 0; j < PRINT_FONTS.length; j++) fontOpts += '<option value="' + PRINT_FONTS[j].id + '"' + (PRINT_FONTS[j].id === m.font ? ' selected' : '') + '>' + PRINT_FONTS[j].name + '</option>';
+    for (var k = 0; k < densDefs.length; k++) densOpts += '<option value="' + densDefs[k][0] + '"' + (densDefs[k][0] === m.density ? ' selected' : '') + '>' + densDefs[k][1] + '</option>';
+    for (var l = 0; l < hdrDefs.length; l++) hdrOpts += '<option value="' + hdrDefs[l][0] + '"' + (hdrDefs[l][0] === m.headerStyle ? ' selected' : '') + '>' + hdrDefs[l][1] + '</option>';
+    for (var w = 0; w < posDefs.length; w++) posOpts += '<option value="' + posDefs[w][0] + '"' + (posDefs[w][0] === m.scanPos ? ' selected' : '') + '>' + posDefs[w][1] + '</option>';
+    var scanHtml = '';
+    if (m.scan) {
+        scanHtml += '<div class="pm-scan-row"><img id="pmScanThumb" src="' + m.scan + '" alt="Modele numerise" style="width:110px;height:80px;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:6px">';
+        scanHtml += '<div style="flex:1;min-width:210px">';
+        scanHtml += '<div class="pm-row"><span>Opacite du fond</span><span style="display:flex;align-items:center;gap:8px"><input type="range" min="0" max="50" value="' + m.scanOpacity + '" oninput="pmScanOp(this.value)" style="width:140px"><b id="pmScanOpLabel">' + m.scanOpacity + '%</b></span></div>';
+        scanHtml += '<div class="pm-row"><span>Position du modele</span><select onchange="pmChange({\'scanPos\':this.value})">' + posOpts + '</select></div>';
+        scanHtml += '</div>';
+        scanHtml += '<button class="btn sm" onclick="clearScanModel()" style="color:var(--accent3)">Retirer le scan</button></div>';
+    } else {
+        scanHtml += '<div class="pm-scan-row"><input type="file" id="pmScanFile" accept="image/*" onchange="pmScanUpload(this)"></div>';
+        scanHtml += '<div style="font-size:.68rem;color:var(--text-dim);margin-top:6px">Photographiez ou numerisez un modele papier existant : il servira de fond transparent sous le releve (taille ajustee automatiquement).</div>';
+    }
+    var html = '';
+    html += '<div class="pm-ui">';
+    html += '<div style="font-size:.7rem;color:var(--text-dim);margin-bottom:10px;background:var(--surface2);border-radius:8px;padding:8px 10px">Combinaison illimitee : chaque modele premium se combine avec vos couleurs, la police, la densite, l\'en-tete, le noir et blanc, le filigrane et un scan 1:1 de votre papier.</div>';
+    html += '<div class="pm-section-title">1. Modele de base</div>';
+    html += '<div class="pm-grid">' + cards + '</div>';
+    html += '<div class="pm-section-title">2. Personnalisation</div>';
+    html += '<div class="pm-row"><span>Couleur principale</span><span style="display:flex;align-items:center;gap:8px"><input type="color" value="' + (m.accent || a.accent) + '" oninput="pmAccentLive(this.value,\'accent\')"><button class="btn sm" onclick="pmChange({\'accent\':\'\'})" title="Revenir a la couleur du modele">defaut</button><b id="pmAccentLabel">' + (m.accent ? m.accent.toUpperCase() : 'defaut') + '</b></span></div>';
+    html += '<div class="pm-row"><span>Couleur secondaire</span><span style="display:flex;align-items:center;gap:8px"><input type="color" value="' + (m.accent2 || a.accent2) + '" oninput="pmAccentLive(this.value,\'accent2\')"><button class="btn sm" onclick="pmChange({\'accent2\':\'\'})" title="Revenir a la couleur du modele">defaut</button><b id="pmAccent2Label">' + (m.accent2 ? m.accent2.toUpperCase() : 'defaut') + '</b></span></div>';
+    html += '<div class="pm-row"><span>Police</span><select onchange="pmChange({\'font\':this.value})">' + fontOpts + '</select></div>';
+    html += '<div class="pm-row"><span>Densite</span><select onchange="pmChange({\'density\':this.value})">' + densOpts + '</select></div>';
+    html += '<div class="pm-row"><span>En-tete</span><select onchange="pmChange({\'headerStyle\':this.value})">' + hdrOpts + '</select></div>';
+    html += '<div class="pm-row"><span>Imprimer en noir et blanc</span><input type="checkbox" ' + (m.mono ? 'checked' : '') + ' onchange="pmChange({\'mono\':this.checked})"></div>';
+    html += '<div class="pm-row"><span>Afficher le logo</span><input type="checkbox" ' + (m.showLogo !== false ? 'checked' : '') + ' onchange="pmChange({\'showLogo\':this.checked})"></div>';
+    html += '<div class="pm-row"><span>Filigrane (texte)</span><input type="text" id="pmWmInput" value="' + esc(m.watermark || '') + '" placeholder="ex : BROUILLON" style="width:180px" onchange="pmChange({\'watermark\':this.value})"></div>';
+    html += '<div class="pm-section-title">3. Numeriser un modele papier</div>';
+    html += scanHtml;
+    html += '<div class="pm-section-title">Apercu du modele</div>';
+    html += '<div class="pm-preview"><div class="pm-preview-title">Apercu simplifie (le releve reel reprend ces styles a l\'impression)</div><div id="pmPreview"></div></div>';
+    html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="pmPrintExample()">Imprimer un exemple</button><button class="btn" onclick="resetPrintModel()">Reinitialiser</button></div>';
+    html += '<div style="font-size:.66rem;color:var(--text-dim);margin-top:10px">Astuce : ouvrez un releve (Semaine / Mois / Annee / Journal) puis cliquez Imprimer : le modele choisi s\'applique automatiquement.</div>';
+    html += '</div>';
+    body.innerHTML = html;
+    refreshPrintPreview();
+}
+function refreshPrintPreview() {
+    var pv = document.getElementById('pmPreview');
+    if (pv) pv.innerHTML = printPreviewSheet(loadPrintModel());
+}
+function printPreviewSheet(m) {
+    if (!m) m = loadPrintModel();
+    var p = pmPalette(m);
+    var f = pmFont(m);
+    var ink = m.mono ? '#222' : p.ink;
+    var lineC = m.mono ? '#222' : p.line;
+    var soft = m.mono ? '#eee' : p.soft;
+    var soft2 = m.mono ? '#e2e2e2' : p.soft2;
+    var accA = m.mono ? '#222' : (m.accent || p.accent);
+    var accB = m.mono ? '#222' : (m.accent2 || p.accent2);
+    var h = '';
+    h += '<div class="pm-preview-sheet" style="font-family:' + f.stack + ';color:' + ink + ';background:#fff;border:1px solid #e2e2e2;padding:14px;position:relative;overflow:hidden;min-height:340px">';
+    if (m.scan) h += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;background:url(' + m.scan + ') no-repeat ' + (m.scanPos === 'top' ? '50% 0%' : m.scanPos === 'bottom' ? '50% 100%' : '50% 50%') + '/contain;opacity:' + (m.scanOpacity / 100) + ';z-index:0"></div>';
+    if ((m.watermark || '').trim()) h += '<div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;color:rgba(150,150,150,0.13);font-weight:700;font-size:40px;transform:rotate(-30deg);white-space:nowrap;z-index:0;pointer-events:none">' + esc(m.watermark.trim()) + '</div>';
+    h += '<div style="position:relative;z-index:1">';
+    if (m.headerStyle === 'banner') {
+        h += '<div style="display:flex;align-items:center;background:' + ink + ';color:#fff;border-radius:5px;padding:10px 12px;margin-bottom:10px">';
+        if (m.showLogo !== false) h += '<div style="width:34px;height:34px;background:rgba(255,255,255,0.2);border-radius:4px;margin-right:10px"></div>';
+        h += '<div style="flex:1"><div style="font-weight:700;font-size:12px">Entreprise</div><div style="font-size:9px;opacity:.85">Salarie · Employeur</div></div>';
+        h += '<div style="text-align:right;font-size:9px;opacity:.88">Semaine<br>du lundi au dimanche</div>';
+        h += '</div>';
+    } else {
+        h += '<div style="display:flex;align-items:center;border-bottom:2.5px solid ' + lineC + ';padding-bottom:8px;margin-bottom:10px">';
+        if (m.showLogo !== false) h += '<div style="width:36px;height:36px;background:' + soft + ';border:1px solid #e3e3e3;border-radius:4px;margin-right:10px"></div>';
+        h += '<div style="flex:1"><div style="font-weight:700;font-size:13px;color:' + ink + '">Entreprise</div><div style="font-size:8px;opacity:.7">Salarie · Employeur</div></div>';
+        h += '<div style="text-align:right"><div style="font-weight:700;font-size:11px;color:' + ink + '">Semaine type</div><div style="font-size:8px;opacity:.7">du lundi au dimanche</div></div>';
+        h += '</div>';
+    }
+    h += '<div style="border:1px solid ' + lineC + (m.density === 'compact' ? ';font-size:7px' : '') + '">';
+    h += '<div style="background:' + soft + ';color:' + ink + ';font-weight:700;font-size:9px;padding:' + (m.density === 'air' ? '7px' : '5px') + ';border-bottom:1.5px solid ' + lineC + '">Jour&nbsp;&nbsp;|&nbsp;&nbsp;Chantier&nbsp;&nbsp;|&nbsp;&nbsp;Debut&nbsp;&nbsp;|&nbsp;&nbsp;Fin&nbsp;&nbsp;|&nbsp;&nbsp;Heures</div>';
+    h += '<div style="padding:5px;border-bottom:0.5px solid #ddd">Lundi — Duplex rue de la Gare · <span style="color:' + accA + ';font-weight:700">07:30–16:00 · 8h30</span></div>';
+    h += '<div style="padding:5px;border-bottom:0.5px solid #ddd">Mardi — Fondations impasse des Lilas · <span style="color:' + accA + ';font-weight:700">07:30–16:00 · 8h30</span></div>';
+    h += '<div style="padding:6px;background:' + soft2 + ';font-weight:700">TOTAL SEMAINE · 17h00 &nbsp;<span style="color:' + (m.mono ? '#222' : accA) + '">' + (m.mono ? '' : '…') + '</span></div>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:10px;justify-content:center;margin-top:10px">';
+    h += '<div style="border:1px solid ' + lineC + ';border-radius:4px;padding:4px 10px;text-align:center"><div style="font-size:7px;text-transform:uppercase;opacity:.7">Heures</div><div style="font-weight:700;font-size:13px">39h15</div></div>';
+    h += '<div style="border:1px solid ' + lineC + ';border-radius:4px;padding:4px 10px;text-align:center"><div style="font-size:7px;text-transform:uppercase;opacity:.7">Principal</div><div style="font-weight:700;font-size:13px;color:' + accA + '">2 480,00</div></div>';
+    h += '<div style="border:1px solid ' + lineC + ';border-radius:4px;padding:4px 10px;text-align:center"><div style="font-size:7px;text-transform:uppercase;opacity:.7">Route</div><div style="font-weight:700;font-size:13px;color:' + accB + '">150 km</div></div>';
+    h += '</div>';
+    h += '<div style="display:flex;justify-content:space-between;margin-top:' + (m.density === 'compact' ? '34px' : '46px') + '">';
+    h += '<div style="text-align:center;width:45%"><div style="font-size:7px;text-transform:uppercase;opacity:.7">Signature du salarie</div><div style="border-top:0.5px solid #999;margin-top:14px;font-size:8px;opacity:.7">Date et signature</div></div>';
+    h += '<div style="text-align:center;width:45%"><div style="font-size:7px;text-transform:uppercase;opacity:.7">Signature de l\'employeur</div><div style="border-top:0.5px solid #999;margin-top:14px;font-size:8px;opacity:.7">Date et signature</div></div>';
+    h += '</div>';
+    h += '</div>';
+    h += '</div>';
+    return h;
+}
+function pmChange(patch) {
+    var m = loadPrintModel();
+    Object.keys(patch).forEach(function(k) { m[k] = patch[k]; });
+    savePrintModel(m);
+    applyPrintModel();
+    renderPrintModelPanel();
+}
+function pmAccentLive(color, key) {
+    var m = loadPrintModel();
+    m[key] = color;
+    savePrintModel(m);
+    if (key === 'accent') { var l1 = document.getElementById('pmAccentLabel'); if (l1) l1.textContent = color.toUpperCase(); }
+    else { var l2 = document.getElementById('pmAccent2Label'); if (l2) l2.textContent = color.toUpperCase(); }
+    applyPrintModel();
+    refreshPrintPreview();
+}
+function pmScanOp(v) {
+    var m = loadPrintModel();
+    m.scanOpacity = parseInt(v, 10) || 0;
+    savePrintModel(m);
+    applyPrintModel();
+    var lbl = document.getElementById('pmScanOpLabel');
+    if (lbl) lbl.textContent = m.scanOpacity + '%';
+    refreshPrintPreview();
+}
+function selectPrintModel(id) {
+    var m = loadPrintModel();
+    m.templateId = id;
+    savePrintModel(m);
+    applyPrintModel();
+    renderPrintModelPanel();
+}
+function pmScanUpload(input) {
+    var file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) { showToast('Image trop lourde (max 6 Mo)', 'error'); if (input) input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var maxW = 2000;
+            var scale = Math.min(1, maxW / img.width);
+            var w = Math.max(1, Math.round(img.width * scale));
+            var h = Math.max(1, Math.round(img.height * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            var data = null;
+            try { data = canvas.toDataURL('image/jpeg', 0.86); } catch (err) {}
+            if (!data) { showToast('Numerisation impossible sur cet appareil', 'error'); return; }
+            var m = loadPrintModel();
+            m.scan = data;
+            if (!savePrintModel(m)) return;
+            applyPrintModel();
+            renderPrintModelPanel();
+            showToast('Modele numerise ajoute', 'success');
+        };
+        img.onerror = function() { showToast('Image illisible', 'error'); };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+function clearScanModel() {
+    var m = loadPrintModel();
+    m.scan = null;
+    m.scanOpacity = 20;
+    savePrintModel(m);
+    applyPrintModel();
+    renderPrintModelPanel();
+}
+function resetPrintModel() {
+    var d = defaultPrintModel();
+    if (!savePrintModel(d)) return;
+    applyPrintModel();
+    renderPrintModelPanel();
+    showToast('Modele reinitialise', 'success');
+}
+function pmPrintExample() {
+    var pan = document.getElementById('printModelPanel');
+    if (pan) pan.style.display = 'none';
+    showReleveDay();
+    setTimeout(printReleve, 250);
+}
 
 function showReleveDay(targetDate) {
     const now = new Date();
@@ -9740,6 +10140,7 @@ function showEnhancedRecap() {
 
     html += '<div style="margin-top:14px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div>';
     body.innerHTML = html;
+    applySheetClass();
     const ph = document.getElementById('recapPanel').querySelector('.form-header span');
     if (ph) ph.textContent = 'Apercu global (toutes les semaines)';
     document.getElementById('recapPanel').style.display = '';
@@ -9787,6 +10188,7 @@ function showDailyOvertime() {
         html += '<div style="margin-top:12px"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button></div>';
         const body = document.getElementById('recapBody');
         body.innerHTML = html;
+        applySheetClass();
         const ph = document.getElementById('recapPanel').querySelector('.form-header span');
         if (ph) ph.textContent = 'Heures suplémentaires - semaine';
         document.getElementById('recapPanel').style.display = '';
@@ -10934,6 +11336,7 @@ function bootApp() {
         } catch (e) {}
     });
     render();
+    applyPrintModel();
     startLiveClock();
     initAutoDetect();
     restoreTimerState();
