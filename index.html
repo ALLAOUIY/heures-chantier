@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -1348,6 +1348,33 @@
         <div class="form-body" id="projectTrackerBody" style="padding:12px"></div>
     </div>
 
+    <!-- Vehicules / Profil Panel -->
+    <div class="form-panel" id="vehiclesPanel" style="display:none">
+        <div class="form-header">
+            <span>Vehicules</span>
+            <button class="btn sm" onclick="document.getElementById('vehiclesPanel').style.display='none'">X</button>
+        </div>
+        <div class="form-body" id="vehiclesBody" style="padding:12px"></div>
+    </div>
+
+    <!-- Planning panel -->
+    <div class="form-panel" id="planPanel" style="display:none">
+        <div class="form-header">
+            <span>Planning multi-semaines</span>
+            <button class="btn sm" onclick="document.getElementById('planPanel').style.display='none'">X</button>
+        </div>
+        <div class="form-body" id="planBody" style="padding:12px"></div>
+    </div>
+
+    <!-- Billing panel -->
+    <div class="form-panel" id="billingPanel" style="display:none">
+        <div class="form-header">
+            <span>Facturation</span>
+            <button class="btn sm" onclick="document.getElementById('billingPanel').style.display='none'">X</button>
+        </div>
+        <div class="form-body" id="billingBody" style="padding:12px"></div>
+    </div>
+
     <!-- Form -->
     <div class="form-panel" id="mainFormPanel">
         <div class="form-header">
@@ -1460,8 +1487,49 @@
                         </div>
                     </div>
                     <div class="form-group optional-field">
+                        <label>TVA facturation</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="number" id="fTvaRate" placeholder="20" min="0" step="0.1" style="width:80px" oninput="saveProfile({...loadProfile(),tva:parseFloat(this.value)||0})">
+                            <span style="font-size:0.72rem;color:var(--text-dim)">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group optional-field">
+                        <label>Majoration nuit</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="number" id="fNuitMaj" placeholder="25" min="0" step="1" style="width:80px" oninput="saveProfile({...loadProfile(),majNuitPct:parseFloat(this.value)||0})">
+                            <span style="font-size:0.72rem;color:var(--text-dim)">%</span>
+                        </div>
+                    </div>
+                    <div class="form-group optional-field">
                         <label>Chantiers favoris</label>
                         <div id="favChantiers" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journee: statut, pause, vehicules -->
+            <div class="form-section">
+                <div class="form-section-title">Etat de la journee <span style="color:var(--text-dim);font-weight:400;font-size:0.65rem">statut, pause, vehicules</span></div>
+                <div class="form-row r3">
+                    <div class="form-group">
+                        <label>Statut</label>
+                        <select id="fStatut" onchange="applyDayStatut(this.value)">
+                            <option value="">Journee normale</option>
+                            <option value="conge">Conge</option>
+                            <option value="absence">Absence</option>
+                            <option value="ferie">Ferie</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pause (min)</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="number" id="fPause" placeholder="0" min="0" step="5" style="width:80px" oninput="setDayPause(parseFloat(this.value)||0)">
+                            <span style="font-size:0.72rem;color:var(--text-dim)"><span id="calcPause" style="color:var(--accent2);font-weight:600">0h00</span></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Vehicules du profil</label>
+                        <div id="vehiclesBox"></div>
                     </div>
                 </div>
             </div>
@@ -1741,6 +1809,7 @@ function getWeekStart(d) {
     return date;
 }
 function formatDate(d) { const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }
+function getWeekDates() { const d = []; for (let i = 0; i < 7; i++) { const date = new Date(currentWeekStart); date.setDate(date.getDate() + i); d.push(date); } return d; }
 function formatShortDate(d) { return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
 function getStorageKey() { return uK(formatDate(currentWeekStart)); }
 function keySuffix(key) {
@@ -1906,6 +1975,19 @@ function checkBackupReminder() {
     if (daysSince >= BACKUP_REMIND_DAYS) {
         showToast('Attention : pas de backup depuis ' + daysSince + ' jours !', 'warning');
     }
+}
+function checkPlanReminder() {
+    try {
+        const plan = loadPlan();
+        if (!plan) return;
+        const currentKey = formatDate(planWeekStartAt(0));
+        const nextKey = formatDate(planWeekStartAt(1));
+        const hasNext = plan[nextKey] && Object.keys(plan[nextKey].dows || {}).some(function(k) { return plan[nextKey].dows[k]; });
+        if (!hasNext) return;
+        const here = document.getElementById('planPanel');
+        if (here && here.style.display !== 'none') return;
+        showToast('Planning : semaine prochaine programmee. Menu > Planning pour la generer', 'info');
+    } catch (e) {}
 }
 function renderBackupBadge() {
     const badge = document.getElementById('backupBadge');
@@ -2667,74 +2749,181 @@ function initNotifications() {
 
 // === EXPORT EXCEL (XLSX minimaliste) ===
 function exportXLSX() {
-    var entries = loadEntries();
-    var dates = getWeekDates();
-    var profile = loadProfile();
-    var xml = '<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>';
-    xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
-    xml += '<Styles><Style ss:ID="hdr"><Font ss:Bold="1" ss:Size="11"/><Interior ss:Color="#1a1a2e" ss:Pattern="Solid"/><Font ss:Color="#ecf0f1"/></Style>';
-    xml += '<Style ss:ID="num"><NumberFormat ss:Format="0.00"/></Style>';
-    xml += '<Style ss:ID="time"><NumberFormat ss:Format="0.00"/></Style>';
-    xml += '<Style ss:ID="accent"><Font ss:Color="#6c7aff" ss:Bold="1"/></Style></Styles>';
-    xml += '<Worksheet ss:Name="Heures"><Table>';
-    xml += '<Row><Cell ss:StyleID="hdr"><Data ss:Type="String">Date</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Jour</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Periode</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Depart M.</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Arrivee M.</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Travail (h)</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Route (h)</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Total (h)</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Km</Data></Cell></Row>';
-    var tw = 0, tr = 0, tk = 0;
-    dates.forEach(function(d) {
-        var ds = formatDate(d);
-        var dayEntries = entries.filter(function(e) { return e.date === ds; });
+    const entries = loadEntries();
+    const dates = getWeekDates();
+    const profile = loadProfile();
+    const hoursSheet = {
+        name: 'Heures',
+        header: ['Date', 'Jour', 'Statut', 'Client', 'Periode', 'Depart M.', 'Arrivee M.', 'Travail (h)', 'Route (h)', 'Total (h)', 'Km', 'Pause (min)', 'Nuit (min)'],
+        colWidths: [11, 8, 10, 14, 9, 10, 10, 11, 10, 10, 8, 11, 10]
+    };
+    const minuteCells = {
+        7: true, 8: true, 9: true, 10: true, 11: true, 12: true
+    };
+    const rows = [];
+    let tw = 0, tr = 0, tk = 0;
+    dates.forEach(function(d, di) {
+        const ds = formatDate(d);
+        const dayName = DAY_NAMES[di] || '';
+        const dayEntries = entries.filter(function(e) { return e.date === ds; });
         if (!dayEntries.length) {
-            var dayName = DAY_NAMES[dates.indexOf(d)];
-            xml += '<Row><Cell><Data ss:Type="String">' + ds + '</Data></Cell><Cell><Data ss:Type="String">' + dayName + '</Data></Cell><Cell><Data ss:Type="String">Repos</Data></Cell><Cell/><Cell/><Cell ss:StyleID="num"><Data ss:Type="Number">0</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">0</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">0</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">0</Data></Cell></Row>';
+            const off = {
+                date: ds, jour: dayName, statut: 'Repos', client: '-',
+                periode: '-', dep: '-', arr: '-',
+                w: 0, r: 0, tot: 0, km: 0, pause: 0, nuit: 0
+            };
+            rows.push({ row: [off.date, off.jour, off.statut, off.client, off.periode, off.dep, off.arr, off.w, off.r, off.tot, off.km, off.pause, off.nuit], number: minuteCells });
         } else {
             dayEntries.forEach(function(e) {
+                const baseNuit = getNightMinutesOfEntry(e);
+                const st = e.statut || 'Travaille';
+                if (!(e.shifts || []).length) {
+                    rows.push({ row: [ds, dayName, st, '-', '-', '-', '-', 0, 0, 0, 0, e.pauseMin || 0, baseNuit], number: minuteCells });
+                    return;
+                }
                 (e.shifts || []).forEach(function(s) {
-                    var workMin = 0;
-                    (s.chantiers || []).forEach(function(c) { workMin += calcDiff(c.debut, c.fin); });
-                    var routeMin = s.route || calcDiff(s.departMaison, s.arriveeMaison);
-                    var km = s.km || Math.max(0, (parseFloat(s.kmArrivee) || 0) - (parseFloat(s.kmDepart) || 0));
+                    let workMin = 0;
+                    let client = '';
+                    (s.chantiers || []).forEach(function(c) { workMin += calcDiff(c.debut, c.fin); if (c.client && !client) client = c.client; });
+                    const routeMin = s.route || calcDiff(s.departMaison, s.arriveeMaison);
+                    const km = s.km || Math.max(0, (parseFloat(s.kmArrivee) || 0) - (parseFloat(s.kmDepart) || 0));
                     tw += workMin; tr += routeMin; tk += km;
-                    xml += '<Row><Cell><Data ss:Type="String">' + ds + '</Data></Cell><Cell><Data ss:Type="String">' + (DAY_NAMES[dates.indexOf(d)] || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.periode || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.departMaison || '') + '</Data></Cell><Cell><Data ss:Type="String">' + esc(s.arriveeMaison || '') + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (workMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (routeMin / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + ((workMin + routeMin) / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + km + '</Data></Cell></Row>';
+                    rows.push({ row: [ds, dayName, st, client, s.periode || '', s.departMaison || '', s.arriveeMaison || '', workMin / 60, routeMin / 60, (workMin + routeMin) / 60, km, e.pauseMin || 0, baseNuit], number: minuteCells });
                 });
             });
         }
     });
-    xml += '<Row/><Row><Cell ss:StyleID="accent"><Data ss:Type="String">TOTAL</Data></Cell><Cell/><Cell/><Cell/><Cell/><Cell ss:StyleID="num"><Data ss:Type="Number">' + (tw / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (tr / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + ((tw + tr) / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + tk + '</Data></Cell></Row>';
-    xml += '</Table></Worksheet>';
-    xml += '<Worksheet ss:Name="Projets"><Table>';
-    xml += '<Row><Cell ss:StyleID="hdr"><Data ss:Type="String">Projet</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Lieu</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Metier</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">Heures</Data></Cell><Cell ss:StyleID="hdr"><Data ss:Type="String">% Total</Data></Cell></Row>';
-    var projects = {};
+    rows.push({ row: ['TOTAL', '', '', '', '', '', '', tw / 60, tr / 60, (tw + tr) / 60, tk, sumOf(rows, 11), sumOf(rows, 12)], number: minuteCells, bold: true });
+    hoursSheet.rows = rows;
+    const projetsSheet = {
+        name: 'Projets',
+        header: ['Projet', 'Lieu', 'Client', 'Metier', 'Heures', '% Total', 'CA HT (EUR)'],
+        colWidths: [10, 16, 16, 16, 10, 10, 14]
+    };
+    const projects = {};
     dates.forEach(function(d) {
-        var ds = formatDate(d);
+        const ds = formatDate(d);
         entries.filter(function(e) { return e.date === ds; }).forEach(function(e) {
             (e.shifts || []).forEach(function(s) {
                 (s.chantiers || []).forEach(function(c) {
                     if (!c.num) return;
-                    var k = c.num.toUpperCase();
-                    if (!projects[k]) projects[k] = { num: c.num, lieu: c.lieu || '', identification: c.identification || '', work: 0 };
+                    const k = c.num.toUpperCase();
+                    if (!projects[k]) projects[k] = { num: c.num, lieu: c.lieu || '', client: c.client || '', identification: c.identification || '', work: 0, ca: 0 };
                     projects[k].work += c.work || 0;
+                    projects[k].ca += (parseFloat(c.tarifH) || 0) * ((c.work || 0) / 60);
                 });
             });
         });
     });
-    Object.values(projects).sort(function(a, b) { return b.work - a.work; }).forEach(function(p) {
-        var pct = tw > 0 ? Math.round((p.work / tw) * 100) : 0;
-        xml += '<Row><Cell><Data ss:Type="String">' + esc(p.num) + '</Data></Cell><Cell><Data ss:Type="String">' + esc(p.lieu) + '</Data></Cell><Cell><Data ss:Type="String">' + esc(p.identification) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + (p.work / 60).toFixed(2) + '</Data></Cell><Cell ss:StyleID="num"><Data ss:Type="Number">' + pct + '</Data></Cell></Row>';
+    const pj = Object.values(projects).sort(function(a, b) { return b.work - a.work; });
+    projetsSheet.rows = pj.map(function(p) {
+        const pct = tw > 0 ? Math.round((p.work / tw) * 100) : 0;
+        return { row: [p.num, p.lieu, p.client, p.identification, p.work / 60, pct, p.ca.toFixed(2)], number: { 4: true, 5: true, 6: true } };
     });
-    xml += '</Table></Worksheet>';
-    xml += '</Workbook>';
-    var blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'heures_' + formatDate(new Date()) + '.xls';
-    a.click();
-    URL.revokeObjectURL(url);
-    logAudit('export_xlsx', entries.length + ' journee(s)');
-    showToast('Export Excel genere', 'success');
+    const synthSheet = {
+        name: 'Synthese',
+        header: ['Indicateur', 'Valeur'],
+        colWidths: [30, 20]
+    };
+    const pauseT = sumOf(hoursSheet.rows, 11);
+    const nuitT = sumOf(hoursSheet.rows, 12);
+    synthSheet.rows = [
+        { row: ['Semaine', (dates[0] ? formatDate(dates[0]) : '') + ' -> ' + (dates[6] ? formatDate(dates[6]) : '')] },
+        { row: ['Heures produites', fmtH(tw)] },
+        { row: ['Heures de route', fmtH(tr)] },
+        { row: ['Heures totales (prod+route)', fmtH(tw + tr)] },
+        { row: ['Kilometres', String(Math.round(tk))] },
+        { row: ['Pause totale (min)', String(Math.round(pauseT))] },
+        { row: ['Heures de nuit (min)', String(Math.round(nuitT))] },
+        { row: ['CA chantiers HT (EUR)', fmtEur(projetsSheet.rows.reduce(function(su, r) { return su + (parseFloat(r.row[6]) || 0); }, 0))] },
+        { row: ['Salarie', (profile.prenom || profile.nom || '') ? trim(profile.prenom || '') + ' ' + trim(profile.nom || '') : ''] }
+    ];
+    const xlsx = buildXLSX([hoursSheet, projetsSheet, synthSheet]);
+    downloadBytes('heures_' + formatDate(new Date()) + '.xlsx', xlsx, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    logAudit('export_xlsx_real', entries.length + ' journee(s)');
+    showToast('Export Excel genéré (.xlsx)', 'success');
+}
+function trim(s) { return String(s === undefined || s === null ? '' : s).trim(); }
+function sumOf(rows, idx) { return rows.reduce(function(acc, r) { const v = r && r.row && parseFloat(r.row[idx]); return acc + (isFinite(v) ? v : 0); }, 0); }
+function exportWeekPDF() {
+    const entries = loadEntries();
+    const dates = getWeekDates();
+    const profile = loadProfile();
+    const rows = [];
+    const rowsMap = {};
+    let tw = 0, tr = 0, tk = 0, tNuit = 0;
+    dates.forEach(function(d, di) {
+        const ds = formatDate(d);
+        const dayName = DAY_NAMES ? DAY_NAMES[di] : '';
+        const dayEntries = entries.filter(function(e) { return e.date === ds; });
+        const e = dayEntries[0];
+        if (!e || !(e.shifts || []).length) {
+            rows.push({ date: ds, jour: dayName, total: '0h00', detail: '-' });
+            return;
+        }
+        let work = 0, route = 0, km = 0;
+        const details = [];
+        (e.shifts || []).forEach(function(s) {
+            let wm = 0;
+            (s.chantiers || []).forEach(function(c) { wm += calcDiff(c.debut, c.fin); });
+            const rm = s.route || calcDiff(s.departMaison, s.arriveeMaison);
+            work += wm; route += rm;
+            km += s.km || Math.max(0, (parseFloat(s.kmArrivee) || 0) - (parseFloat(s.kmDepart) || 0));
+            const sig = (s.chantiers || []).map(function(c) { return c.num || c.lieu; }).filter(Boolean).join(' + ');
+            details.push((s.periode || '') + ' ' + (sig || '-'));
+        });
+        tNuit += getNightMinutesOfEntry(e);
+        tw += work; tr += route; tk += km;
+        rowsMap[ds] = { work: work, route: route, km: km };
+        rows.push({ date: ds, jour: dayName, total: formatMinutes(work), detail: details.join(' | ') });
+    });
+    const footnotes = [
+        'Total travail : ' + formatMinutes(tw) + '  |  Route : ' + formatMinutes(tr) + '  |  km : ' + Math.round(tk),
+        'Pause semaine : ' + formatMinutes(pauseSumOfWeek()) + '  |  Nuit : ' + formatMinutes(tNuit),
+        'Genere le ' + new Date().toLocaleDateString('fr-FR') + ' - ' + profile.prenom + ' ' + profile.nom
+    ];
+    const pdf = buildPdf({
+        title: 'Feuille d\'heures',
+        subtitle: 'Semaine du ' + (dates[0] ? formatDate(dates[0]) : ''),
+        columns: ['Date', 'Jour', 'Total', 'Detail'],
+        rows: rows.map(function(r) { return [r.date, r.jour, r.total, r.detail]; }),
+        footnotes: footnotes
+    });
+    downloadBytes('releve_' + (dates[0] ? formatDate(dates[0]) : '') + '.pdf', pdf, 'application/pdf');
+    logAudit('export_week_pdf');
+    showToast('PDF genere (' + rows.length + ' jours)', 'success');
+}
+function pauseSumOfWeek() {
+    let s = 0;
+    loadEntries().forEach(function(e) { s += (e.pauseMin || 0); });
+    return s;
 }
 
 // === ANALYTICS DASHBOARD ===
+let analyticsFilter = { from: '', to: '', chantier: '', client: '', vehicule: '' };
+function passesAnalytics(e) {
+    const f = analyticsFilter || {};
+    if (f.from && e.date < f.from) return false;
+    if (f.to && e.date > f.to) return false;
+    if (f.chantier || f.client || f.vehicule) {
+        let ok = false;
+        (e.shifts || []).forEach(function(s) {
+            if (ok) return;
+            if (f.vehicule && s.vehicule && s.vehicule !== f.vehicule) { /* shift exclu */ }
+            else {
+                (s.chantiers || []).forEach(function(c) {
+                    if (f.chantier && c.num && c.num.toUpperCase() === f.chantier.toUpperCase()) ok = true;
+                    if (f.client && c.client === f.client) ok = true;
+                    if (f.vehicule && (!s.vehicule || s.vehicule === f.vehicule) && c.num) ok = true;
+                });
+            }
+        });
+        return ok;
+    }
+    return true;
+}
 function computeAnalytics() {
+    const profile = loadProfile();
     const allData = loadAllWeeksData();
     const now = new Date();
     const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -2742,9 +2931,12 @@ function computeAnalytics() {
     const lastMonthKey = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0');
     let thisMonthWork = 0, thisMonthRoute = 0, thisMonthKm = 0, thisMonthDays = 0;
     let lastMonthWork = 0, lastMonthRoute = 0, lastMonthKm = 0, lastMonthDays = 0;
+    let totPause = 0, totNight = 0, totCA = 0;
+    const statutCounts = { conge: 0, absence: 0, ferie: 0 };
     const monthlyHours = [];
     const projectHours = {};
     const dayOfWeekHours = [0, 0, 0, 0, 0, 0, 0];
+    const daysSeen = {};
     Object.keys(allData).sort().forEach(function(key) {
         const entries = allData[key];
         entries.forEach(function(e) {
@@ -2752,6 +2944,12 @@ function computeAnalytics() {
             const mk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
             const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
             dayOfWeekHours[dow] += e.totalWork || 0;
+            if (!passesAnalytics(e)) return;
+            totPause += e.pauseMin || 0;
+            totNight += getNightMinutesOfEntry(e);
+            if (e.statut) statutCounts[e.statut] = (statutCounts[e.statut] || 0) + 1;
+            if (e.statut === 'ferie' || (isFerieDate(d) && !(e.shifts || []).length)) statutCounts.ferie++;
+            daysSeen[e.date] = true;
             if (mk === currentMonth) { thisMonthWork += e.totalWork || 0; thisMonthRoute += e.totalRoute || 0; thisMonthKm += e.totalKm || 0; thisMonthDays++; }
             if (mk === lastMonthKey) { lastMonthWork += e.totalWork || 0; lastMonthRoute += e.totalRoute || 0; lastMonthKm += e.totalKm || 0; lastMonthDays++; }
             (e.shifts || []).forEach(function(s) {
@@ -2760,6 +2958,7 @@ function computeAnalytics() {
                         if (!projectHours[c.num]) projectHours[c.num] = { num: c.num, lieu: c.lieu || '', identification: c.identification || '', work: 0 };
                         projectHours[c.num].work += c.work || 0;
                     }
+                    totCA += (parseFloat(c.tarifH) || 0) * ((c.work || 0) / 60);
                 });
             });
         });
@@ -2770,6 +2969,7 @@ function computeAnalytics() {
         let mWork = 0;
         Object.keys(allData).forEach(function(key) {
             (allData[key] || []).forEach(function(e) {
+                if (!passesAnalytics(e)) return;
                 const ed = new Date(e.date + 'T00:00:00');
                 if (ed.getFullYear() + '-' + String(ed.getMonth() + 1).padStart(2, '0') === mk) mWork += e.totalWork || 0;
             });
@@ -2778,14 +2978,35 @@ function computeAnalytics() {
     }
     const sortedProjects = Object.values(projectHours).sort(function(a, b) { return b.work - a.work; });
     const monthDiff = lastMonthWork > 0 ? ((thisMonthWork - lastMonthWork) / lastMonthWork * 100) : 0;
+    const nuitMajPct = parseFloat(profile.majNuitPct) || 25;
     return {
         thisMonth: { work: thisMonthWork, route: thisMonthRoute, km: thisMonthKm, days: thisMonthDays },
         lastMonth: { work: lastMonthWork, route: lastMonthRoute, km: lastMonthKm, days: lastMonthDays },
         monthDiff: monthDiff,
         monthlyHours: monthlyHours,
         topProjects: sortedProjects.slice(0, 10),
-        dayOfWeekHours: dayOfWeekHours
+        dayOfWeekHours: dayOfWeekHours,
+        totPAUSE: totPause,
+        totNight: totNight,
+        totCA: totCA,
+        nuitMajPct: nuitMajPct,
+        statutCounts: statutCounts
     };
+}
+function analyticsFilterInput(name) { return 'document.getElementById(\'af_' + name + '\').value'; }
+function filterAnalytics() {
+    analyticsFilter = {
+        from: document.getElementById('af_from') ? document.getElementById('af_from').value : '',
+        to: document.getElementById('af_to') ? document.getElementById('af_to').value : '',
+        chantier: document.getElementById('af_chantier') ? document.getElementById('af_chantier').value.trim() : '',
+        client: document.getElementById('af_client') ? document.getElementById('af_client').value.trim() : '',
+        vehicule: document.getElementById('af_vehicule') ? document.getElementById('af_vehicule').value.trim() : ''
+    };
+    showAnalytics();
+}
+function clearAnalyticsFilter() {
+    analyticsFilter = { from: '', to: '', chantier: '', client: '', vehicule: '' };
+    showAnalytics();
 }
 function showAnalytics() {
     const panel = document.getElementById('historyPanel');
@@ -2793,11 +3014,29 @@ function showAnalytics() {
     if (!panel || !body) return;
     const a = computeAnalytics();
     const route = computeRouteCost(a.thisMonth.km);
-    let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+    const f = analyticsFilter || {};
+    let html = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;padding:8px">';
+    html += '<div class="form-group" style="margin:0"><label style="font-size:0.62rem;color:var(--text-dim)">Du</label><input type="date" id="af_from" value="' + (f.from || '') + '" style="font-size:0.72rem;padding:4px" onchange="filterAnalytics()"></div>';
+    html += '<div class="form-group" style="margin:0"><label style="font-size:0.62rem;color:var(--text-dim)">Au</label><input type="date" id="af_to" value="' + (f.to || '') + '" style="font-size:0.72rem;padding:4px" onchange="filterAnalytics()"></div>';
+    html += '<div class="form-group" style="margin:0"><label style="font-size:0.62rem;color:var(--text-dim)">Chantier</label><input type="text" id="af_chantier" value="' + esc(f.chantier || '') + '" placeholder="Tous" style="font-size:0.72rem;padding:4px;width:90px" onchange="filterAnalytics()"></div>';
+    html += '<div class="form-group" style="margin:0"><label style="font-size:0.62rem;color:var(--text-dim)">Client</label><input type="text" id="af_client" value="' + esc(f.client || '') + '" placeholder="Tous" list="datalistClients" style="font-size:0.72rem;padding:4px;width:90px" onchange="filterAnalytics()"></div>';
+    html += '<div class="form-group" style="margin:0"><label style="font-size:0.62rem;color:var(--text-dim)">Vehicule</label><select id="af_vehicule" style="font-size:0.72rem;padding:4px;max-width:110px" onchange="filterAnalytics()"><option value="">Tous</option>' + vehiculeNames().map(function(v) { return '<option value="' + esc(v) + '"' + (f.vehicule === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') + '</select></div>';
+    html += '<button class="btn sm" onclick="clearAnalyticsFilter()" title="Effacer les filtres">Effacer</button>';
+    html += '<button class="btn sm accent2" onclick="exportAnalyticsCSV()">CSV</button>';
+    html += '<button class="btn sm accent3" onclick="exportAnalyticsPDF()">PDF</button>';
+    html += clientDatalistHtml();
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Ce mois</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent)">' + fmtH(a.thisMonth.work) + '</div><div style="font-size:0.7rem;color:var(--text-dim)">' + a.thisMonth.days + ' jours</div></div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Mois precedent</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent2)">' + fmtH(a.lastMonth.work) + '</div><div style="font-size:0.7rem;color:var(--text-dim)">' + a.lastMonth.days + ' jours</div></div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Evolution</div><div style="font-size:1.1rem;font-weight:700;color:' + (a.monthDiff >= 0 ? 'var(--accent4)' : 'var(--accent2)') + '">' + (a.monthDiff >= 0 ? '+' : '') + a.monthDiff.toFixed(1) + '%</div></div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Route</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent3)">' + fmtH(a.thisMonth.route) + '</div><div style="font-size:0.7rem;color:var(--text-dim)">' + a.thisMonth.km + ' km</div></div>';
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Pause totale</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent2)">' + formatMinutes(a.totPAUSE) + '</div></div>';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Heures de nuit (+' + a.nuitMajPct + '%)</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent3)">' + formatMinutes(a.totNight) + '</div></div>';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">CA chantiers (HT)</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent4)">' + fmtEur(a.totCA) + '</div></div>';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">C/Abs/Fer</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent)">' + (a.statutCounts.conge || 0) + '/' + (a.statutCounts.absence || 0) + '/' + (a.statutCounts.ferie || 0) + '</div></div>';
     html += '</div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">';
     html += '<div style="font-size:0.75rem;font-weight:600;margin-bottom:6px">Cout deplacement (carburant)</div>';
@@ -2818,12 +3057,98 @@ function showAnalytics() {
     }
     html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Moyenne glissante 4 sem.</div>';
     html += '<canvas id="trendChart" height="120" style="width:100%;max-height:120px;margin-bottom:10px"></canvas>';
+    html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Semaine courante vs precedente</div>';
+    html += '<canvas id="weekCompChart" height="80" style="width:100%;max-height:80px;margin-bottom:10px"></canvas>';
     html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Heures par jour de la semaine</div>';
     html += '<canvas id="dowChart" height="80" style="width:100%;max-height:80px"></canvas>';
     panel.querySelector('.form-header span').textContent = 'Analytics avance';
     body.innerHTML = html;
     panel.style.display = '';
-    setTimeout(function() { renderTrendChart(a.monthlyHours); renderDowChart(a.dayOfWeekHours); }, 100);
+    setTimeout(function() { renderTrendChart(a.monthlyHours); renderDowChart(a.dayOfWeekHours); renderWeekCompare(); }, 100);
+}
+function renderWeekCompare() {
+    const canvas = document.getElementById('weekCompChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = 80 * dpr;
+    ctx.scale(dpr, dpr);
+    const W = rect.width, H = 80;
+    ctx.clearRect(0, 0, W, H);
+    const now = new Date();
+    const curStart = getWeekStart(now);
+    const getWeekByDow = function(weekStart) {
+        const out = [0, 0, 0, 0, 0, 0, 0];
+        flatAllEntries().forEach(function(e) {
+            if (!passesAnalytics(e)) return;
+            const ed = new Date(e.date + 'T00:00:00');
+            const ref = new Date(weekStart);
+            const diff = Math.floor((ed.getTime() - ref.getTime()) / 86400000);
+            if (diff >= 0 && diff < 7) out[ed.getDay() === 0 ? 6 : ed.getDay() - 1] += e.totalWork || 0;
+        });
+        return out;
+    };
+    const prevStart = new Date(curStart); prevStart.setDate(prevStart.getDate() - 7);
+    const cur = getWeekByDow(curStart);
+    const prev = getWeekByDow(prevStart);
+    const maxVal = Math.max(1, ...cur.concat(prev));
+    const barW = Math.min(16, (W - 60) / 14 - 3);
+    const startX = (W - (barW + 3) * 14) / 2;
+    const chartH = H - 25;
+    const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    for (let i = 0; i < 14; i++) {
+        const val = i < 7 ? cur[i] : prev[i - 7];
+        const x = startX + i * (barW + 3);
+        const h = (val / maxVal) * chartH;
+        const y = 5 + chartH - h;
+        ctx.fillStyle = i < 7 ? '#6c7aff' : 'rgba(108,122,255,0.35)';
+        ctx.fillRect(x, y, barW, h);
+        if (i % 7 === 3) {
+            ctx.fillStyle = '#8b8fa3'; ctx.font = '8px Segoe UI'; ctx.textAlign = 'center';
+            ctx.fillText((i < 7 ? 'C' : 'P') + '.', x + barW / 2, H - 5);
+        }
+        if (i === 0 || i === 7) {
+            ctx.fillStyle = '#8b8fa3'; ctx.font = '7px Segoe UI'; ctx.textAlign = 'center';
+            ctx.fillText(labels[i % 7], x + barW / 2, H - 14);
+        }
+    }
+}
+function exportAnalyticsCSV() {
+    const a = computeAnalytics();
+    let lines = [];
+    lines.push('Date;Travail (h);Route (h);Pause (min);Nuit (min);Statut;Km');
+    flatAllEntries().forEach(function(e) {
+        if (!passesAnalytics(e)) return;
+        lines.push([e.date, ((e.totalWork || 0) / 60).toFixed(2), ((e.totalRoute || 0) / 60).toFixed(2), e.pauseMin || 0, getNightMinutesOfEntry(e), e.statut || '', e.totalKm || 0].join(';'));
+    });
+    lines.push('');
+    lines.push('Total travail (h);' + (a.thisMonth.work / 60).toFixed(2));
+    lines.push('Total pause (min);' + (a.totPAUSE || 0));
+    lines.push('Total nuit (min);' + (a.totNight || 0));
+    lines.push('CA chantiers HT;' + (a.totCA || 0).toFixed(2));
+    downloadBytes('analytics_' + formatDate(new Date()) + '.csv', u8bytes('\uFEFF' + lines.join('\n')), 'text/csv;charset=utf-8');
+    logAudit('export_analytics_csv');
+    showToast('Analytics CSV exporte', 'success');
+}
+function exportAnalyticsPDF() {
+    const a = computeAnalytics();
+    const rows = [];
+    flatAllEntries().forEach(function(e) {
+        if (!passesAnalytics(e)) return;
+        rows.push([e.date, ((e.totalWork || 0) / 60).toFixed(2), formatMinutes(getNightMinutesOfEntry(e)), e.statut || '']);
+    });
+    const pdfBytes = buildPdf({
+        title: 'Analytics',
+        subtitle: 'Periode: ' + (analyticsFilter.from || 'tout') + ' -> ' + (analyticsFilter.to || 'tout'),
+        columns: ['Date', 'Travail (h)', 'Nuit', 'Statut'],
+        rows: rows,
+        footnotes: ['Pause: ' + formatMinutes(a.totPAUSE || 0), 'CA chantiers HT: ' + fmtEur(a.totCA || 0), 'Total travail mois: ' + fmtH(a.thisMonth.work)]
+    });
+    downloadBytes('analytics_' + formatDate(new Date()) + '.pdf', pdfBytes, 'application/pdf');
+    logAudit('export_analytics_pdf');
+    showToast('Analytics PDF genere', 'success');
 }
 function renderTrendChart(data) {
     const canvas = document.getElementById('trendChart');
@@ -2891,10 +3216,664 @@ function renderDowChart(data) {
         ctx.fillText(dayLabels[i], x + barW / 2, H - 5);
     });
 }
-function getWeekDates() {
-    const d = [];
-    for (let i = 0; i < 7; i++) { const date = new Date(currentWeekStart); date.setDate(date.getDate() + i); d.push(date); }
+// ============================================================
+// ENRICHISSEMENTS : jours feries, conges/absences, pause &
+// heures de nuit, vehicules, planification multi-semaines,
+// facturation par chantier/client, exports XLSX (OOXML reel) et
+// PDF natif, analytics avances (plage, filtres, exports).
+// ============================================================
+
+let _dayStatut = '';
+let _dayPauseMin = 0;
+let _planTargetOffset = 0;
+
+// --- Jours feries (calendrier francais, Paques calcule) ---
+function easterDate(year) {
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+    const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+}
+function ferieDates(year) {
+    const easter = easterDate(year);
+    const out = [
+        [new Date(year, 0, 1), "Jour de l'an"],
+        [new Date(year, 4, 1), 'Fete du Travail'],
+        [new Date(year, 4, 8), 'Victoire 1945'],
+        [new Date(year, 6, 14), 'Fete nationale'],
+        [new Date(year, 7, 15), 'Assomption'],
+        [new Date(year, 10, 1), 'Toussaint'],
+        [new Date(year, 10, 11), 'Armistice 1918'],
+        [new Date(year, 11, 25), 'Noel']
+    ];
+    [[1, 'Lundi de Paques'], [39, 'Ascension'], [50, 'Lundi de Pentecote']].forEach(function(m) {
+        const dd = new Date(easter);
+        dd.setDate(dd.getDate() + m[0]);
+        out.push([dd, m[1]]);
+    });
+    return out;
+}
+function isFerieDate(d) {
+    if (!(d instanceof Date)) { try { d = new Date(String(d) + 'T00:00:00'); } catch { return false; } }
+    if (isNaN(d.getTime())) return false;
+    const fer = ferieDates(d.getFullYear());
+    for (let i = 0; i < fer.length; i++) {
+        if (fer[i][0].getMonth() === d.getMonth() && fer[i][0].getDate() === d.getDate()) return true;
+    }
+    return false;
+}
+function ferieName(d) {
+    if (!(d instanceof Date)) { try { d = new Date(String(d) + 'T00:00:00'); } catch { return ''; } }
+    if (isNaN(d.getTime())) return '';
+    const fer = ferieDates(d.getFullYear());
+    for (let i = 0; i < fer.length; i++) {
+        if (fer[i][0].getMonth() === d.getMonth() && fer[i][0].getDate() === d.getDate()) return fer[i][1];
+    }
+    return '';
+}
+function isFerieISO(iso) { return isFerieDate(iso); }
+
+// --- Heures de nuit (plage 22h-5h) et pause ---
+function computeNightMinutes(from, to) {
+    const a = timeToMinutes(from), b = timeToMinutes(to);
+    if (isNaN(a) || isNaN(b)) return 0;
+    let st = a, en = b;
+    if (en < st) en += 1440;
+    if (en - st > 1440) return 0;
+    let total = 0;
+    total += Math.max(0, Math.min(en, 300) - Math.max(st, 0));
+    total += Math.max(0, Math.min(en, 1740) - Math.max(st, 1320));
+    return Math.min(1440, Math.round(total));
+}
+function getNightMinutesOfEntry(e) {
+    let total = 0;
+    (e.shifts || []).forEach(function(s) {
+        (s.chantiers || []).forEach(function(c) { total += computeNightMinutes(c.debut, c.fin); });
+    });
+    return total;
+}
+function getDayPause() { return _dayPauseMin || 0; }
+function setDayPause(min) {
+    _dayPauseMin = Math.max(0, Math.round(min) || 0);
+    const i = document.getElementById('fPause');
+    if (i) i.value = _dayPauseMin || '';
+    renderPauseInfo();
+}
+function statutLabel(st) { return st === 'conge' ? 'Conge' : st === 'absence' ? 'Absence' : st === 'ferie' ? 'Ferie' : st === 'repos' ? 'Repos' : ''; }
+function applyDayStatut(statut) {
+    _dayStatut = statut || '';
+    const sel = document.getElementById('fStatut');
+    if (sel) sel.value = _dayStatut;
+    renderStatutInfo();
+}
+function setDayStatut(statut) { applyDayStatut(statut); }
+function renderStatutInfo() {
+    if (_dayStatut) { setMicStatus('Jour: ' + statutLabel(_dayStatut), 'heard'); }
+}
+function renderPauseInfo() {
+    const c = document.getElementById('calcPause');
+    if (c) c.textContent = formatMinutes(_dayPauseMin || 0);
+}
+function statutBadgeChip(e) {
+    const st = e.statut || '';
+    if (!st) return '';
+    const colors = { conge: 'rgba(108,122,255,0.12);color:var(--accent)', absence: 'rgba(255,107,107,0.12);color:#ff6b6b', ferie: 'rgba(70,200,120,0.12);color:#46c878' };
+    const css = colors[st] || colors.conge;
+    return '<span title="Statut de la journee" style="font-size:0.58rem;padding:1px 6px;border-radius:3px;margin-left:4px;background:' + css + '">' + statutLabel(st) + '</span>';
+}
+
+// --- Vehicules (liste) ---
+function loadVehicules() { const p = loadProfile(); return Array.isArray(p.vehicules) ? p.vehicules : []; }
+function saveVehicules(arr) { const p = loadProfile(); p.vehicules = arr; saveProfile(p); }
+function vehiculeNames() {
+    const p = loadProfile();
+    const names = Array.isArray(p.vehicules) ? p.vehicules.map(function(v) { return v.name; }) : [];
+    if (p.vehicule && names.indexOf(p.vehicule) === -1) { names.unshift(p.vehicule); }
+    return names;
+}
+function addVehiculeFromUI() {
+    const i = document.getElementById('fNewVehicule');
+    if (!i) return;
+    const name = i.value.trim();
+    if (!name) return;
+    const list = loadVehicules();
+    if (!list.some(function(v) { return v.name === name; })) {
+        list.push({ name: name, immat: '', conso: parseFloat(document.getElementById('fNewVehiculeConso') ? document.getElementById('fNewVehiculeConso').value : '') || 0 });
+        saveVehicules(list);
+    }
+    i.value = '';
+    if (document.getElementById('fNewVehiculeConso')) document.getElementById('fNewVehiculeConso').value = '';
+    renderVehiclesBox();
+    renderShifts();
+    showToast('Vehicule ajoute: ' + name, 'success');
+}
+function removeVehicule(name) {
+    saveVehicules(loadVehicules().filter(function(v) { return v.name !== name; }));
+    const p = loadProfile();
+    if (p.vehicule === name) { p.vehicule = ''; saveProfile(p); }
+    renderVehiclesBox();
+    renderShifts();
+}
+function vehicleChipsHtml() {
+    const list = loadVehicules();
+    if (!list.length) return '<span style="color:var(--text-dim);font-size:0.72rem">Aucun vehicule enregistre. Ajoutez-en un ci-dessous.</span>';
+    return list.map(function(v) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:0.68rem">' + esc(v.name) + (v.immat ? ' <span style="color:var(--text-dim)">' + esc(v.immat) + '</span>' : '') + '<button type="button" onclick="removeVehicule(\'' + jsArg(v.name) + '\')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:0.7rem">&times;</button></span>';
+    }).join('');
+}
+function renderVehiclesBox() {
+    const box = document.getElementById('vehiclesBox');
+    if (box) box.innerHTML = vehicleChipsHtml() + '<div style="display:flex;gap:4px;margin-top:6px"><input type="text" id="fNewVehicule" placeholder="Ajouter..." style="font-size:0.7rem;padding:3px 6px;width:110px" onkeydown="if(event.key===\'Enter\')addVehiculeFromUI()"><button type="button" onclick="addVehiculeFromUI()" style="font-size:0.7rem;padding:2px 8px">+</button></div>';
+}
+
+// --- Clients (facturation) ---
+function loadClients() { try { return JSON.parse(localStorage.getItem(uK('clients'))) || []; } catch { return []; } }
+function saveClients(arr) { try { localStorage.setItem(uK('clients'), JSON.stringify(arr)); } catch {} }
+function clientNames() { return loadClients(); }
+function addClient(name) {
+    if (!name) return;
+    const list = loadClients();
+    if (list.indexOf(name) === -1) { list.push(name); saveClients(list); }
+}
+function clientDatalistHtml() {
+    return '<datalist id="datalistClients">' + clientNames().map(function(c) { return '<option value="' + esc(c) + '"></option>'; }).join('') + '</datalist>';
+}
+function renderVehiclesPanel() {
+    const panel = document.getElementById('vehiclesPanel');
+    const body = document.getElementById('vehiclesBody');
+    if (!panel || !body) return;
+    const vehs = vehiculeNames();
+    let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:10px">';
+    html += '<div class="form-group" style="margin:0"><label>Nom du vehicule</label><input type="text" id="nvName" placeholder="Ex: Kangoo" style="font-size:0.78rem" onkeydown="if(event.key===\'Enter\')addVehiculeFromUI()"></div>';
+    html += '<button class="btn sm accent3" onclick="addVehiculeFromUI()">Ajouter</button>';
+    html += '</div>';
+    if (!vehs.length) {
+        html += '<div style="color:var(--text-dim);font-size:0.75rem;padding:8px 0">Aucun vehicule. Ajoutez un nom puis choisissez-le dans chaque creneau (vehicule utilise).</div>';
+    } else {
+        html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">';
+        vehs.forEach(function(v) {
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)">';
+            html += '<span style="font-size:0.8rem;font-weight:600">' + esc(v) + '</span>';
+            html += '<button class="btn sm danger" onclick="removeVehicule(\'' + jsArg(v) + '\')">Retirer</button>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    panel.querySelector('.form-header span').textContent = 'Vehicules';
+    body.innerHTML = html;
+    panel.style.display = '';
+}
+function showVehiclesPanel() { renderVehiclesPanel(); }
+
+// --- Planification multi-semaines ---
+function loadPlan() { try { return JSON.parse(localStorage.getItem(uK('plan'))) || {}; } catch { return {}; } }
+function savePlan(p) { try { localStorage.setItem(uK('plan'), JSON.stringify(p)); } catch {} }
+function planGetWeek(weekStart) { const p = loadPlan(); return p[formatDate(weekStart)] || { dows: {} }; }
+function planSetDay(weekStart, dow, value) {
+    const p = loadPlan();
+    const k = formatDate(weekStart);
+    if (!p[k]) p[k] = { dows: {} };
+    p[k].dows[dow] = value || '';
+    savePlan(p);
+}
+function planDayValues(weekStart) {
+    const w = planGetWeek(weekStart);
+    const out = [];
+    for (let i = 0; i < 7; i++) out.push(w.dows[i] || '');
+    return out;
+}
+function planWeekStartAt(offset) {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + offset * 7);
     return d;
+}
+function planLabel(value) {
+    if (!value) return 'Vide';
+    if (value === 'repos') return 'Repos';
+    if (value.indexOf('preset:') === 0) return value.slice(7);
+    return value;
+}
+function planGenerateWeek(weekStart, confirmOverwrite) {
+    const values = planDayValues(weekStart);
+    const dates = [];
+    for (let i = 0; i < 7; i++) { const dd = new Date(weekStart); dd.setDate(dd.getDate() + i); dates.push(dd); }
+    let any = false;
+    values.forEach(function(v, dow) {
+        if (!v) return;
+        any = true;
+        if (v === 'repos' || v === 'preset:repos') return;
+    });
+    if (!any) { showToast('Aucune journee planifiee pour cette semaine', 'info'); return; }
+    if (confirmOverwrite !== false && !confirm('Creer / remplir les journees planifiees de cette semaine ? Les journees deja saisies seront remplacees.')) return;
+    let done = 0;
+    values.forEach(function(v, dow) {
+        if (!v) return;
+        const target = dates[dow];
+        _isDirty = false;
+        goToDate(target);
+        pendingShifts = [];
+        shiftIdCounter = 0;
+        chantierIdCounter = 0;
+        if (v === 'repos') {
+            applyDayPreset('repos', true);
+        } else if (v.indexOf('preset:') === 0) {
+            const name = v.slice(7);
+            if (name === 'repos') applyDayPreset('repos', true);
+            else applyDayPreset(name, true);
+        } else if (v.indexOf('tmpl:') === 0) {
+            applyNamedTemplateByName(v.slice(5));
+        }
+        saveDay({ skipDayConfirm: true, silent: true });
+        done++;
+    });
+    showToast(done + ' journee(s) creee(s) depuis le planning', 'success');
+}
+function applyNamedTemplateByName(name) { applyNamedTemplate(name); }
+function planDuplicateWeeks(offset, count) {
+    const source = weekStartAtOffsetFromCurrent(offset);
+    const vals = planDayValues(source);
+    if (!count || count < 1) return;
+    let added = 0;
+    for (let w = offset + 1; w <= offset + count; w++) {
+        const target = weekStartAtOffsetFromCurrent(w);
+        const p = loadPlan();
+        const k = formatDate(target);
+        if (!p[k]) p[k] = { dows: {} };
+        vals.forEach(function(v, dow) { if (v) p[k].dows[dow] = v; });
+        savePlan(p);
+        added++;
+    }
+    showToast('Planning duplique sur ' + added + ' semaine(s)', 'success');
+}
+function weekStartAtOffsetFromCurrent(offset) { return planWeekStartAt(offset); }
+function showPlanning() {
+    const panel = document.getElementById('planPanel');
+    const body = document.getElementById('planBody');
+    if (!panel || !body) return;
+    const offset = parseInt(document.getElementById('planOffset') ? document.getElementById('planOffset').value : '0') || 0;
+    _planTargetOffset = offset;
+    const weekStart = planWeekStartAt(offset);
+    const values = planDayValues(weekStart);
+    const weekLabel = 'Semaine du ' + formatDate(weekStart) + ' (' + (offset === 0 ? 'courante' : offset > 0 ? '+' + offset + ' semaine' : offset + ' semaine') + ')';
+    const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">';
+    html += '<label style="font-size:0.72rem;color:var(--text-dim)">Semaine :</label>';
+    html += '<select id="planOffset" style="flex:1;font-size:0.78rem" onchange="showPlanning()">';
+    for (let i = -4; i <= 6; i++) { html += '<option value="' + i + '"' + (i === offset ? ' selected' : '') + '>' + (i === 0 ? 'Semaine courante' : 'Semaine ' + (i > 0 ? '+' + i : i)) + '</option>'; }
+    html += '</select></div>';
+    html += '<div style="font-size:0.75rem;font-weight:600;margin-bottom:6px">' + esc(weekLabel) + '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">';
+    const presetOpts = ['', 'repos', 'preset:bureau', 'preset:chantier', 'preset:long', 'preset:demijour'];
+    dayNames.forEach(function(n, i) {
+        const fer = isFerieDate(new Date(weekStart));
+        const dayDate = new Date(weekStart); dayDate.setDate(dayDate.getDate() + i);
+        const ferThisDay = isFerieDate(dayDate);
+        html += '<div style="border:1px solid var(--border);border-radius:6px;padding:6px">';
+        html += '<div style="font-size:0.65rem;font-weight:600;color:' + (ferThisDay ? 'var(--accent4)' : 'var(--text-dim)') + ';margin-bottom:4px">' + n + (ferThisDay ? ' <span style="color:var(--accent4)">ferie</span>' : '') + '</div>';
+        html += '<select style="width:100%;font-size:0.68rem" onchange="planSetDay(planWeekStartAt(' + offset + '),' + i + ',this.value)">';
+        presetOpts.forEach(function(o) {
+            html += '<option value="' + o + '"' + (values[i] === o ? ' selected' : '') + '>' + (o ? planLabel(o) : 'Vide') + '</option>';
+        });
+        html += '</select></div>';
+    });
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">';
+    html += '<button class="btn accent2" onclick="planGenerateWeek(planWeekStartAt(' + offset + '),true)">Creer les journees de cette semaine</button>';
+    html += '<select class="btn sm" id="planDupCount" style="width:auto">';
+    for (let i = 1; i <= 6; i++) html += '<option value="' + i + '">Dupliquer sur ' + i + ' semaine' + (i > 1 ? 's' : '') + '</option>';
+    html += '</select>';
+    html += '<button class="btn" onclick="planDuplicateWeeks(' + offset + ',parseInt(document.getElementById(\'planDupCount\').value))">Dupliquer</button>';
+    html += '</div>';
+    html += '<div style="margin-top:10px;font-size:0.72rem;color:var(--text-dim)">Chaque jour planifie peut etre cree automatiquement (modeles rapides) ou en repos. La duplication copie le planning affiche vers les semaines suivantes.</div>';
+    panel.querySelector('.form-header span').textContent = 'Planning des semaines';
+    body.innerHTML = html;
+    panel.style.display = '';
+}
+
+// --- Facturation (CA par chantier/client) ---
+function flatAllEntries() {
+    const allData = loadAllWeeksData();
+    const arr = [];
+    Object.keys(allData).forEach(function(k) { (allData[k] || []).forEach(function(e) { arr.push(e); }); });
+    arr.sort(function(a, b) { return a.date.localeCompare(b.date); });
+    return arr;
+}
+function billingRange() {
+    const from = document.getElementById('billFrom') ? document.getElementById('billFrom').value : '';
+    const to = document.getElementById('billTo') ? document.getElementById('billTo').value : '';
+    return { from: from, to: to };
+}
+function computeBilling(from, to) {
+    const rows = {};
+    let totH = 0, totCA = 0;
+    flatAllEntries().forEach(function(e) {
+        if (from && e.date < from) return;
+        if (to && e.date > to) return;
+        (e.shifts || []).forEach(function(s) {
+            (s.chantiers || []).forEach(function(c) {
+                const key = (c.num || '?') + '|' + (c.lieu || '');
+                if (!rows[key]) rows[key] = { num: c.num || '?', lieu: c.lieu || '', client: c.client || '', tarifH: parseFloat(c.tarifH) || 0, hours: 0, days: 0, last: '' };
+                const hrs = (c.work || 0) / 60;
+                rows[key].hours += hrs;
+                rows[key].days++;
+                rows[key].last = e.date;
+                if (rows[key].tarifH > 0) rows[key].mount = rows[key].hours * rows[key].tarifH;
+                totH += hrs;
+                if (rows[key].tarifH > 0) totCA += hrs * rows[key].tarifH;
+            });
+        });
+    });
+    const list = Object.values(rows).sort(function(a, b) { return (b.mount || 0) - (a.mount || 0) || b.hours - a.hours; });
+    return { rows: list, totH: totH, totCA: totCA };
+}
+function computeClientsBreakdown(from, to) {
+    const byClient = {};
+    computeBilling(from, to).rows.forEach(function(r) {
+        const cname = r.client || 'Sans client';
+        if (!byClient[cname]) byClient[cname] = { hours: 0, mount: 0, chantiers: 0 };
+        byClient[cname].hours += r.hours;
+        byClient[cname].mount += r.mount || 0;
+        byClient[cname].chantiers++;
+    });
+    return Object.keys(byClient).sort(function(a, b) { return byClient[b].mount - byClient[a].mount; }).map(function(k) { return { name: k, hours: byClient[k].hours, mount: byClient[k].mount, chantiers: byClient[k].chantiers }; });
+}
+function fmtEur(x) { return Number(x || 0).toFixed(2) + ' EUR'; }
+function tvaRate() { const p = loadProfile(); return parseFloat(p.tva) || 20; }
+function showBilling() {
+    const panel = document.getElementById('billingPanel');
+    const body = document.getElementById('billingBody');
+    if (!panel || !body) return;
+    const r = billingRange();
+    const b = computeBilling(r.from, r.to);
+    const tva = tvaRate();
+    const ttc = b.totCA * (1 + tva / 100);
+    let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:10px">';
+    html += '<div class="form-group" style="margin:0"><label>Du</label><input type="date" id="billFrom" value="' + (r.from || '') + '" style="font-size:0.75rem;padding:5px" onchange="showBilling()"></div>';
+    html += '<div class="form-group" style="margin:0"><label>Au</label><input type="date" id="billTo" value="' + (r.to || '') + '" style="font-size:0.75rem;padding:5px" onchange="showBilling()"></div>';
+    html += '<div class="form-group" style="margin:0"><label>Client</label><input type="text" id="billClientFilter" value="" style="font-size:0.75rem;padding:5px" list="datalistClients" placeholder="Tous"></div>';
+    html += '<button class="btn sm accent2" onclick="applyBillingClientFilter()">Filtrer</button>';
+    html += '<button class="btn sm" onclick="exportBillingCSV()">CSV</button>';
+    html += '<button class="btn sm accent3" onclick="exportBillingPDF()">Facture PDF</button>';
+    html += clientDatalistHtml();
+    html += '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.65rem;color:var(--text-dim)">CA HT</div><div style="font-size:1rem;font-weight:700;color:var(--accent)">' + fmtEur(b.totCA) + '</div></div>';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.65rem;color:var(--text-dim)">TVA ' + tva + '%</div><div style="font-size:1rem;font-weight:700;color:var(--accent2)">' + fmtEur(b.totCA * tva / 100) + '</div></div>';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.65rem;color:var(--text-dim)">Total TTC</div><div style="font-size:1rem;font-weight:700;color:var(--accent4)">' + fmtEur(ttc) + '</div></div>';
+    html += '</div>';
+    const clients = computeClientsBreakdown(r.from, r.to);
+    if (clients.length) {
+        html += '<div style="font-size:0.75rem;font-weight:600;margin:8px 0 4px">Par client</div>';
+        clients.forEach(function(c) {
+            html += '<div style="display:flex;justify-content:space-between;font-size:0.74rem;padding:3px 0;border-bottom:1px solid var(--border)"><span>' + esc(c.name) + ' <span style="color:var(--text-dim)">(' + (c.hours.toFixed(1)) + ' h, ' + c.chantiers + ' chantier' + (c.chantiers > 1 ? 's' : '') + ')</span></span><span style="color:var(--accent);font-weight:600">' + fmtEur(c.mount) + '</span></div>';
+        });
+    }
+    html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 4px">Detail par chantier (' + b.rows.length + ')</div>';
+    b.rows.forEach(function(r) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.74rem;padding:4px 0;border-bottom:1px solid var(--border)">';
+        html += '<span>' + esc(r.num) + ' <span style="color:var(--text-dim)">' + esc(r.lieu) + (r.client ? ' / ' + esc(r.client) : '') + '</span></span>';
+        html += '<span>' + r.hours.toFixed(1) + ' h' + (r.tarifH > 0 ? ' x ' + Number(r.tarifH).toFixed(2) : '') + ' => <strong style="color:var(--accent2)">' + fmtEur(r.mount) + '</strong></span>';
+        html += '</div>';
+    });
+    if (!b.rows.length) html += '<div style="color:var(--text-dim);font-size:0.75rem;padding:8px 0">Aucun chantier sur cette periode. Renseignez Client et Tarif sur un chantier puis enregistrez.</div>';
+    panel.querySelector('.form-header span').textContent = 'Facturation & clients';
+    body.innerHTML = html;
+    panel.style.display = '';
+}
+function applyBillingClientFilter() {
+    const f = document.getElementById('billClientFilter');
+    eBILLING_CLIENT = f ? f.value.trim() : '';
+    showBilling();
+}
+let eBILLING_CLIENT = '';
+function showBillingPanel() { showBilling(); }
+
+// --- XLSX reel (OOXML, fichier binaire .xlsx) ---
+function xlsxColumnLetter(i) {
+    let s = '';
+    i = i + 1;
+    while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+    return s;
+}
+function crc32(bytes) {
+    if (!crc32._table) {
+        crc32._table = [];
+        for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) { c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; } crc32._table[n] = c >>> 0; }
+    }
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) { crc = (crc >>> 8) ^ crc32._table[(crc ^ bytes[i]) & 0xFF]; }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function u8bytes(str) { return new TextEncoder().encode(str); }
+function xlsxEsc(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function xlsxSheetXML(header, rows, colWidths) {
+    let xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    xml += '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+    if (colWidths && colWidths.length) {
+        xml += '<cols>';
+        colWidths.forEach(function(w, i) { xml += '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; });
+        xml += '</cols>';
+    }
+    xml += '<sheetData>';
+    const addRow = function(cells, ri, opts) {
+        opts = opts || {};
+        xml += '<row r="' + ri + '">';
+        cells.forEach(function(cv, ci) {
+            const ref = xlsxColumnLetter(ci) + ri;
+            if (typeof cv === 'number' && isFinite(cv)) { xml += '<c r="' + ref + '"><v>' + cv + '</v></c>'; }
+            else { xml += '<c r="' + ref + '"' + (opts.bold ? ' s="1"' : '') + ' t="inlineStr"><is><t xml:space="preserve">' + xlsxEsc(cv) + '</t></is></c>'; }
+        });
+        xml += '</row>';
+    };
+    addRow(header, 1, { bold: true });
+    rows.forEach(function(r, i) {
+        const rowArr = Array.isArray(r) ? r : (r && r.row);
+        if (!rowArr) return;
+        addRow(rowArr, i + 2, Array.isArray(r) ? {} : (r.bold ? { bold: true } : {}));
+    });
+    xml += '</sheetData></worksheet>';
+    return xml;
+}
+function concatU8(arr) {
+    let len = 0;
+    arr.forEach(function(u) { len += u.length; });
+    const out = new Uint8Array(len);
+    let p = 0;
+    arr.forEach(function(u) { out.set(u, p); p += u.length; });
+    return out;
+}
+function zipStoreFiles(files) {
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    files.forEach(function(f) {
+        const nameB = u8bytes(f.name);
+        const data = f.data;
+        const crc = crc32(data);
+        const csize = data.length;
+        const lh = new Uint8Array(30);
+        const lv = new DataView(lh.buffer);
+        lv.setUint32(0, 0x04034b50, true);
+        lv.setUint16(4, 20, true);
+        lv.setUint16(6, 0, true);
+        lv.setUint16(8, 0, true);
+        lv.setUint16(10, 0, true);
+        lv.setUint16(12, 0, true);
+        lv.setUint32(14, crc, true);
+        lv.setUint32(18, csize, true);
+        lv.setUint32(22, csize, true);
+        lv.setUint16(26, nameB.length, true);
+        lv.setUint16(28, 0, true);
+        parts.push(lh, nameB, data);
+        const ch = new Uint8Array(46);
+        const cv = new DataView(ch.buffer);
+        cv.setUint32(0, 0x02014b50, true);
+        cv.setUint16(4, 20, true);
+        cv.setUint16(6, 20, true);
+        cv.setUint16(8, 0, true);
+        cv.setUint16(10, 0, true);
+        cv.setUint16(12, 0, true);
+        cv.setUint16(14, 0, true);
+        cv.setUint32(16, crc, true);
+        cv.setUint32(20, csize, true);
+        cv.setUint32(24, csize, true);
+        cv.setUint16(28, nameB.length, true);
+        cv.setUint16(30, 0, true);
+        cv.setUint16(32, 0, true);
+        cv.setUint16(34, 0, true);
+        cv.setUint16(36, 0, true);
+        cv.setUint32(38, 0, true);
+        cv.setUint32(42, offset, true);
+        central.push(ch, nameB);
+        offset += 30 + nameB.length + data.length;
+    });
+    const cdSize = central.reduce(function(s, u) { return s + u.length; }, 0);
+    const eocd = new Uint8Array(22);
+    const ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(4, 0, true);
+    ev.setUint16(6, 0, true);
+    ev.setUint16(8, files.length, true);
+    ev.setUint16(10, files.length, true);
+    ev.setUint32(12, cdSize, true);
+    ev.setUint32(16, offset, true);
+    ev.setUint16(20, 0, true);
+    return concatU8([...parts, ...central, eocd]);
+}
+function buildXLSX(sheets) {
+    const n = sheets.length;
+    let ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>';
+    sheets.forEach(function(s, i) { ct += '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; });
+    ct += '</Types>';
+    const rootRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    let wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>';
+    sheets.forEach(function(s, i) { wb += '<sheet name="' + xlsxEsc(String(s.name).slice(0, 31)) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; });
+    wb += '</sheets></workbook>';
+    let wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
+    sheets.forEach(function(s, i) { wbRels += '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; });
+    wbRels += '</Relationships>';
+    const files = [
+        { name: '[Content_Types].xml', data: u8bytes(ct) },
+        { name: '_rels/.rels', data: u8bytes(rootRels) },
+        { name: 'xl/workbook.xml', data: u8bytes(wb) },
+        { name: 'xl/_rels/workbook.xml.rels', data: u8bytes(wbRels) }
+    ];
+    sheets.forEach(function(s, i) { files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: u8bytes(xlsxSheetXML(s.header, s.rows, s.colWidths)) }); });
+    return zipStoreFiles(files);
+}
+function downloadBytes(filename, bytes, mime) {
+    const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+}
+
+// --- PDF natif (texte en hex => contenu 100% ASCII, encodage WinAnsi correct) ---
+function pdfHexLatin1(s) {
+    let hex = '';
+    for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        let b;
+        if (c === 0x20AC) b = 0x80;
+        else if (c === 0x0152) b = 0x8C;
+        else if (c === 0x0153) b = 0x9C;
+        else if (c >= 0x80 && c <= 0xFF) b = c;
+        else if (c < 0x80) b = c;
+        else b = 0x3F;
+        hex += (b < 16 ? '0' : '') + b.toString(16);
+    }
+    return hex + '>';
+}
+function pdfText(x, y, str, font, size) {
+    return '1 0 0 1 ' + x + ' ' + y + ' Tm /' + font + ' ' + size + ' Tf <' + pdfHexLatin1(str);
+}
+function buildPdf(opts) {
+    const W = 595, H = 842, ML = 40, MR = 40;
+    const title = opts.title || 'Releve';
+    const subtitle = opts.subtitle || '';
+    const cols = opts.columns || [];
+    const rows = opts.rows || [];
+    const foots = opts.footnotes || [];
+    const nCols = Math.max(1, cols.length);
+    const colW = (W - ML - MR) / nCols;
+    const size = 9;
+    const maxChars = Math.max(4, Math.floor(colW / (size * 0.52)));
+    const lineH = 11.5;
+    const top = 800;
+    let y = top;
+    const pagesCmds = [];
+    function newPage() { pagesCmds.push([]); y = top; }
+    function line() { if (y < 60) newPage(); }
+    function wrapCell(v) {
+        let s = String(v === null || v === undefined ? '' : v);
+        if (s.length > maxChars) s = s.substring(0, maxChars - 1) + '...';
+        return s;
+    }
+    newPage();
+    pagesCmds[0].push(pdfText(ML, H - 42, title, 'F2', 12));
+    y = top - 14;
+    if (subtitle) { pagesCmds[pagesCmds.length - 1].push(pdfText(ML, y, subtitle, 'F1', 7.5)); y -= 12; }
+    if (cols.length) {
+        line();
+        let x = ML;
+        cols.forEach(function(c) { pagesCmds[pagesCmds.length - 1].push(pdfText(x + 2, y, wrapCell(c), 'F2', 8)); x += colW; });
+        y -= 12;
+        line();
+        let xl = ML;
+        const sep = new Array(Math.max(2, Math.floor(colW)) + 1).join('_');
+        cols.forEach(function() { pagesCmds[pagesCmds.length - 1].push(pdfText(xl, y - 2, sep, 'F1', 6)); xl += colW; });
+        y -= 9;
+    }
+    rows.forEach(function(r) {
+        line();
+        let x = ML;
+        r.forEach(function(cv) { pagesCmds[pagesCmds.length - 1].push(pdfText(x + 2, y, wrapCell(cv), 'F1', size)); x += colW; });
+        y -= lineH;
+    });
+    foots.forEach(function(f) {
+        line();
+        pagesCmds[pagesCmds.length - 1].push(pdfText(ML, y, f, 'F1', 8));
+        y -= 11;
+    });
+    const nP = pagesCmds.length;
+    const pageObjs = [];
+    const contentObjs = [];
+    for (let p = 0; p < nP; p++) { pageObjs.push(5 + p * 2); contentObjs.push(6 + p * 2); }
+    let out = '%PDF-1.4\n';
+    const offsets = [0];
+    let objCount = 0;
+    function addObj(body) {
+        const num = objCount + 1;
+        objCount++;
+        offsets.push(out.length);
+        out += num + ' 0 obj\n' + body + 'endobj\n';
+    }
+    addObj('<< /Type /Catalog /Pages 2 0 R >>\n');
+    addObj('<< /Type /Pages /Kids [' + pageObjs.map(function(n) { return n + ' 0 R'; }).join(' ') + '] /Count ' + nP + ' >>\n');
+    addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\n');
+    addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\n');
+    pagesCmds.forEach(function(cmds, p) {
+        const contentNum = 6 + p * 2;
+        const stream = 'BT\n' + cmds.join('\n') + '\nET\n';
+        const media = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' + contentNum + ' 0 R >>';
+        addObj(media + '\n');
+        offsets.push(out.length);
+        out += contentNum + ' 0 obj\n<< /Length ' + stream.length + ' >>\nstream\n' + stream + 'endstream\nendobj\n';
+    });
+    const xrefStart = out.length;
+    out += 'xref\n0 ' + (objCount + 1) + '\n0000000000 65535 f \n';
+    for (let i = 1; i <= objCount; i++) { out += String(offsets[i]).padStart(10, '0') + ' 00000 n \n'; }
+    out += 'trailer\n<< /Size ' + (objCount + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefStart + '\n%%EOF';
+    return u8bytes(out);
 }
 function timeToMinutes(t) { if (t === undefined || t === null || t === '') return NaN; const parts = String(t).split(':'); if (parts.length !== 2) return NaN; const h = parseInt(parts[0], 10); const m = parseInt(parts[1], 10); if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return NaN; return h * 60 + m; }
 function calcDiff(s, e) { const a = timeToMinutes(s); const b = timeToMinutes(e); if (isNaN(a) || isNaN(b)) return 0; let diff = b < a ? b + 1440 - a : b - a; return Math.max(0, diff); }
@@ -3042,16 +4021,20 @@ function loadEntryIntoForm(entry) {
     pendingShifts = [];
     shiftIdCounter = 0;
     chantierIdCounter = 0;
+    setDayStatut(entry.statut || '');
+    setDayPause(entry.pauseMin || 0);
     entry.shifts.forEach(t => {
         pendingShifts.push({
             id: ++shiftIdCounter, periode: t.periode, deplacement: t.deplacement || 'petit', commentaire: t.commentaire || '',
             departMaison: t.departMaison || '', arriveeMaison: t.arriveeMaison || '',
             arriveeBureaux: t.arriveeBureaux || '', departBureaux: t.departBureaux || '',
             kmDepart: t.kmDepart || '', kmArrivee: t.kmArrivee || '',
+            vehicule: t.vehicule || '',
             chantiers: (t.chantiers || []).map(c => ({
                 id: ++chantierIdCounter, num: c.num || '', lieu: c.lieu || '', lieu2: c.lieu2 || '', lieu3: c.lieu3 || '', adresse: c.adresse || '',
                 identification: c.identification || '', desc: c.desc || '', priorite: c.priorite || '',
-                arriveeChantier: c.arriveeChantier || '', debut: c.debut || '', fin: c.fin || '', departChantier: c.departChantier || '', notes: c.notes || ''
+                arriveeChantier: c.arriveeChantier || '', debut: c.debut || '', fin: c.fin || '', departChantier: c.departChantier || '', notes: c.notes || '',
+                client: c.client || '', tarifH: c.tarifH || ''
             }))
         });
     });
@@ -3065,6 +4048,8 @@ function repeatYesterday() {
     const prev = entries[entries.length - 1];
     pushUndo();
     pendingShifts = [];
+    setDayStatut(prev.statut || '');
+    setDayPause(prev.pauseMin || 0);
     prev.shifts.forEach(t => {
         const id = ++shiftIdCounter;
         pendingShifts.push({
@@ -3072,9 +4057,11 @@ function repeatYesterday() {
             departMaison: t.departMaison || '', arriveeMaison: t.arriveeMaison || '',
             arriveeBureaux: t.arriveeBureaux || '', departBureaux: t.departBureaux || '',
             kmDepart: t.kmDepart || '', kmArrivee: t.kmArrivee || '',
+            vehicule: t.vehicule || '',
             chantiers: (t.chantiers || []).map(c => ({
                 id: ++chantierIdCounter, num: c.num || '', lieu: c.lieu || '', lieu2: c.lieu2 || '', lieu3: c.lieu3 || '', adresse: c.adresse || '', identification: c.identification || '', desc: c.desc || '', priorite: c.priorite || '',
-                arriveeChantier: '', debut: '', fin: '', departChantier: '', notes: c.notes || ''
+                arriveeChantier: '', debut: '', fin: '', departChantier: '', notes: c.notes || '',
+                client: c.client || '', tarifH: c.tarifH || ''
             }))
         });
     });
@@ -3092,6 +4079,9 @@ function exportBackup() {
         logo: (function(){ var k = uK('logo'); return k ? localStorage.getItem(k) || null : null; })(),
         lieux: loadLieux(),
         favs: loadFavChantiers(),
+        clients: loadClients(),
+        plan: loadPlan(),
+        templates: loadAllTemplates(),
         weeks: {}
     };
     for (let i = 0; i < localStorage.length; i++) {
@@ -3186,8 +4176,18 @@ function importBackup(e) {
                     saveAllTemplates(mergedTpls);
                 }
             }
+            if (data.clients) { saveClients(mode === '2' ? data.clients : [...new Set([...(loadClients()), ...data.clients])]); }
+            if (data.plan) {
+                if (mode === '2') { savePlan(data.plan); }
+                else {
+                    const existingPlan = loadPlan();
+                    const mergedPlan = Object.assign({}, existingPlan, data.plan);
+                    savePlan(mergedPlan);
+                }
+            }
             learnFromEntries();
             render();
+            renderVehiclesBox();
             logAudit('import_backup', mode === '1' ? 'fusion' : 'ecrasement');
             setMicStatus(mode === '1' ? 'Fusion intelligente terminee !' : 'Backup restaure !', 'heard'); setTimeout(() => setMicStatus('',''), 2500);
         } catch { setMicStatus('Erreur de lecture', 'error'); setTimeout(() => setMicStatus('',''), 2500); }
@@ -3657,6 +4657,7 @@ function addShift(periode, norender) {
         kmDepart: lastKmArr,
         kmArrivee: '',
         commentaire: '',
+        vehicule: '',
         chantiers: []
     });
     if (!norender) { renderShifts(); updateCalcs(); }
@@ -3840,6 +4841,7 @@ function setChantierField(shiftId, chantierId, field, value) {
     const c = s.chantiers.find(c => c.id === chantierId);
     if (!c) return;
     c[field] = value;
+    if (field === 'client' && value) addClient(String(value).trim());
     autoAdjustChantier(c, s, field, value);
     updateCalcs();
     debouncedRenderShifts();
@@ -4096,7 +5098,21 @@ function renderShifts() {
                     ${c.priorite ? '<span style="font-size:0.58rem;padding:1px 5px;border-radius:3px;margin-left:3px;' + (c.priorite === 'urgent' ? 'background:rgba(255,70,70,0.15);color:#ff6b6b' : c.priorite === 'flexible' ? 'background:rgba(70,200,120,0.15);color:#46c878' : 'background:rgba(108,122,255,0.1);color:var(--accent)') + '">' + esc(c.priorite) + '</span>' : ''}
                     ${c.adresse ? '<span style="font-size:0.58rem;color:var(--text-dim);margin-left:4px" title="'+esc(c.adresse)+'">' + esc(c.adresse.length > 25 ? c.adresse.substring(0,25) + '...' : c.adresse) + '</span>' : ''}
                     <span class="cr-hours">${w > 0 ? formatMinutes(w) : ''}</span>
+                    ${c.client ? '<span style="font-size:0.58rem;padding:1px 6px;border-radius:3px;margin-left:4px;background:rgba(70,200,120,0.15);color:#46c878">'+esc(c.client)+'</span>' : ''}
+                    ${c.tarifH ? '<span style="font-size:0.58rem;color:var(--text-dim);margin-left:4px" title="Tarif horaire">'+esc(c.tarifH)+' EUR/h</span>' : ''}
                     <button class="cr-del" onclick="removeChantierFromShift(${s.id},${c.id})">X</button>
+                </div>
+                <div class="form-row r2" style="margin-bottom:6px">
+                    <div class="form-group">
+                        <label style="font-size:0.6rem">Client</label>
+                        <input type="text" value="${esc(c.client || '')}" placeholder="Nom du client" list="datalistClients"
+                            oninput="setChantierField(${s.id},${c.id},'client',this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:0.6rem">Tarif horaire (EUR)</label>
+                        <input type="number" step="0.5" min="0" value="${esc(c.tarifH || '')}" placeholder="0"
+                            oninput="setChantierField(${s.id},${c.id},'tarifH',this.value)">
+                    </div>
                 </div>
                 <div class="form-row r4">
                     <div class="form-group">
@@ -4221,7 +5237,7 @@ function renderShifts() {
             </div>
             ${suggestionHtml}
             <div class="shift-body">
-                <div class="form-row r3">
+                <div class="form-row r4">
                     <div class="form-group">
                         <label>Deplacement <span style="font-size:0.6rem;color:var(--text-dim)" title="Petit = proximite (chantier en ville, route courte). Grand = long trajet (chantier eloigne).">?</span></label>
                         <div class="radio-group">
@@ -4244,6 +5260,13 @@ function renderShifts() {
                                 oninput="setShiftField(${s.id},'arriveeMaison',this.value)">
                             <button class="now-btn" onclick="setShiftField(${s.id},'arriveeMaison',nowStr());renderShifts();updateCalcs();">Maint.</button>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Vehicule utilise</label>
+                        <select onchange="setShiftField(${s.id},'vehicule',this.value)">
+                            <option value="">-</option>
+                            ${vehiculeNames().map(v => '<option value="' + esc(v) + '"' + (s.vehicule === v ? ' selected' : '') + '>' + esc(v) + '</option>').join('')}
+                        </select>
                     </div>
                 </div>
                 <div class="form-row r2" style="margin-top:8px">
@@ -4303,6 +5326,7 @@ function renderShifts() {
             </div>
         </div>`;
     }).join('');
+    list.insertAdjacentHTML('beforeend', clientDatalistHtml());
     const nextPeriod = getSuggestedNextPeriod();
     if (nextPeriod) {
         const label = nextPeriod === 'aprem' ? 'Apres-midi' : 'Nuit';
@@ -4373,7 +5397,7 @@ function saveDay(opts) {
         const chantiers = s.chantiers.map(c => {
             const w = calcDiff(c.debut, c.fin);
             work += w;
-            return { num: c.num, lieu: c.lieu, lieu2: c.lieu2 || '', lieu3: c.lieu3 || '', adresse: c.adresse || '', identification: c.identification || '', desc: c.desc, priorite: c.priorite || '', arriveeChantier: c.arriveeChantier, debut: c.debut, fin: c.fin, departChantier: c.departChantier, work: w, notes: c.notes || '' };
+            return { num: c.num, lieu: c.lieu, lieu2: c.lieu2 || '', lieu3: c.lieu3 || '', adresse: c.adresse || '', identification: c.identification || '', desc: c.desc, priorite: c.priorite || '', arriveeChantier: c.arriveeChantier, debut: c.debut, fin: c.fin, departChantier: c.departChantier, work: w, notes: c.notes || '', client: c.client || '', tarifH: c.tarifH || '' };
         });
         const kmD = parseFloat(s.kmDepart) || 0;
         const kmA = parseFloat(s.kmArrivee) || 0;
@@ -4385,7 +5409,8 @@ function saveDay(opts) {
             periode: s.periode, deplacement: s.deplacement, commentaire: s.commentaire || '',
             departMaison: s.departMaison, arriveeMaison: s.arriveeMaison,
             arriveeBureaux: s.arriveeBureaux, departBureaux: s.departBureaux,
-            kmDepart: kmD, kmArrivee: kmA, km, route, chantiers
+            kmDepart: kmD, kmArrivee: kmA, km, route, chantiers,
+            vehicule: s.vehicule || ''
         };
     });
 
@@ -4399,6 +5424,9 @@ function saveDay(opts) {
         existingEntry.nom = nom || existingEntry.nom;
         existingEntry.prenom = prenom || existingEntry.prenom;
         existingEntry.vehicule = vehicule || existingEntry.vehicule;
+        existingEntry.statut = _dayStatut;
+        existingEntry.pauseMin = _dayPauseMin;
+        existingEntry.totalPause = _dayPauseMin;
         recalcEntryTotals(existingEntry);
         merged = true;
     } else {
@@ -4406,6 +5434,9 @@ function saveDay(opts) {
             id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
             date: targetDate,
             nom, prenom, vehicule,
+            statut: _dayStatut,
+            pauseMin: _dayPauseMin,
+            totalPause: _dayPauseMin,
             shifts: newShifts,
             isRepos: isRepos,
             totalRoute, totalWork,
@@ -5267,6 +6298,8 @@ function onDayChange() {
     const dayIdx = parseInt(document.getElementById('fDay').value);
     if (_isDirty && !confirm('Perdre les donnees non enregistrees ?')) return;
     _isDirty = false;
+    applyDayStatut('');
+    setDayPause(0);
     const entries = loadEntries();
     let found = null;
     for (let i = entries.length - 1; i >= 0; i--) {
@@ -5279,6 +6312,7 @@ function onDayChange() {
         loadEntryIntoForm(found);
         showToast('Donnees du ' + DAY_NAMES[dayIdx] + ' chargees');
     }
+    renderVehiclesBox();
     renderSmartSuggest();
 }
 
@@ -5876,6 +6910,97 @@ function applyCommand(cmd) {
     }
 
     // ==========================================
+    // STATUT DE JOURNEE (conge / absence / ferie)
+    // "conge", "je suis en conge", "absence", "jour ferie" -> applique le statut
+    // sur la journee courante. "jour de repos" est geree plus bas et exclue ici.
+    // ==========================================
+    var statutMatch = cmd.match(/(?:c['’]?est\s+)?(?:un\s+)?(?:jour\s+(?:de\s+|d['’])?)?(cong[ée]|absence|absent|null[ée]|feri[ée]|férié)\b/i)
+        || cmd.match(/^(je\s+suis\s+en\s+)?(cong[ée]|absence)\b/i)
+        || cmd.match(/^(?:marque|met)\s+(?:la\s+journee(?:e)?\s+en\s+)?(cong[ée]|absence|feri[ée])\b/i);
+    if (statutMatch && !/repos/.test(cmd) && !/\bchantier\b|heure\b|[0-9]/.test(cmd)) {
+        var stVal = (statutMatch[1] || statutMatch[2] || '').toLowerCase();
+        var stKey = /cong|absen/.test(stVal) ? (stVal.charAt(0) === 'c' || stVal.indexOf('cong') !== -1 ? 'conge' : 'absence') : 'ferie';
+        if (/absent|nullée/.test(stVal)) stKey = 'absence';
+        applyDayStatut(stKey);
+        renderShifts(); updateCalcs();
+        setMicStatus('Jour: ' + statutLabel(stKey), 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        return true;
+    }
+
+    // ==========================================
+    // PAUSE DEDUITE (minutes)  --  distinct du "pause = fin chantier"
+    // "pause 30 minutes", "j'ai fait 45 min de pause" -> pauseMin du jour.
+    // ==========================================
+    var pauseMinM = cmd.match(/pause\s+(?:de\s+)?(\d+)\s*(?:min|minutes?|mn)?/) || cmd.match(/(\d+)\s*(?:min|minutes?|mn)\s*(?:de\s+)?pause/);
+    if (pauseMinM && !/chantier\b|debut\b|fin\b|depart\b|arrive\b/.test(cmd)) {
+        setDayPause(parseInt(pauseMinM[1], 10));
+        setMicStatus('Pause: ' + formatMinutes(_dayPauseMin || 0), 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        return true;
+    }
+
+    // ==========================================
+    // PLANIFICATION MULTI-SEMAINES
+    // "planifie la semaine prochaine", "planning", "prevois lundi 8h-12h"
+    // -> ouvre le panneau de planning (et applique l'offset si cite).
+    // ==========================================
+    if (/^(?:planifie|planifier|planning|prevois|prevoir|organise|organiser|plannifie)/.test(cmd)) {
+        var offM = cmd.match(/(?:prochaine|suivante)\s*semaine|semaine\s*(?:prochaine|suivante)/);
+        if (offM) _planTargetOffset = 1;
+        showPlanning();
+        setMicStatus('Planning ouvert', 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        return true;
+    }
+
+    // ==========================================
+    // CLIENT / TARIF sur le chantier courant
+    // "client Dupont", "le chantier 42 a pour client Dupont et tarif 30",
+    // "tarif horaire 28 euros sur ce chantier"
+    // ==========================================
+    var billM = cmd.match(/(?:client|pour\s+client|du\s+client)\s*(?:est|:)?\s+([a-zA-Z\u00e0-\u017f][a-zA-Z\u00e0-\u017f' \u2019\-]{1,40})/i);
+    if (billM && !ch) { var bl = l || (pendingShifts.length ? pendingShifts[0] : null); if (bl && (!bl.chantiers || !bl.chantiers.length)) { addChantierToShift(bl.id); ch = getLastChantier(); s = ch ? findShiftOfChantier(ch.id) : null; } }
+    if (billM && ch && s) {
+        var clientVal = billM[1].trim().replace(/\s+(?:sur\s+)?(?:le\s+)?\d+.*$/i, '').replace(/\s+et\s+.*$/i, '');
+        setChantierField(s.id, ch.id, 'client', clientVal);
+        var tarM2 = cmd.match(/(?:tarif|taux)\s*(?:horaire)?\s*(?:a|de|est|:)?\s*(\d+(?:[.,]\d+)?)\s*(?:euros?|eur|€)?/i);
+        if (tarM2) { renderShifts(); updateCalcs(); var cNow = getLastChantier(); var sNow = cNow ? findShiftOfChantier(cNow.id) : null; if (cNow && sNow) setChantierField(sNow.id, cNow.id, 'tarifH', parseFloat(String(tarM2[1]).replace(',', '.'))); }
+        setMicStatus('Client: ' + clientVal, 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        renderShifts(); updateCalcs();
+        return true;
+    }
+    var tarM = cmd.match(/(?:tarif|taux)\s*(?:horaire)?\s*(?:a|de|est|:)?\s*(\d+(?:[.,]\d+)?)\s*(?:euros?|eur|€)?\b/i);
+    if (tarM && ch && s) {
+        setChantierField(s.id, ch.id, 'tarifH', parseFloat(String(tarM[1]).replace(',', '.')));
+        setMicStatus('Tarif: ' + tarM[1] + ' EUR/h', 'heard');
+        setTimeout(function(){ setMicStatus('',''); }, 2500);
+        renderShifts(); updateCalcs();
+        return true;
+    }
+
+    // ==========================================
+    // VEHICULE utilise sur la periode courante
+    // "vehicule Kangoo", "avec le Kangoo" -> etat sur le shift + enregistre
+    // ==========================================
+    var vehM = cmd.match(/^(?:avec\s+)?(?:le|la|mon|ma)?\s*(?:vehicule|voiture|camionnette|camion|fourgon|utilitaire)\s+(.+)$/i);
+    if (vehM && !/[0-9]/.test(cmd) && !/est\s+une|est\s+un|j'?ai|je\s+roule/.test(cmd)) {
+        var vehVal = vehM[1].trim().replace(/\s+sur\s+.*$/i, '').replace(/\s+et\s+.*$/i, '').replace(/[.,;!?]$/, '');
+        if (vehVal && vehVal.length <= 40) {
+            if (!l) { addShift('matin'); l = lastShift(); renderShifts(); }
+            if (l) setShiftField(l.id, 'vehicule', vehVal.charAt(0).toUpperCase() + vehVal.slice(1));
+            var vList = loadVehicules();
+            var vName = vehVal.charAt(0).toUpperCase() + vehVal.slice(1);
+            if (!vList.some(function(v){ return v.name.toLowerCase() === vName.toLowerCase(); })) { vList.push({ name: vName }); saveVehicules(vList); }
+            renderVehiclesBox(); renderShifts();
+            setMicStatus('Vehicule: ' + vehVal, 'heard');
+            setTimeout(function(){ setMicStatus('',''); }, 2500);
+            return true;
+        }
+    }
+
+    // ==========================================
     // SAISIE / RESSAISIE D'UN JOUR PRECIS PAR DATE
     // "ouvre le 3 avril", "ressaisis le 5 fevrier", "saisis mardi dernier".
     // Doit preceder le moteur universel pour ne pas etre mute en evenement.
@@ -6178,6 +7303,10 @@ function applyCommand(cmd) {
     if (/ouvre.*(?:historique|multi\s*semaines?)|historique\s+multi/.test(cmd)) { showHistory(); sysHandled = sysMsg('Historique'); }
     if (/ouvre.*projets?|suivi\s+des\s+projets|gestion\s+des\s+projets/.test(cmd)) { showProjectTracker(); sysHandled = sysMsg('Projets'); }
     if (/ouvre.*(?:analyse|statistiques|analytics)|analytics|statistiques/.test(cmd)) { showAnalytics(); sysHandled = sysMsg('Analytics'); }
+    if (/ouvre.*(?:planning|planification)|planning|planifie/.test(cmd)) { showPlanning(); sysHandled = sysMsg('Planning'); }
+    if (/ouvre.*(?:factur|clients?\b)|facturation|factur\b/.test(cmd)) { showBillingPanel(); sysHandled = sysMsg('Facturation'); }
+    if (/ouvre.*(?:vehicules?|parc\s+auto)|vehicules/.test(cmd)) { showVehiclesPanel(); sysHandled = sysMsg('Vehicules'); }
+    if (/exporte\s*(?:en\s*)?pdf|exporte?.*pdf/.test(cmd)) { exportWeekPDF(); sysHandled = sysMsg('Export PDF'); }
     if (/aper(?:cu)?\s+global|vue\s+globale|vue\s+d\s?ensemble\s+complet|toutes\s+(?:les\s+)?semaines|aper(?:cu)?\s+complet/.test(cmd)) { openEnhancedRecap(); sysHandled = sysMsg('Aper\u00e7u global'); }
     if (/heures?\s+(?:supl|supp|supplementaires)|supl(?:ementaires)?\s+hebdo|heures? sup\b/.test(cmd)) { showDailyOvertime(); sysHandled = sysMsg('Heures supp'); }
     if (/ouvre.*(?:template|modele|gabarit)|gestion\s+des\s+modeles/.test(cmd)) { renderTemplatesPanel(); sysHandled = sysMsg('Templates'); }
@@ -6587,6 +7716,9 @@ function render() {
     if (profile.prenom) document.getElementById('fPrenom').value = profile.prenom;
     if (profile.vehicule) document.getElementById('fVehicule').value = profile.vehicule;
     refreshDatalists();
+    renderVehiclesBox();
+    applyDayStatut(_dayStatut);
+    setDayPause(_dayPauseMin);
 
     document.getElementById('weekLabel').textContent = `${formatShortDate(dates[0])} - ${formatShortDate(dates[6])}`;
         document.getElementById('weekRange').textContent = getWeekNumber(dates[0]);
@@ -6836,6 +7968,8 @@ function render() {
     if (profile.overtimeMultiplier) document.getElementById('fOvertimeMultiplier').value = profile.overtimeMultiplier;
     if (profile.fuelPrice) document.getElementById('fFuelPrice').value = profile.fuelPrice;
     if (profile.fuelConsumption) document.getElementById('fFuelConsumption').value = profile.fuelConsumption;
+    if (profile.tva) document.getElementById('fTvaRate').value = profile.tva;
+    if (profile.majNuitPct) document.getElementById('fNuitMaj').value = profile.majNuitPct;
 
     renderShifts();
     updateCalcs();
@@ -7312,6 +8446,9 @@ function renderMainMenu() {
     h += I('showReleveRange()', 'Releve multi-semaines');
     h += I('showHistory()', 'Historique');
     h += I('showProjectTracker()', 'Projets');
+    h += I('showPlanning()', 'Planning multi-semaines');
+    h += I('showBillingPanel()', 'Facturation & clients');
+    h += I('showVehiclesPanel()', 'Vehicules');
     h += I('showGlobalSearch()', 'Recherche');
     h += I('renderTemplatesPanel()', 'Templates');
     h += I('showAnalytics()', 'Analytics');
@@ -7320,7 +8457,8 @@ function renderMainMenu() {
     h += I('toggleFeuille()', 'Feuille de temps');
     h += G + 'Exports</div>';
     h += I('exportCSV()', 'Exporter CSV');
-    h += I('exportXLSX()', 'Exporter Excel');
+    h += I('exportXLSX()', 'Exporter Excel (.xlsx)');
+    h += I('exportWeekPDF()', 'Exporter PDF');
     h += I('exportBackup()', 'Backup JSON');
     h += I('window.print()', 'Imprimer');
     h += G + 'Donnees</div>';
@@ -8642,6 +9780,8 @@ function renderOrchestrator() {
     html += orchBtn("applyDayPreset('long',true)", 'Long 11h', 'var(--accent3)');
     html += orchBtn("applyDayPreset('repos',true)", 'Repos', 'var(--red)');
     html += orchBtn("toggleOrchestrator();showAnalytics()", 'Analytics', 'var(--accent4)');
+    html += orchBtn("toggleOrchestrator();showPlanning()", 'Planning', 'var(--accent)');
+    html += orchBtn("toggleOrchestrator();showBillingPanel()", 'Facturation', 'var(--accent3)');
     html += orchBtn("toggleOrchestrator();openSessionPanel()", 'Comptes', 'var(--text-dim)');
     html += '</div>';
     html += '<div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);margin:12px 0 6px">Remplissage rapide horaires</div>';
@@ -9209,6 +10349,9 @@ const ROUTES = {
     'search': function() { showGlobalSearch(); },
     'templates': function() { renderTemplatesPanel(); },
     'analytics': function() { showAnalytics(); },
+    'planning': function() { showPlanning(); },
+    'billing': function() { showBillingPanel(); },
+    'vehicles': function() { showVehiclesPanel(); },
     'global': function() { openEnhancedRecap(); },
     'heures': function() { showDailyOvertime(); },
     'settings': function() { /* profile panel - future */ }
@@ -9671,6 +10814,7 @@ function bootApp() {
     orchShortcutHandler();
     checkBackupReminder();
     renderBackupBadge();
+    setTimeout(checkPlanReminder, 2000);
     handleRoute();
     initInlineValidation();
     setTimeout(runIntegrityCheck, 5000);
