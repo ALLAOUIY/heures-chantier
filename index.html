@@ -3121,6 +3121,8 @@ function showAnalytics() {
             html += '</div>';
         });
     }
+    html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Repartition par client</div>';
+    html += '<canvas id="clientChart" height="80" style="width:100%;max-height:120px;margin-bottom:10px"></canvas>';
     html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Moyenne glissante 4 sem.</div>';
     html += '<canvas id="trendChart" height="120" style="width:100%;max-height:120px;margin-bottom:10px"></canvas>';
     html += '<div style="font-size:0.75rem;font-weight:600;margin:10px 0 6px">Semaine courante vs precedente</div>';
@@ -3130,7 +3132,50 @@ function showAnalytics() {
     panel.querySelector('.form-header span').textContent = 'Analytics avance';
     body.innerHTML = html;
     panel.style.display = '';
-    setTimeout(function() { renderTrendChart(a.monthlyHours); renderDowChart(a.dayOfWeekHours); renderWeekCompare(); }, 100);
+    setTimeout(function() { renderTrendChart(a.monthlyHours); renderDowChart(a.dayOfWeekHours); renderWeekCompare(); renderClientChart(); }, 100);
+}
+function renderClientChart() {
+    const canvas = document.getElementById('clientChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    canvas.width = rect.width * dpr;
+    canvas.height = 120 * dpr;
+    ctx.scale(dpr, dpr);
+    const W = rect.width, H = 120;
+    ctx.clearRect(0, 0, W, H);
+    const all = flatAllEntries().filter(function(e) { return passesAnalytics(e); });
+    const byC = {};
+    all.forEach(function(e) {
+        (e.shifts || []).forEach(function(s) {
+            (s.chantiers || []).forEach(function(c) {
+                const cname = c.client || 'Sans client';
+                byC[cname] = (byC[cname] || 0) + (c.work || 0);
+            });
+        });
+    });
+    const items = Object.keys(byC).map(function(k) { return { name: k, work: byC[k] || 0 }; }).sort(function(a, b) { return b.work - a.work; }).slice(0, 6);
+    if (!items.length) return;
+    const maxVal = Math.max.apply(null, items.map(function(i) { return i.work; }));
+    const rowH = Math.min(18, (H - 16) / items.length);
+    const startY = 8;
+    const labelW = Math.min(110, W * 0.32);
+    const barArea = W - labelW - 6;
+    items.forEach(function(it, i) {
+        const y = startY + i * rowH;
+        ctx.fillStyle = '#9aa1bd';
+        ctx.font = '11px Segoe UI, sans-serif';
+        const name = it.name.length > 16 ? it.name.slice(0, 15) + '…' : it.name;
+        ctx.fillText(name, 2, y + rowH * 0.7);
+        const bw = maxVal > 0 ? (it.work / maxVal) * Math.max(barArea - 40, 10) : 0;
+        ctx.fillStyle = i === 0 ? '#7b8cff' : 'rgba(123,140,255,0.55)';
+        ctx.fillRect(labelW, y + 2, bw, rowH - 6);
+        ctx.fillStyle = '#1a1a2e';
+        ctx.font = 'bold 11px Segoe UI, sans-serif';
+        ctx.fillText(fmtH(it.work), labelW + bw + 4, y + rowH * 0.7);
+    });
 }
 function renderWeekCompare() {
     const canvas = document.getElementById('weekCompChart');
@@ -3654,6 +3699,7 @@ function showBilling() {
     const body = document.getElementById('billingBody');
     if (!panel || !body) return;
     const r = billingRange();
+    eBILLING_RANGE = { from: r.from, to: r.to };
     const b = computeBilling(r.from, r.to);
     const tva = tvaRate();
     const ttc = b.totCA * (1 + tva / 100);
@@ -3664,6 +3710,7 @@ function showBilling() {
     html += '<button class="btn sm accent2" onclick="applyBillingClientFilter()">Filtrer</button>';
     html += '<button class="btn sm" onclick="exportBillingCSV()">CSV</button>';
     html += '<button class="btn sm accent3" onclick="exportBillingPDF()">Facture PDF</button>';
+    html += '<button class="btn sm primary" onclick="printBillingPrep();hideMainMenu()" title="Document imprimable de preparation : synthese par client, detail par chantier, HT/TVA/TTC et bon pour accord">&#128196; Preparation</button>';
     html += clientDatalistHtml();
     html += '</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">';
@@ -3690,12 +3737,57 @@ function showBilling() {
     body.innerHTML = html;
     panel.style.display = '';
 }
+function printBillingPrep() {
+    const r = eBILLING_RANGE || { from: '', to: '' };
+    const b = computeBilling(r.from, r.to);
+    const tva = tvaRate();
+    const ttc = b.totCA * (1 + tva / 100);
+    const clients = computeClientsBreakdown(r.from, r.to);
+    const showClient = eBILLING_CLIENT && eBILLING_CLIENT !== 'Tous';
+    const rows = b.rows.filter(function(rw) { return !showClient || (rw.client || 'Sans client') === eBILLING_CLIENT; });
+    const rowTot = rows.reduce(function(acc, rw) { acc.hours += rw.hours; acc.mount += rw.mount || 0; acc.chantiers++; return acc; }, { hours: 0, mount: 0, chantiers: 0 });
+    let html = '<div class="rel-header">';
+    html += '<div class="info"><div class="company-name">' + esc(getCompName()) + '</div>';
+    html += '<div class="meta">' + esc(loadProfile().nom || '') + ' ' + esc(loadProfile().prenom || '') + '</div></div>';
+    html += '<div class="date-block"><div class="period">Preparation facture</div><div class="range">' + (r.from && r.to ? 'du ' + r.from + ' au ' + r.to : (r.from ? 'a partir de ' + r.from : (r.to ? 'jusqu\'au ' + r.to : 'toute la periode'))) + '</div></div>';
+    html += '</div>';
+    if (showClient) html += '<div class="rel-meta">Client : <strong>' + esc(eBILLING_CLIENT) + '</strong> (' + rowTot.chantiers + ' chantier(s))</div>';
+    if (clients.length) {
+        html += '<div style="font-size:0.75rem;font-weight:700;margin:8pt 0 4pt;text-transform:uppercase;letter-spacing:0.3pt">Synthese par client</div>';
+        clients.forEach(function(c) {
+            html += '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:2.5pt 0;border-bottom:0.5pt solid #e0e0e0"><span>' + esc(c.name) + ' <span style="color:var(--text-dim)">(' + c.hours.toFixed(1) + ' h sur ' + c.chantiers + ' chantier' + (c.chantiers > 1 ? 's' : '') + ')</span></span><span style="font-weight:600">' + fmtEur(c.mount) + '</span></div>';
+        });
+    }
+    html += '<div style="font-size:0.75rem;font-weight:700;margin:8pt 0 4pt;text-transform:uppercase;letter-spacing:0.3pt">Detail par chantier</div>';
+    if (rows.length) {
+        rows.forEach(function(rw) {
+            html += '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:2.5pt 0;border-bottom:0.5pt solid #e0e0e0"><span>' + esc(rw.num) + ' <span style="color:var(--text-dim)">' + esc(rw.lieu) + (rw.client ? ' / ' + esc(rw.client) : '') + '</span></span><span>' + rw.hours.toFixed(1) + ' h' + (rw.tarifH > 0 ? ' x ' + Number(rw.tarifH).toFixed(2) : '') + ' => <strong>' + fmtEur(rw.mount) + '</strong></span></div>';
+        });
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:700;padding:5pt 0;border-top:1.5pt solid #1a1a2e">';
+        html += '<span>Sous-total</span><span>' + fmtEur(rowTot.mount) + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:2pt 0"><span>TVA ' + tva + '%</span><span>' + fmtEur(rowTot.mount * tva / 100) + '</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:1rem;font-weight:800;padding:4pt 0;color:#1a1a2e"><span>Total TTC</span><span>' + fmtEur(rowTot.mount * (1 + tva / 100)) + '</span></div>';
+    } else {
+        html += '<div style="font-size:0.78rem;color:var(--text-dim);padding:4pt 0">Aucun chantier sur cette periode' + (showClient ? ' pour ce client' : '') + '.</div>';
+    }
+    html += '<div style="font-size:0.68rem;color:var(--text-dim);font-style:italic;margin:10pt 0">Document de preparation, a verifier avant facturation officielle. CA total HT : ' + fmtEur(b.totCA) + ' / TTC : ' + fmtEur(ttc) + '.</div>';
+    html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du client</div><div class="rel-sig-line">Bon pour accord - date et signature</div></div></div>';
+    html += '<div style="margin-top:12px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
+    openRelevePanel(html);
+}
+
+function openBillingPrep() {
+    if (!eBILLING_RANGE) eBILLING_RANGE = { from: '', to: '' };
+    eBILLING_CLIENT = '';
+    printBillingPrep();
+}
 function applyBillingClientFilter() {
     const f = document.getElementById('billClientFilter');
     eBILLING_CLIENT = f ? f.value.trim() : '';
     showBilling();
 }
 let eBILLING_CLIENT = '';
+let eBILLING_RANGE = { from: '', to: '' };
 function showBillingPanel() { showBilling(); }
 
 // --- XLSX reel (OOXML, fichier binaire .xlsx) ---
@@ -8637,6 +8729,7 @@ function renderMainMenu() {
     h += I('showProjectTracker()', 'Projets');
     h += I('showPlanning()', 'Planning multi-semaines');
     h += I('showBillingPanel()', 'Facturation & clients');
+    h += I('openBillingPrep()', 'Preparation facture (imprimable)', false, 'Document blanc pret a imprimer : synthese par client, detail par chantier, HT/TVA/TTC et bon pour accord');
     h += I('showVehiclesPanel()', 'Vehicules');
     h += I('showPrintModelPanel()', 'Modele de feuille', false, 'Choisir, personnaliser ou numeriser le modele de la feuille a imprimer');
     h += I('showSheetCfgPanel()', 'Contenu de la feuille', false, 'Allerger ou enrichir la feuille d\'heures : choisir exactement les infos affichees (journalier, hebdo, mensuel, annuel)');
