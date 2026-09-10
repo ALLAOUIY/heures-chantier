@@ -1384,6 +1384,14 @@
         <div class="form-body" id="printModelBody" style="padding:12px"></div>
     </div>
 
+    <div class="form-panel" id="sheetCfgPanel" style="display:none">
+        <div class="form-header">
+            <span>Contenu de la feuille d'heures</span>
+            <button class="btn sm" onclick="document.getElementById('sheetCfgPanel').style.display='none'">X</button>
+        </div>
+        <div class="form-body" id="sheetCfgBody" style="padding:12px"></div>
+    </div>
+
     <!-- Form -->
     <div class="form-panel" id="mainFormPanel">
         <div class="form-header">
@@ -7187,7 +7195,7 @@ function applyCommand(cmd) {
     // ==========================================
     if (!isDeletion
         && !/^(?:semaine|aller)?\s*(?:prochaine|suivante|precedente)/.test(cmd)
-        && !/ouvre|gabarit|modele|exporte|export\b|backup|sauvegarde|imprime|impression|imprimer|plein\s+ecran|raccourcis|guide\s+de\s+demarrage|vider\s+la\s+semaine|raccourci|reinitialise|feuille\s+de\s+temps|releve|recherche|historique|analytics|statistiques|tableau\s+de\s+bord|orchestrateur|projets?|dashboard/.test(cmd)) {
+        && !/ouvre|gabarit|modele|exporte|export\b|backup|sauvegarde|imprime|impression|imprimer|plein\s+ecran|raccourcis|guide\s+de\s+demarrage|vider\s+la\s+semaine|raccourci|reinitialise|feuille\s+de\s+temps|releve|recherche|historique|analytics|statistiques|tableau\s+de\s+bord|orchestrateur|projets?|dashboard|contenu\s+de\s+la\s+feuille|configurer.*feuille|feuille\s+all(egee|ongee)|feuille\s+enrichie|grille\s+de\s+la\s+feuille/.test(cmd)) {
         const _univFacts = universalParse(cmd, extractTime);
         if (_univFacts && _univFacts.length) {
             const _res = universalApply(_univFacts);
@@ -7431,6 +7439,7 @@ function applyCommand(cmd) {
     if (/ouvre.*(?:factur|clients?\b)|facturation|factur\b/.test(cmd)) { showBillingPanel(); sysHandled = sysMsg('Facturation'); }
     if (/ouvre.*(?:vehicules?|parc\s+auto)|vehicules/.test(cmd)) { showVehiclesPanel(); sysHandled = sysMsg('Vehicules'); }
     if (/modele\s+de\s+feuille|feuille\s+a\s+imprimer|apparence\s+(?:des\s+)?releve|personnalis(?:e|ation).*releve/.test(cmd)) { showPrintModelPanel(); sysHandled = sysMsg('Modele de feuille'); }
+    if (/contenu\s+de\s+la\s+feuille|configurer\s+(?!le\s+modele)(?:la|ma)?\s*feuille|grille\s+de\s+la\s+feuille|feuille\s+all(egee|ongee)|feuille\s+enrichie/.test(cmd)) { showSheetCfgPanel(); sysHandled = sysMsg('Contenu de la feuille'); }
     if (/exporte\s*(?:en\s*)?pdf|exporte?.*pdf/.test(cmd)) { exportWeekPDF(); sysHandled = sysMsg('Export PDF'); }
     if (/aper(?:cu)?\s+global|vue\s+globale|vue\s+d\s?ensemble\s+complet|toutes\s+(?:les\s+)?semaines|aper(?:cu)?\s+complet/.test(cmd)) { openEnhancedRecap(); sysHandled = sysMsg('Aper\u00e7u global'); }
     if (/heures?\s+(?:supl|supp|supplementaires)|supl(?:ementaires)?\s+hebdo|heures? sup\b/.test(cmd)) { showDailyOvertime(); sysHandled = sysMsg('Heures supp'); }
@@ -8586,6 +8595,7 @@ function renderMainMenu() {
     h += I('showBillingPanel()', 'Facturation & clients');
     h += I('showVehiclesPanel()', 'Vehicules');
     h += I('showPrintModelPanel()', 'Modele de feuille', false, 'Choisir, personnaliser ou numeriser le modele de la feuille a imprimer');
+    h += I('showSheetCfgPanel()', 'Contenu de la feuille', false, 'Allerger ou enrichir la feuille d\'heures : choisir exactement les infos affichees (journalier, hebdo, mensuel, annuel)');
     h += I('showGlobalSearch()', 'Recherche');
     h += I('renderTemplatesPanel()', 'Templates');
     h += I('showAnalytics()', 'Analytics');
@@ -8868,17 +8878,28 @@ function showMonthlyRecap(targetYear, targetMonth) {
     html += '<button class="btn sm" onclick="showMonthlyRecap(' + nextY + ',' + nextM + ')">' + monthNames[nextM - 1].substring(0, 3) + ' &#8250;</button>';
     html += '</div>';
 
+    const cfg = loadSheetCfg();
     const logo = getLogoSrc();
-    html += '<div class="rel-header">';
-    if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
-    else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
-    html += '<div class="info">';
-    html += '<div class="company-name">' + esc(getCompName()) + '</div>';
-    html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
-    html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
-    html += '</div>';
-    html += '<div class="date-block"><div class="period">' + monthNames[targetMonth - 1] + ' ' + targetYear + '</div>';
-    html += '<div class="range">' + totalDays + ' jour(s) de presence</div></div></div>';
+    const hasHdr = cfg.hdrLogo !== false || cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false || cfg.hdrDates !== false;
+    if (hasHdr) {
+        html += '<div class="rel-header">';
+        if (cfg.hdrLogo !== false) {
+            if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
+            else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
+        }
+        if (cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false) {
+            html += '<div class="info">';
+            if (cfg.hdrCompany !== false) html += '<div class="company-name">' + esc(getCompName()) + '</div>';
+            if (cfg.hdrEmployee !== false) html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
+            if (cfg.hdrMeta !== false) html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
+            html += '</div>';
+        }
+        if (cfg.hdrDates !== false) {
+            html += '<div class="date-block"><div class="period">' + monthNames[targetMonth - 1] + ' ' + targetYear + '</div>';
+            html += '<div class="range">' + totalDays + ' jour(s) de presence</div></div>';
+        }
+        html += '</div>';
+    }
 
     html += '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:14px">';
     for (let m = 1; m <= 12; m++) {
@@ -8886,11 +8907,13 @@ function showMonthlyRecap(targetYear, targetMonth) {
     }
     html += '</div>';
 
-    html += '<div class="rel-totals">';
-    html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + formatMinutes(totalWork) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + formatMinutes(totalRoute) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + totalKm + ' km</div></div>';
-    html += '<div class="total-block"><div class="total-label">Jours</div><div class="total-value">' + totalDays + '</div></div></div>';
+    if (cfg.secTotals !== false) {
+        html += '<div class="rel-totals">';
+        html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + formatMinutes(totalWork) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + formatMinutes(totalRoute) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + totalKm + ' km</div></div>';
+        html += '<div class="total-block"><div class="total-label">Jours</div><div class="total-value">' + totalDays + '</div></div></div>';
+    }
 
     const weeklyThreshold = (profile.overtime || 40) * 60;
     const weekCount = Math.ceil(totalDays / 5) || 1;
@@ -8903,7 +8926,7 @@ function showMonthlyRecap(targetYear, targetMonth) {
     const avgPerDay = totalDays > 0 ? Math.round(totalWork / totalDays) : 0;
     html += '<div style="padding:8px 12px;background:var(--surface);border-radius:6px;margin-bottom:14px;font-size:0.75rem">Moyenne/jour : <strong>' + formatMinutes(avgPerDay) + '</strong> (seuil ' + (profile.overtimeDaily || 8) + 'h)</div>';
 
-    if (profile.hourlyRate) {
+    if (cfg.secSalary !== false && profile.hourlyRate) {
         const rate = profile.hourlyRate;
         const mult = 1 + ((profile.overtimeMultiplier || 50) / 100);
         const normalMinutes = Math.min(totalWork, expectedWork);
@@ -8922,7 +8945,7 @@ function showMonthlyRecap(targetYear, targetMonth) {
     }
 
     const projSorted = Object.values(projects).sort((a, b) => b.work - a.work);
-    if (projSorted.length) {
+    if (cfg.secProjects !== false && projSorted.length) {
         html += '<div class="rel-project-recap"><div class="section-title">Projets du mois</div>';
         html += '<table class="recap-table"><thead><tr><th style="text-align:left">Projet</th><th style="text-align:left">Metier</th><th>Progression</th><th style="text-align:right">Heures</th><th style="text-align:right">%</th><th style="text-align:right">Jours</th></tr></thead><tbody>';
         projSorted.forEach(p => {
@@ -8939,10 +8962,12 @@ function showMonthlyRecap(targetYear, targetMonth) {
         html += '</tbody></table></div>';
     }
 
-    html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
-    html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
-    html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
-    html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(new Date())) + '</span></div>';
+    if (cfg.secLegal !== false) html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
+    if (cfg.secSignatures !== false) {
+        html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
+        html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
+    }
+    if (cfg.secFooter !== false) html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(new Date())) + '</span></div>';
 
     html += '<div style="margin-top:14px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
     body.innerHTML = html;
@@ -9461,6 +9486,101 @@ function pmPrintExample() {
     setTimeout(printReleve, 250);
 }
 
+// ==========================================
+// Contenu de la feuille d'heures (allegee ou enrichie)
+// ==========================================
+const SHEET_CFG_DEFAULTS = {
+    hdrLogo:true, hdrCompany:true, hdrEmployee:true, hdrMeta:true, hdrDates:true,
+    colJour:true, colTravail:true, colRoute:true, colKm:true, colNbChantiers:true, colDetails:true,
+    secTotals:true, secSalary:true, secProjects:true, secLegal:true, secSignatures:true, secFooter:true,
+    optRepos:true, optNotes:true, optComments:true
+};
+function loadSheetCfg() {
+    let s = Object.assign({}, SHEET_CFG_DEFAULTS);
+    try { const saved = JSON.parse(localStorage.getItem(uK('sheetCfg')) || ''); if (saved && typeof saved === 'object') s = Object.assign(s, saved); } catch (e) {}
+    return s;
+}
+function saveSheetCfg(patch) {
+    localStorage.setItem(uK('sheetCfg'), JSON.stringify(Object.assign(loadSheetCfg(), patch)));
+    return loadSheetCfg();
+}
+function showSheetCfgPanel() {
+    const pan = document.getElementById('sheetCfgPanel');
+    if (pan) pan.style.display = '';
+    renderSheetCfgPanel();
+}
+function sheetCfgSet(key, on) {
+    const p = {}; p[key] = !!on;
+    saveSheetCfg(p);
+}
+function sheetCfgPreset(mode) {
+    const patch = {};
+    if (mode === 'min') {
+        Object.keys(SHEET_CFG_DEFAULTS).forEach(k => { patch[k] = false; });
+        ['hdrCompany','hdrEmployee','hdrDates','colJour','colTravail','secTotals','secLegal','secSignatures','secFooter'].forEach(k => { patch[k] = true; });
+    } else {
+        Object.keys(SHEET_CFG_DEFAULTS).forEach(k => { patch[k] = true; });
+    }
+    saveSheetCfg(patch);
+    renderSheetCfgPanel();
+}
+function renderSheetCfgPanel() {
+    const body = document.getElementById('sheetCfgBody');
+    if (!body) return;
+    const cfg = loadSheetCfg();
+    function field(label, key, hint) {
+        const on = cfg[key] !== false;
+        return '<label style="display:flex;align-items:flex-start;gap:8px;background:' + (on?'rgba(37,99,235,0.04)':'rgba(0,0,0,0.02)') + ';border:1px solid ' + (on?'rgba(37,99,235,0.18)':'rgba(0,0,0,0.06)') + ';border-radius:6px;padding:6px 8px;cursor:pointer"><input type="checkbox" ' + (on?'checked':'') + ' onchange="sheetCfgSet(\'' + key + '\', this.checked)" style="width:15px;height:15px;margin-top:1px"> <span style="font-size:0.8rem"><span style="font-weight:700;color:' + (on?'var(--accent)':'var(--text-dim)') + '">' + label + '</span>' + (hint?' <span style="color:var(--text-dim);font-weight:400;font-size:0.7rem">' + hint + '</span>':'') + '</span></label>';
+    }
+    function group(title) {
+        return '<div style="font-size:0.68rem;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px">' + title + '</div>';
+    }
+    let html = '<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">';
+    html += '<button class="btn sm" onclick="sheetCfgPreset(\'full\')" title="Reaffiche toute la feuille">Tout afficher</button>';
+    html += '<button class="btn sm" onclick="sheetCfgPreset(\'min\')" title="Feuille allegee : l\'essentiel">Minimal</button>';
+    html += '<button class="btn primary sm" onclick="sheetCfgPreview()">Apercu de la semaine</button></div>';
+    html += '<div style="font-size:0.72rem;color:var(--text-dim);background:rgba(37,99,235,0.06);border-left:3px solid var(--accent);padding:6px 8px;border-radius:4px">Cochez ou decochez les infos selon les besoins de l\'entreprise : la feuille se devoile (allegee) ou se complete (enrichie). Les choix s\'appliquent aux releves journalier, hebdomadaire et annuel.</div>';
+    html += group('En-tete');
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">';
+    html += field('Logo','hdrLogo','logo ou bloc LOGO');
+    html += field('Nom entreprise','hdrCompany','');
+    html += field('Nom du salarie','hdrEmployee','prenom nom');
+    html += field('Vehicule | Dep. lieu','hdrMeta','');
+    html += field('Periode / dates','hdrDates','periode et plage');
+    html += '</div>';
+    html += group('Tableau de la semaine');
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">';
+    html += field('Jour + date','colJour','colonnes du tableau hebdo');
+    html += field('Travail','colTravail','');
+    html += field('Route','colRoute','');
+    html += field('Km','colKm','');
+    html += field('# Chantiers','colNbChantiers','');
+    html += field('Details chantiers','colDetails','numeros et horaires');
+    html += '</div>';
+    html += group('Blocs de la feuille');
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">';
+    html += field('Totaux Travail / Route / Km','secTotals','bloc total + ligne TOTAL SEMAINE');
+    html += field('Salaire estime','secSalary','heures normales + heures sup');
+    html += field('Repartition par projet','secProjects','');
+    html += field('Mention legale','secLegal','sous reserve de validation');
+    html += field('Signatures','secSignatures','salarie + employeur');
+    html += field('Pied de page','secFooter','entreprise / Confidentiel / date');
+    html += '</div>';
+    html += group('Details des jours');
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px">';
+    html += field('Badge "Jour de repos"','optRepos','releve journalier');
+    html += field('Notes des chantiers','optNotes','');
+    html += field('Commentaires des quarts','optComments','');
+    html += '</div>';
+    html += '<div style="margin-top:12px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'sheetCfgPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="sheetCfgPreview()">Voir le releve de la semaine</button></div>';
+    body.innerHTML = html;
+}
+function sheetCfgPreview() {
+    const pan = document.getElementById('sheetCfgPanel');
+    if (pan) pan.style.display = 'none';
+    showReleveWeek();
+}
+
 function showReleveDay(targetDate) {
     const now = new Date();
     if (!targetDate) targetDate = formatDate(now);
@@ -9478,19 +9598,30 @@ function showReleveDay(targetDate) {
     html += '<button class="btn sm" onclick="showReleveDay(\'' + formatDate(prevDate) + '\')">&#8249; Prec</button>';
     html += '<span style="font-size:0.9rem;font-weight:700;color:var(--accent)">Releve journalier</span>';
     html += '<button class="btn sm" onclick="showReleveDay(\'' + formatDate(nextDate) + '\')">Suiv &#8250;</button></div>';
+    const cfg = loadSheetCfg();
     const logo = getLogoSrc();
-    html += '<div class="rel-header">';
-    if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
-    else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
-    html += '<div class="info">';
-    html += '<div class="company-name">' + esc(getCompName()) + '</div>';
-    html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
-    html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
-    html += '</div>';
-    html += '<div class="date-block"><div class="period">' + dayNames[d.getDay()] + '</div>';
-    html += '<div class="range">' + fmtDateFR(targetDate) + '</div></div></div>';
+    const hasHdr = cfg.hdrLogo !== false || cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false || cfg.hdrDates !== false;
+    if (hasHdr) {
+        html += '<div class="rel-header">';
+        if (cfg.hdrLogo !== false) {
+            if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
+            else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
+        }
+        if (cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false) {
+            html += '<div class="info">';
+            if (cfg.hdrCompany !== false) html += '<div class="company-name">' + esc(getCompName()) + '</div>';
+            if (cfg.hdrEmployee !== false) html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
+            if (cfg.hdrMeta !== false) html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
+            html += '</div>';
+        }
+        if (cfg.hdrDates !== false) {
+            html += '<div class="date-block"><div class="period">' + dayNames[d.getDay()] + '</div>';
+            html += '<div class="range">' + fmtDateFR(targetDate) + '</div></div>';
+        }
+        html += '</div>';
+    }
     if (!entry || !entry.shifts || !entry.shifts.length || entry.isRepos) {
-        html += '<div class="rel-badge-repos">Jour de repos</div>';
+        if (cfg.optRepos !== false) html += '<div class="rel-badge-repos">Jour de repos</div>';
         html += '<div style="margin-top:10px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
         openRelevePanel(html); return; }
     let totalWork = 0, totalRoute = 0, totalKm = 0;
@@ -9498,7 +9629,7 @@ function showReleveDay(targetDate) {
         const periodeClass = s.periode === 'nuit' ? 'nuit' : s.periode === 'aprem' ? 'aprem' : '';
         html += '<div class="rel-shift-block' + (periodeClass ? ' ' + periodeClass : '') + '">';
         html += '<div class="rel-shift-title">' + esc(s.periode.charAt(0).toUpperCase()+s.periode.slice(1));
-        if (s.commentaire) html += ' <span class="comment">(' + esc(s.commentaire) + ')</span>';
+        if (cfg.optComments !== false && s.commentaire) html += ' <span class="comment">(' + esc(s.commentaire) + ')</span>';
         html += '</div>';
         html += '<table class="rel-table"><thead><tr>';
         ['Dep. Maison','Arr. Bureaux','Dep. Bureaux','Arr. Maison','Route','Km'].forEach(h => {
@@ -9531,7 +9662,7 @@ function showReleveDay(targetDate) {
                 html += '<td class="td-center td-bold">' + esc(c.fin||'--') + '</td>';
                 html += '<td class="td-center">' + esc(c.departChantier||'--') + '</td>';
                 html += '<td class="td-right td-bold td-accent">' + fmtH(c.work) + '</td></tr>';
-                if (c.notes) html += '<tr><td colspan="8" class="notes">' + esc(c.notes) + '</td></tr>';
+                if (cfg.optNotes !== false && c.notes) html += '<tr><td colspan="8" class="notes">' + esc(c.notes) + '</td></tr>';
             });
             html += '<tr class="total-row"><td colspan="7" style="font-size:7.5pt;text-transform:uppercase">Total ' + esc(s.periode) + '</td><td class="td-right td-accent" style="font-size:9pt">' + fmtH(shiftWork) + '</td></tr>';
             html += '</tbody></table>';
@@ -9539,14 +9670,18 @@ function showReleveDay(targetDate) {
         }
         html += '</div>';
     });
-    html += '<div class="rel-totals">';
-    html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + fmtH(totalWork) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + fmtH(totalRoute) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + totalKm + ' km</div></div></div>';
-    html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
-    html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
-    html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
-    html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(now)) + '</span></div>';
+    if (cfg.secTotals !== false) {
+        html += '<div class="rel-totals">';
+        html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + fmtH(totalWork) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + fmtH(totalRoute) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + totalKm + ' km</div></div></div>';
+    }
+    if (cfg.secLegal !== false) html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
+    if (cfg.secSignatures !== false) {
+        html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
+        html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
+    }
+    if (cfg.secFooter !== false) html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(now)) + '</span></div>';
     html += '<div style="margin-top:12px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
     openRelevePanel(html);
 }
@@ -9567,17 +9702,28 @@ function showReleveWeek(targetWeekStart) {
     html += '<button class="btn sm" onclick="showReleveWeek(\'' + formatDate(prevMonday) + '\')">&#8249; Sem. prec.</button>';
     html += '<span style="font-size:0.9rem;font-weight:700;color:var(--accent)">Releve hebdomadaire</span>';
     html += '<button class="btn sm" onclick="showReleveWeek(\'' + formatDate(nextMonday) + '\')">Sem. suiv. &#8250;</button></div>';
+    const cfg = loadSheetCfg();
     const logo = getLogoSrc();
-    html += '<div class="rel-header">';
-    if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
-    else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
-    html += '<div class="info">';
-    html += '<div class="company-name">' + esc(getCompName()) + '</div>';
-    html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
-    html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
-    html += '</div>';
-    html += '<div class="date-block"><div class="period">Semaine ' + fmtDateFR(targetWeekStart) + '</div>';
-    html += '<div class="range">' + fmtDateFR(targetWeekStart) + ' - ' + fmtDateFR(weekDates[6]) + '</div></div></div>';
+    const hasHdr = cfg.hdrLogo !== false || cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false || cfg.hdrDates !== false;
+    if (hasHdr) {
+        html += '<div class="rel-header">';
+        if (cfg.hdrLogo !== false) {
+            if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
+            else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
+        }
+        if (cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false) {
+            html += '<div class="info">';
+            if (cfg.hdrCompany !== false) html += '<div class="company-name">' + esc(getCompName()) + '</div>';
+            if (cfg.hdrEmployee !== false) html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
+            if (cfg.hdrMeta !== false) html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
+            html += '</div>';
+        }
+        if (cfg.hdrDates !== false) {
+            html += '<div class="date-block"><div class="period">Semaine ' + fmtDateFR(targetWeekStart) + '</div>';
+            html += '<div class="range">' + fmtDateFR(targetWeekStart) + ' - ' + fmtDateFR(weekDates[6]) + '</div></div>';
+        }
+        html += '</div>';
+    }
     const dayData = []; const projectTotals = {};
     let weekWork = 0, weekRoute = 0, weekKm = 0;
     weekDates.forEach((dateStr, i) => {
@@ -9594,32 +9740,52 @@ function showReleveWeek(targetWeekStart) {
         dayData.push({date:dateStr,entry,dayWork,dayRoute,dayKm,shifts});
         weekWork += dayWork; weekRoute += dayRoute; weekKm += dayKm;
     });
-    html += '<table class="recap-table" style="margin-bottom:14px">';
-    html += '<thead><tr>';
-    html += '<th style="text-align:left">Jour</th><th>Travail</th><th>Route</th><th>Km</th><th>#Chantiers</th><th style="text-align:left">Details</th></tr></thead><tbody>';
-    dayData.forEach((dd, i) => {
-        const isToday = dd.date === formatDate(new Date());
-        const dateObj = new Date(dd.date + 'T00:00:00');
-        const isWE = dateObj.getDay()===0||dateObj.getDay()===6;
-        html += '<tr' + (isToday ? ' style="background:rgba(37,99,235,0.06)"' : '') + '>';
-        html += '<td style="font-weight:600' + (isWE?';color:#dc2626':'') + '">' + dayNamesLong[i] + ' ' + fmtDateFR(dd.date) + (isToday?' <span style="color:#2563eb;font-size:7pt">[Auj]</span>':'') + '</td>';
-        html += '<td style="text-align:center;font-weight:700;color:#2563eb">' + fmtH(dd.dayWork) + '</td>';
-        html += '<td style="text-align:center;color:#666">' + fmtH(dd.dayRoute) + '</td>';
-        html += '<td style="text-align:center;color:#ea580c">' + dd.dayKm + '</td>';
-        html += '<td style="text-align:center">' + dd.shifts.reduce((s,sh)=>s+sh.chantiers.length,0) + '</td>';
-        let details = []; dd.shifts.forEach(s => { s.chantiers.forEach(c => { if (c.num) details.push(esc(c.num)+(c.debut&&c.fin?' '+c.debut+'-'+c.fin:'')); }); });
-        html += '<td style="font-size:7.5pt;color:#888">' + (details.length?details.join(', '):'--') + '</td></tr>';
-    });
-    html += '<tr class="total-row">';
-    html += '<td>TOTAL SEMAINE</td>';
-    html += '<td style="text-align:center;color:#2563eb;font-size:9pt">' + fmtH(weekWork) + '</td>';
-    html += '<td style="text-align:center;color:#666">' + fmtH(weekRoute) + '</td>';
-    html += '<td style="text-align:center;color:#ea580c">' + weekKm + '</td><td colspan="2"></td></tr></tbody></table>';
-    html += '<div class="rel-totals">';
-    html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + fmtH(weekWork) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + fmtH(weekRoute) + '</div></div>';
-    html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + weekKm + ' km</div></div></div>';
-    if (profile.hourlyRate) {
+    const colJourC = cfg.colJour !== false, colTravailC = cfg.colTravail !== false, colRouteC = cfg.colRoute !== false, colKmC = cfg.colKm !== false, colNbC = cfg.colNbChantiers !== false, colDetC = cfg.colDetails !== false;
+    if (colJourC || colTravailC || colRouteC || colKmC || colNbC || colDetC) {
+        html += '<table class="recap-table" style="margin-bottom:14px">';
+        html += '<thead><tr>';
+        if (colJourC) html += '<th style="text-align:left">Jour</th>';
+        if (colTravailC) html += '<th>Travail</th>';
+        if (colRouteC) html += '<th>Route</th>';
+        if (colKmC) html += '<th>Km</th>';
+        if (colNbC) html += '<th>#Chantiers</th>';
+        if (colDetC) html += '<th style="text-align:left">Details</th>';
+        html += '</tr></thead><tbody>';
+        dayData.forEach((dd, i) => {
+            const isToday = dd.date === formatDate(new Date());
+            const dateObj = new Date(dd.date + 'T00:00:00');
+            const isWE = dateObj.getDay()===0||dateObj.getDay()===6;
+            html += '<tr' + (isToday ? ' style="background:rgba(37,99,235,0.06)"' : '') + '>';
+            if (colJourC) html += '<td style="font-weight:600' + (isWE?';color:#dc2626':'') + '">' + dayNamesLong[i] + ' ' + fmtDateFR(dd.date) + (isToday?' <span style="color:#2563eb;font-size:7pt">[Auj]</span>':'') + '</td>';
+            if (colTravailC) html += '<td style="text-align:center;font-weight:700;color:#2563eb">' + fmtH(dd.dayWork) + '</td>';
+            if (colRouteC) html += '<td style="text-align:center;color:#666">' + fmtH(dd.dayRoute) + '</td>';
+            if (colKmC) html += '<td style="text-align:center;color:#ea580c">' + dd.dayKm + '</td>';
+            if (colNbC) html += '<td style="text-align:center">' + dd.shifts.reduce((s,sh)=>s+sh.chantiers.length,0) + '</td>';
+            if (colDetC) {
+                let details = []; dd.shifts.forEach(s => { s.chantiers.forEach(c => { if (c.num) details.push(esc(c.num)+(c.debut&&c.fin?' '+c.debut+'-'+c.fin:'')); }); });
+                html += '<td style="font-size:7.5pt;color:#888">' + (details.length?details.join(', '):'--') + '</td>';
+            }
+            html += '</tr>';
+        });
+        if (cfg.secTotals !== false) {
+            html += '<tr class="total-row">';
+            if (colJourC) html += '<td>TOTAL SEMAINE</td>';
+            if (colTravailC) html += '<td style="text-align:center;color:#2563eb;font-size:9pt">' + fmtH(weekWork) + '</td>';
+            if (colRouteC) html += '<td style="text-align:center;color:#666">' + fmtH(weekRoute) + '</td>';
+            if (colKmC) html += '<td style="text-align:center;color:#ea580c">' + weekKm + '</td>';
+            if (colNbC) html += '<td style="text-align:center"></td>';
+            if (colDetC) html += '<td></td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+    }
+    if (cfg.secTotals !== false) {
+        html += '<div class="rel-totals">';
+        html += '<div class="total-block"><div class="total-label">Travail</div><div class="total-value accent">' + fmtH(weekWork) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Route</div><div class="total-value green">' + fmtH(weekRoute) + '</div></div>';
+        html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + weekKm + ' km</div></div></div>';
+    }
+    if (cfg.secSalary !== false && profile.hourlyRate) {
         const rate = profile.hourlyRate; const mult = 1+((profile.overtimeMultiplier||50)/100);
         const weekThreshold = (profile.overtime||40)*60;
         const normalMin = Math.min(weekWork,weekThreshold); const otMin = Math.max(0,weekWork-weekThreshold);
@@ -9632,7 +9798,7 @@ function showReleveWeek(targetWeekStart) {
         html += '<div class="employer-note">Charge patronale estimee (~45%) : ' + ((normalPay+otPay)*1.45).toFixed(0) + ' EUR</div></div>';
     }
     const projSorted = Object.values(projectTotals).sort((a,b)=>b.work-a.work);
-    if (projSorted.length) {
+    if (cfg.secProjects !== false && projSorted.length) {
         html += '<div class="rel-project-recap"><div class="section-title">Repartition par projet</div>';
         html += '<table class="recap-table"><thead><tr><th style="text-align:left">Num</th><th style="text-align:left">Lieu</th><th style="text-align:left">Metier</th><th>Jours</th><th style="text-align:right">Heures</th><th style="text-align:right">%</th></tr></thead><tbody>';
         projSorted.forEach(p => {
@@ -9645,10 +9811,12 @@ function showReleveWeek(targetWeekStart) {
         });
         html += '</tbody></table></div>';
     }
-    html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
-    html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
-    html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
-    html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(new Date())) + '</span></div>';
+    if (cfg.secLegal !== false) html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
+    if (cfg.secSignatures !== false) {
+        html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
+        html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
+    }
+    if (cfg.secFooter !== false) html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(new Date())) + '</span></div>';
     html += '<div style="margin-top:12px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
     openRelevePanel(html);
 }
@@ -9664,17 +9832,28 @@ function showReleveYear(targetYear) {
     html += '<button class="btn sm" onclick="showReleveYear(' + prevYear + ')">&#8249; ' + prevYear + '</button>';
     html += '<span style="font-size:0.9rem;font-weight:700;color:var(--accent)">Releve annuel ' + targetYear + '</span>';
     html += '<button class="btn sm" onclick="showReleveYear(' + nextYear + ')">' + nextYear + ' &#8250;</button></div>';
+    const cfg = loadSheetCfg();
     const logo = getLogoSrc();
-    html += '<div class="rel-header">';
-    if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
-    else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
-    html += '<div class="info">';
-    html += '<div class="company-name">' + esc(getCompName()) + '</div>';
-    html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
-    html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
-    html += '</div>';
-    html += '<div class="date-block"><div class="period">Exercice ' + targetYear + '</div>';
-    html += '<div class="range">Janvier - Decembre</div></div></div>';
+    const hasHdr = cfg.hdrLogo !== false || cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false || cfg.hdrDates !== false;
+    if (hasHdr) {
+        html += '<div class="rel-header">';
+        if (cfg.hdrLogo !== false) {
+            if (logo) html += '<div class="logo"><img src="' + esc(logo) + '" alt="Logo"></div>';
+            else html += '<div class="logo"><div class="logo-placeholder" style="width:50pt;height:50pt;border:1pt dashed #ccc;border-radius:4pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:8pt">LOGO</div></div>';
+        }
+        if (cfg.hdrCompany !== false || cfg.hdrEmployee !== false || cfg.hdrMeta !== false) {
+            html += '<div class="info">';
+            if (cfg.hdrCompany !== false) html += '<div class="company-name">' + esc(getCompName()) + '</div>';
+            if (cfg.hdrEmployee !== false) html += '<div class="employee">' + esc(profile.nom||'') + ' ' + esc(profile.prenom||'') + '</div>';
+            if (cfg.hdrMeta !== false) html += '<div class="meta">' + (profile.vehicule ? esc(profile.vehicule) : '') + (profile.vehicule && profile.lieuDefault ? ' | ' : '') + esc(profile.lieuDefault || '') + '</div>';
+            html += '</div>';
+        }
+        if (cfg.hdrDates !== false) {
+            html += '<div class="date-block"><div class="period">Exercice ' + targetYear + '</div>';
+            html += '<div class="range">Janvier - Decembre</div></div>';
+        }
+        html += '</div>';
+    }
     const months = {}; const projAll = {};
     let yearWork = 0, yearRoute = 0, yearKm = 0, yearDays = 0;
     Object.entries(allData).forEach(([ws, entries]) => {
@@ -9723,7 +9902,7 @@ function showReleveYear(targetYear) {
     html += '<div class="total-block"><div class="total-label">Km</div><div class="total-value">' + yearKm + ' km</div></div>';
     html += '<div class="total-block"><div class="total-label">Jours</div><div class="total-value">' + yearDays + '</div></div></div>';
     const annualThreshold = (profile.overtimeAnnual||0)*60;
-    if (annualThreshold > 0) {
+    if (cfg.secSalary !== false && annualThreshold > 0) {
         const pct = Math.min(100,(yearWork/annualThreshold)*100);
         const barColor = pct>=100?'#dc2626':pct>=90?'#ea580c':'#16a34a';
         html += '<div class="rel-salary-box">';
@@ -9732,7 +9911,7 @@ function showReleveYear(targetYear) {
         html += '<div style="height:8px;background:#ddd;border-radius:4pt;overflow:hidden;margin-bottom:4px"><div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:4pt"></div></div>';
         html += '<div style="font-size:7.5pt;color:#666">'+fmtH(yearWork)+' / '+fmtH(annualThreshold)+(yearWork>=annualThreshold?' - DEPASSE':' - '+fmtH(annualThreshold-yearWork)+' restantes')+'</div></div>';
     }
-    if (profile.hourlyRate) {
+    if (cfg.secSalary !== false && profile.hourlyRate) {
         const rate = profile.hourlyRate; const mult = 1+((profile.overtimeMultiplier||50)/100);
         const weekThreshold = (profile.overtime||40)*60;
         const weekCount = Math.ceil(yearDays/5)||1; const expectedWork = weekThreshold*weekCount;
@@ -9746,7 +9925,7 @@ function showReleveYear(targetYear) {
         html += '<div class="employer-note">Charge patronale estimee (~45%) : ' + ((normalPay+otPay)*1.45).toFixed(0) + ' EUR</div></div>';
     }
     const projSorted = Object.values(projAll).sort((a,b)=>b.work-a.work);
-    if (projSorted.length) {
+    if (cfg.secProjects !== false && projSorted.length) {
         html += '<div class="rel-project-recap"><div class="section-title">Tous les projets</div>';
         html += '<table class="recap-table"><thead><tr><th style="text-align:left">Num</th><th style="text-align:left">Lieu</th><th style="text-align:left">Metier</th><th>Mois</th><th>Jours</th><th style="text-align:right">Heures</th><th style="text-align:right">%</th></tr></thead><tbody>';
         projSorted.forEach(p => {
@@ -9760,10 +9939,12 @@ function showReleveYear(targetYear) {
         });
         html += '</tbody></table></div>';
     }
-    html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
-    html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
-    html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
-    html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(now)) + '</span></div>';
+    if (cfg.secLegal !== false) html += '<div class="rel-legal">Ce document est genere automatiquement. Les heures indiquees sont sous reserve de validation par l\'employeur.</div>';
+    if (cfg.secSignatures !== false) {
+        html += '<div class="rel-signatures"><div class="rel-sig-block"><div class="rel-sig-title">Signature du salarie</div><div class="rel-sig-line">Date et signature</div></div>';
+        html += '<div class="rel-sig-block"><div class="rel-sig-title">Signature de l\'employeur</div><div class="rel-sig-line">Date et signature</div></div></div>';
+    }
+    if (cfg.secFooter !== false) html += '<div class="rel-footer"><span>' + esc(getCompName()) + '</span><span class="confidential">Confidentiel</span><span>Genere le ' + fmtDateFR(formatDate(now)) + '</span></div>';
     html += '<div style="margin-top:12px;display:flex;gap:6px" class="no-print"><button class="btn" onclick="document.getElementById(\'recapPanel\').style.display=\'none\'">Fermer</button><button class="btn primary" onclick="printReleve()">Imprimer</button></div>';
     openRelevePanel(html);
 }
