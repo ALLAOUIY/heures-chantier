@@ -1608,6 +1608,8 @@
 
             <div id="smartResultZone" style="display:none;margin-top:12px"></div>
 
+            <div id="dayChecklistZone" style="margin-top:8px"></div>
+
             <div style="display:flex;gap:10px;margin-top:14px">
                 <button class="btn primary" style="flex:1.4;justify-content:center" onclick="saveDay()" id="mainSaveBtn">Enregistrer la journee</button>
                 <button class="btn accent2" style="flex:1;justify-content:center" onclick="saveDayAndNext()" title="Enregistrer et passer directement a la prochaine journee vide (Ctrl+Shift+S)">Enregistrer &amp; suivant</button>
@@ -5507,6 +5509,57 @@ function updateCalcs() {
     document.getElementById('calcWork').textContent = formatMinutes(totalWork);
     document.getElementById('calcTotal').textContent = formatMinutes(totalRoute + totalWork);
     document.getElementById('calcKm').textContent = totalKm + ' km';
+    renderDayChecklist();
+}
+
+function dayChecklist() {
+    const warnings = [];
+    let required = 0, filled = 0;
+    if (!pendingShifts.length) return { warnings: [], required: 0, filled: 0, pct: 100 };
+    pendingShifts.forEach(function(s, si) {
+        const pLabel = s.periode || ('P' + (si + 1));
+        const hasCh = s.chantiers && s.chantiers.length;
+        if (hasCh) {
+            required += 2;
+            if (s.departMaison) filled++; else warnings.push(pLabel + ' : depart maison manquant');
+            if (s.arriveeMaison) filled++; else warnings.push(pLabel + ' : retour maison manquant');
+        }
+        const seenNum = {};
+        (s.chantiers || []).forEach(function(c, ci) {
+            required += 3;
+            const cLabel = (c.num || c.lieu || 'Ch.' + (ci + 1));
+            if (c.num && c.num.trim()) { filled++; if (seenNum[c.num.toUpperCase()]) warnings.push(pLabel + ' ' + cLabel + ' : numero en double'); seenNum[c.num.toUpperCase()] = true; } else warnings.push(pLabel + ' ' + cLabel + ' : numero manquant');
+            if (c.debut) filled++; else warnings.push(pLabel + ' ' + cLabel + ' : horaire debut manquant');
+            if (c.fin) filled++; else warnings.push(pLabel + ' ' + cLabel + ' : horaire fin manquant');
+            if (c.debut && c.fin && timeToMinutes(c.fin) < timeToMinutes(c.debut)) warnings.push(pLabel + ' ' + cLabel + ' : debut apres fin');
+        });
+        validateTimeSequence(s).forEach(function(w) { if (w.indexOf('Route very longue') === -1) warnings.push(pLabel + ' : ' + w); });
+    });
+    return { warnings: warnings.slice(0, 8), required: Math.max(required, 1), filled: Math.min(filled, required), pct: Math.round(Math.min(filled, required) / Math.max(required, 1) * 100) };
+}
+
+function renderDayChecklist() {
+    const zone = document.getElementById('dayChecklistZone');
+    if (!zone) return;
+    const cl = dayChecklist();
+    if (!pendingShifts.length || !cl.required) { zone.innerHTML = ''; return; }
+    const pct = cl.pct;
+    const isClean = pct >= 100 && !cl.warnings.length;
+    const color = isClean ? 'var(--accent2)' : pct >= 70 ? 'var(--accent4)' : 'var(--red)';
+    const bgColor = isClean ? 'rgba(22,163,74,0.08)' : pct >= 70 ? 'rgba(255,163,7,0.06)' : 'rgba(255,107,107,0.06)';
+    let html = '<div style="padding:8px 10px;border:1px solid ' + color + ';border-radius:8px;background:' + bgColor + '">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">';
+    html += '<span style="font-size:0.68rem;font-weight:700;color:' + color + ';text-transform:uppercase;letter-spacing:0.3px">' + (isClean ? 'Journee complete' : cl.filled + '/' + cl.required + ' champs requis remplis') + '</span>';
+    html += '<span style="font-size:0.68rem;font-weight:700;color:' + color + '">' + pct + ' %</span>';
+    html += '</div>';
+    html += '<div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-bottom:' + (cl.warnings.length ? '6px' : '0') + '"><div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:2px;transition:width 0.3s"></div></div>';
+    if (cl.warnings.length) {
+        html += '<div style="font-size:0.66rem;color:var(--text-dim)">';
+        cl.warnings.forEach(function(w) { html += '<div style="padding:1.5px 0;color:var(--red)">&#9888; ' + esc(w) + '</div>'; });
+        html += '</div>';
+    }
+    html += '</div>';
+    zone.innerHTML = html;
 }
 
 // --- Save ---
