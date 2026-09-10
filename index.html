@@ -820,6 +820,10 @@
             body.fullscreen { padding: 4px; padding-bottom: 20px; }
             body.fullscreen .form-body { padding: 8px !important; }
         }
+.rel-warnings { background:#fef6e7; border:1px solid #f0b54c; border-radius:6px; padding:8px 12px; font-size:0.75rem; color:#7a4a12; margin-bottom:12px; }
+        .rel-warnings ul { margin:4px 0 0 18px; padding:0; }
+        .rel-warnings strong { color:#8a5a12; }
+        .rel-empty { text-align:center; padding:14px; font-size:0.85rem; color:var(--text-dim); border:1px dashed var(--accent); border-radius:6px; margin:10px 0 14px; }
         @media print {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background: #fff; color: #1a1a2e; padding: 0; font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; }
@@ -858,8 +862,10 @@
 
             /* --- TABLES --- */
             .recap-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+            .recap-table thead { display: table-header-group; }
+            .recap-table tr { break-inside: avoid; page-break-inside: avoid; }
             .recap-table th { background: #f0f0f5; color: #333; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.4pt; border-bottom: 1.5pt solid #1a1a2e; padding: 6pt 8pt; }
-            .recap-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #ddd; color: #222; }
+            .recap-table td { padding: 5pt 8pt; border-bottom: 0.5pt solid #ddd; color: #222; font-variant-numeric: tabular-nums; }
             .recap-table tr:last-child td { border-bottom: 1.5pt solid #1a1a2e; }
             .recap-table .total-row td { font-weight: 700; background: #f5f5fa; border-top: 1.5pt solid #1a1a2e; }
             .summary-row td { background: #f8f8fc !important; }
@@ -904,6 +910,8 @@
 
             /* --- RELEVE CLASSES (unified for all 3 reports) --- */
             .rel-nav { display: none !important; }
+            .rel-warnings { display: none !important; }
+            .rel-empty { text-align:center; padding:12pt; font-size:10pt; color:#666; border:0.5pt dashed #ccc; border-radius:4pt; margin:8pt 0; font-style:italic; break-inside: avoid; page-break-inside: avoid; }
 
             .rel-header { display: flex; align-items: center; padding: 14pt 0 10pt 0; border-bottom: 2.5pt solid #1a1a2e; margin-bottom: 10pt; page-break-after: avoid; }
             .rel-header .logo { width: 50pt; height: 50pt; flex-shrink: 0; margin-right: 12pt; }
@@ -941,6 +949,7 @@
             .rel-table .total-row td { font-weight: 700; border-top: 1.5pt solid #1a1a2e; background: #f5f5fa; }
             .rel-table .urgent { color: #dc2626; font-size: 7pt; }
             .rel-table .notes { font-size: 7pt; color: #888; font-style: italic; padding: 2pt 6pt; }
+            .rel-table td { font-variant-numeric: tabular-nums; }
 
             .rel-totals { display: flex; gap: 18pt; justify-content: center; margin: 12pt 0; page-break-inside: avoid; }
             .rel-totals .total-block { text-align: center; border: 0.75pt solid #999; border-radius: 3pt; padding: 6pt 14pt; background: #fff; }
@@ -957,11 +966,12 @@
             .rel-salary-box .employer-note { font-size: 6.5pt; color: #999; margin-top: 4pt; font-style: italic; }
 
             .rel-project-recap { break-inside: avoid; page-break-inside: avoid; margin-bottom: 10pt; }
+            .rel-project-recap tr { break-inside: avoid; page-break-inside: avoid; }
             .rel-project-recap .section-title { font-size: 9pt; font-weight: 700; margin-bottom: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #1a1a2e; }
 
             .rel-annual-total { page-break-before: always; page-break-after: avoid; }
 
-            .rel-legal { font-size: 7pt; color: #888; font-style: italic; text-align: center; margin-bottom: 10pt; padding: 6pt; border-top: 0.5pt solid #ddd; border-bottom: 0.5pt solid #ddd; }
+            .rel-legal { font-size: 7pt; color: #888; font-style: italic; text-align: center; margin-bottom: 10pt; padding: 6pt; border-top: 0.5pt solid #ddd; border-bottom: 0.5pt solid #ddd; page-break-inside: avoid; }
 
             .rel-signatures { break-inside: avoid; page-break-inside: avoid; margin-top: 30pt; padding-top: 10pt; display: flex; justify-content: space-between; }
             .rel-sig-block { width: 45%; text-align: center; }
@@ -1870,6 +1880,7 @@ function saveEntries(e) {
         return false;
     }
     markUsbDirty();
+    invalidateAllDataCache();
     logAuditThrottled('save_day', formatDate(currentWeekStart) + ' (' + e.length + ' entree(s))');
     debouncedLearn();
     return true;
@@ -3051,6 +3062,9 @@ function showAnalytics() {
     html += '<button class="btn sm accent3" onclick="exportAnalyticsPDF()">PDF</button>';
     html += clientDatalistHtml();
     html += '</div>';
+    if (flatAllEntries().length === 0) {
+        html += '<div style="padding:10px 12px;border:1px solid var(--accent2);background:rgba(22,163,74,0.06);border-radius:6px;margin-bottom:12px;font-size:0.78rem;color:var(--accent2)"><strong>Aucune donnee enregistree.</strong> Les statistiques et graphiques apparaissent des qu\'une journee est saisie.</div>';
+    }
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Ce mois</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent)">' + fmtH(a.thisMonth.work) + '</div><div style="font-size:0.7rem;color:var(--text-dim)">' + a.thisMonth.days + ' jours</div></div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.68rem;color:var(--text-dim);text-transform:uppercase">Mois precedent</div><div style="font-size:1.1rem;font-weight:700;color:var(--accent2)">' + fmtH(a.lastMonth.work) + '</div><div style="font-size:0.7rem;color:var(--text-dim)">' + a.lastMonth.days + ' jours</div></div>';
@@ -3062,6 +3076,33 @@ function showAnalytics() {
     html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Heures de nuit (+' + a.nuitMajPct + '%)</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent3)">' + formatMinutes(a.totNight) + '</div></div>';
     html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">CA chantiers (HT)</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent4)">' + fmtEur(a.totCA) + '</div></div>';
     html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">C/Abs/Fer</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent)">' + (a.statutCounts.conge || 0) + '/' + (a.statutCounts.absence || 0) + '/' + (a.statutCounts.ferie || 0) + '</div></div>';
+    html += '</div>';
+    const profA = loadProfile();
+    const rateA = parseFloat(profA.hourlyRate) || 0;
+    const aNow = new Date();
+    const avgDayA = a.thisMonth.days > 0 ? a.thisMonth.work / a.thisMonth.days : 0;
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">';
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Moyenne / jour</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent)">' + fmtH(Math.round(avgDayA)) + '</div><div style="font-size:0.62rem;color:var(--text-dim)">ce mois (' + a.thisMonth.days + ' jours)</div></div>';
+    if (rateA > 0) {
+        const multA = 1 + ((profA.overtimeMultiplier || 50) / 100);
+        const weekThA = (profA.overtime || 40) * 60;
+        const wcA = Math.ceil(a.thisMonth.days / 5) || 1;
+        const expWA = weekThA * wcA;
+        const nmA = Math.min(a.thisMonth.work, Math.max(0, expWA));
+        const omA = Math.max(0, a.thisMonth.work - Math.max(0, expWA));
+        const payA = (nmA / 60) * rateA + (omA / 60) * rateA * multA;
+        html += '<div style="padding:8px;border:1px solid var(--accent2);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Salaire estime (mois)</div><div style="font-size:0.92rem;font-weight:700;color:var(--accent4)">' + Math.round(payA).toLocaleString('fr-FR') + ' EUR</div><div style="font-size:0.62rem;color:var(--text-dim)">' + fmtH(nmA) + ' base + ' + (omA > 0 ? fmtH(omA) + ' sup (x' + multA.toFixed(1) + ')' : '0:00 sup') + '</div></div>';
+    }
+    const ylA = loadYearData(aNow.getFullYear());
+    const annThA = (profA.overtimeAnnual && profA.overtimeAnnual > 0) ? profA.overtimeAnnual * 60 : 960 * 60;
+    const annPctA = ylA.totalWork ? Math.min(100, Math.round((ylA.totalWork / annThA) * 100)) : 0;
+    const annColA = annPctA >= 100 ? 'var(--red)' : annPctA >= 85 ? 'var(--accent4)' : 'var(--accent2)';
+    let projTxtA = '—';
+    if (ylA.totalDays > 0) {
+        const daysLeftA = Math.max(0, Math.round((new Date(aNow.getFullYear(), 11, 31) - aNow) / 86400000) * 5 / 7);
+        projTxtA = fmtH(ylA.totalWork + Math.round((ylA.totalWork / ylA.totalDays) * daysLeftA)) + ' d\'ici fin ' + aNow.getFullYear();
+    }
+    html += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px"><div style="font-size:0.62rem;color:var(--text-dim)">Seuil annuel ' + Math.round(annThA / 60) + ' h</div><div style="display:flex;justify-content:space-between;font-size:0.78rem;font-weight:700;color:' + annColA + '">' + Math.round(ylA.totalWork / 60) + ' h <span>' + annPctA + ' %</span></div><div style="height:6px;background:var(--surface2);border-radius:3px;margin:4px 0;overflow:hidden"><div style="height:100%;width:' + annPctA + '%;background:' + annColA + ';border-radius:3px"></div></div><div style="font-size:0.62rem;color:var(--text-dim)">' + projTxtA + '</div></div>';
     html += '</div>';
     html += '<div style="padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">';
     html += '<div style="font-size:0.75rem;font-weight:600;margin-bottom:6px">Cout deplacement (carburant)</div>';
@@ -4211,6 +4252,7 @@ function importBackup(e) {
                 }
             }
             learnFromEntries();
+            invalidateAllDataCache();
             render();
             renderVehiclesBox();
             logAudit('import_backup', mode === '1' ? 'fusion' : 'ecrasement');
@@ -4239,6 +4281,7 @@ async function usbConnect() {
         if (data.favs) { var ef = loadFavChantiers(); const efk = new Set(ef.map(f => (f.num||'')+'|'+(f.lieu||''))); (data.favs||[]).forEach(f => { if (!efk.has((f.num||'')+'|'+(f.lieu||''))) { ef.push(f); efk.add((f.num||'')+'|'+(f.lieu||'')); } }); saveFavChantiers(ef); }
         if (data.templates) { var et = loadAllTemplates(); const etn = new Set(et.map(t => t.name)); (data.templates||[]).forEach(t => { if (!etn.has(t.name)) { et.push(t); etn.add(t.name); } }); saveAllTemplates(et); }
         if (data.weeks) { Object.keys(data.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(data.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(data.weeks[k])); } catch {} } }); }
+        invalidateAllDataCache();
         render();
         showToast('Donnees USB chargees', 'success');
     } catch (err) { if (err.name !== 'AbortError') showToast('Erreur lecture USB', 'error'); }
@@ -5941,6 +5984,7 @@ function resetWeek() {
     const wEntries = loadEntries();
     wEntries.forEach(function(e) { pushTrash(e); });
     try { localStorage.removeItem(getStorageKey()); } catch {}
+    invalidateAllDataCache();
     pendingShifts = [];
     render();
     if (typeof onDayChange === 'function') onDayChange();
@@ -8767,7 +8811,10 @@ function showRecap() {
 }
 
 // --- All weeks data loader ---
+let _allDataCache = null;
+function invalidateAllDataCache() { _allDataCache = null; }
 function loadAllWeeksData() {
+    if (_allDataCache) return _allDataCache;
     const allData = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -8779,6 +8826,7 @@ function loadAllWeeksData() {
             } catch {}
         }
     }
+    _allDataCache = allData;
     return allData;
 }
 
@@ -9686,6 +9734,46 @@ function showReleveDay(targetDate) {
     openRelevePanel(html);
 }
 
+function validateWeekEntries(targetWeekStart) {
+    const warnings = [];
+    try {
+        const key = uK(targetWeekStart);
+        let entries = [];
+        try { entries = JSON.parse(localStorage.getItem(key)) || []; } catch { entries = []; }
+        if (!Array.isArray(entries)) entries = [];
+        let computedWork = 0;
+        const seen = {};
+        entries.forEach(e => {
+            if (!e || !e.date) return;
+            if (seen[e.date]) warnings.push(e.date + ' : journee en double dans la semaine');
+            seen[e.date] = true;
+            const shifts = Array.isArray(e.shifts) ? e.shifts : [];
+            if (!e.isRepos && shifts.length === 0 && (e.totalWork || 0) > 0) {
+                warnings.push(e.date + ' : heures saisies sans shift enregistre');
+            }
+            shifts.forEach(s => {
+                const chs = Array.isArray(s.chantiers) ? s.chantiers : [];
+                if (!e.isRepos && !s.departMaison && chs.length) {
+                    warnings.push(e.date + ' (' + s.periode + ') : pas d\'heure de depart maison');
+                }
+                chs.forEach(c => {
+                    const w = c.work || 0;
+                    computedWork += w;
+                    if (!(c.num || '').trim()) warnings.push(e.date + ' : chantier sans numero');
+                    if (w > 0 && (!c.debut || !c.fin)) warnings.push(e.date + ' (' + (c.num || '?') + ') : heures sans horaires debit/fin');
+                    if (c.debut && c.fin && String(c.debut) > String(c.fin)) warnings.push(e.date + ' (' + (c.num || '?') + ') : debut ' + c.debut + ' apres fin ' + c.fin);
+                });
+                if (typeof s.km === 'number' && s.km < 0) warnings.push(e.date + ' : kilometrage negatif');
+            });
+        });
+        const declared = entries.reduce((a, e) => a + (e.totalWork || 0), 0);
+        if (entries.length && Math.abs(computedWork - declared) > 15) {
+            warnings.push('Total heures incohérent : ' + formatMinutes(declared) + ' declare vs ' + formatMinutes(computedWork) + ' recouvre');
+        }
+    } catch (e) {}
+    return warnings.slice(0, 6);
+}
+
 function showReleveWeek(targetWeekStart) {
     const profile = loadProfile();
     if (!targetWeekStart) targetWeekStart = formatDate(currentWeekStart);
@@ -9740,6 +9828,13 @@ function showReleveWeek(targetWeekStart) {
         dayData.push({date:dateStr,entry,dayWork,dayRoute,dayKm,shifts});
         weekWork += dayWork; weekRoute += dayRoute; weekKm += dayKm;
     });
+    const weekWarnings = validateWeekEntries(targetWeekStart);
+    if (weekWarnings.length) {
+        html += '<div class="rel-warnings"><strong>Avertissements a controler</strong><ul>' + weekWarnings.map(function(w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
+    }
+    if (!weekWork && !weekKm && !weekRoute) {
+        html += '<div class="rel-empty">Aucune heure saisie pour cette semaine</div>';
+    }
     const colJourC = cfg.colJour !== false, colTravailC = cfg.colTravail !== false, colRouteC = cfg.colRoute !== false, colKmC = cfg.colKm !== false, colNbC = cfg.colNbChantiers !== false, colDetC = cfg.colDetails !== false;
     if (colJourC || colTravailC || colRouteC || colKmC || colNbC || colDetC) {
         html += '<table class="recap-table" style="margin-bottom:14px">';
@@ -11538,7 +11633,7 @@ fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     if (d && d.version && d.weeks) {
         var hasData = false;
         for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith('chantier_') && CFG.weekKeyRe.test(k)) { hasData = true; break; } }
-        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(d.weeks[k])); } catch {} } }); render(); showToast('Donnees data.json importees', 'success'); }
+        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(d.weeks[k])); } catch {} } }); invalidateAllDataCache(); render(); showToast('Donnees data.json importees', 'success'); }
     }
 }).catch(function() {});
 if ('serviceWorker' in navigator) {
