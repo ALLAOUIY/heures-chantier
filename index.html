@@ -1417,12 +1417,8 @@
         </div>
         <div class="form-body" id="formContent">
             <!-- Preset bar -->
-            <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Modeles rapides — 1 clic remplit (enregistrez ensuite)</div>
+            <div style="font-size:0.68rem;color:var(--accent2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Journee</div>
             <div class="preset-bar">
-                <button class="preset-btn" onclick="applyDayPreset('chantier', true)" title="Pose la plage chantier 07h30-16h00 (8h30) a completer, sans enregistrer">Chantier 8h30</button>
-                <button class="preset-btn" onclick="applyDayPreset('bureau', true)" title="Pose la plage bureau 08h00-16h30 (8h30) a completer, sans enregistrer">Bureau 8h30</button>
-                <button class="preset-btn" onclick="applyDayPreset('long', true)" title="Pose la plage longue 07h00-18h00 (11h) a completer, sans enregistrer">Long 11h</button>
-                <button class="preset-btn" onclick="applyDayPreset('demijour', true)" title="Pose une demi-journee 4h (08h00-12h00 ou 13h00-17h00) a completer, sans enregistrer">Demi-jour 4h</button>
                 <button class="preset-btn" onclick="applyDayPreset('repos', true)" title="Marque la journee comme repos (enregistre direct)">Repos</button>
             </div>
             <div style="font-size:0.68rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 6px">Reprendre une journee deja saisie</div>
@@ -1431,7 +1427,7 @@
                 <button class="preset-btn" onclick="fillFromYesterday()" title="Reprendre toutes les donnees d hier (horaires + chantiers)">Reprendre hier</button>
             </div>
             <!-- Day Tabs -->
-            <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Posez un modele (Bureau / Chantier / Repos) ou entrez vos horaires</span><span><b>3.</b> Cliquez sur Enregistrer &mdash; rien n'est enregistre avant</span></div>
+            <div class="entry-hint"><span><b>1.</b> Choisissez le jour <b>(lundi a dimanche &mdash; week-end compris)</b></span><span><b>2.</b> Saisissez vos horaires ou dictez (F8), puis <b>Enregistrer</b> &mdash; rien n'est enregistre avant</span><span><b>3.</b> Ou « Completer &amp; suivant » pose votre journee type (apprise de votre historique)</span></div>
             <div class="day-tabs" id="dayTabs"></div>
             <div class="smart-suggest" id="smartSuggestZone"></div>
             <div style="display:none;font-size:0.62rem;color:var(--text-dim);text-align:right;margin:-2px 0 6px" id="weekProgress"></div>
@@ -1569,7 +1565,7 @@
                 </div>
                 <div id="shiftList">
                     <div style="color:var(--text-dim);font-size:0.78rem;text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">
-                        Aucune periode pour l'instant.<br>Ajoutez une periode ci-dessous, ou utilisez un modele en haut (<b>Bureau 8h30</b>, <b>Chantier</b>...) pour tout remplir en 1 clic.
+                        Aucune periode pour l'instant.<br>Ajoutez une periode ci-dessous, dictez (F8), ou utilisez « Completer &amp; suivant » pour votre journee type.
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -3620,7 +3616,7 @@ function showPlanning() {
     html += '</select></div>';
     html += '<div style="font-size:0.75rem;font-weight:600;margin-bottom:6px">' + esc(weekLabel) + '</div>';
     html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">';
-    const presetOpts = ['', 'repos', 'preset:bureau', 'preset:chantier', 'preset:long', 'preset:demijour'];
+    const presetOpts = ['', 'repos'];
     dayNames.forEach(function(n, i) {
         const fer = isFerieDate(new Date(weekStart));
         const dayDate = new Date(weekStart); dayDate.setDate(dayDate.getDate() + i);
@@ -3641,7 +3637,7 @@ function showPlanning() {
     html += '</select>';
     html += '<button class="btn" onclick="planDuplicateWeeks(' + offset + ',parseInt(document.getElementById(\'planDupCount\').value))">Dupliquer</button>';
     html += '</div>';
-    html += '<div style="margin-top:10px;font-size:0.72rem;color:var(--text-dim)">Chaque jour planifie peut etre cree automatiquement (modeles rapides) ou en repos. La duplication copie le planning affiche vers les semaines suivantes.</div>';
+    html += '<div style="margin-top:10px;font-size:0.72rem;color:var(--text-dim)">Les journees de travail sont saisies une a une (vos horaires et chantiers changent trop pour des modeles fixes) : ce planning ne cree que des <b>repos</b> ou duplique le planning affiche vers les semaines suivantes. Pour reproduire une vraie journee, utilisez « Copier sem. prec. » ou « Reprendre hier ».</div>';
     panel.querySelector('.form-header span').textContent = 'Planning des semaines';
     body.innerHTML = html;
     panel.style.display = '';
@@ -5206,7 +5202,7 @@ function renderShifts() {
     document.getElementById('shiftCount').textContent = `(${pendingShifts.length})`;
 
     if (!pendingShifts.length) {
-        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Utilisez un modele en haut (Bureau 8h30, Chantier...) pour tout remplir en 1 clic, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
+        list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Saisissez vos horaires ou dictez (F8), « Completer &amp; suivant » pour votre journee type, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
         renderDayChecklist();
         return;
     }
@@ -7700,11 +7696,6 @@ function applyCommand(cmd) {
     if (/backup|sauvegarde\s+(?:json|complete)|exporte?.*backup/.test(cmd)) { exportBackup(); sysHandled = sysMsg('Backup JSON'); }
     if (/imprime|impression|imprimer/.test(cmd)) { window.print(); sysHandled = sysMsg('Impression'); }
 
-    if (/(?:modele|gabarit)\s*bureau\b|ajoute\s+bureau\b/.test(cmd)) { applyDayPreset('bureau', true); sysHandled = sysMsg('Gabarit bureau'); }
-    if (/(?:modele|gabarit)\s*chantier\b|gabarit\s+chantier/.test(cmd)) { applyDayPreset('chantier', true); sysHandled = sysMsg('Gabarit chantier'); }
-    if (/gabarit\s+long|jour\s+long\b/.test(cmd)) { applyDayPreset('long', true); sysHandled = sysMsg('Gabarit jour long'); }
-    if (/demi\s*(?:-\s*)?jour(?:nee)?\b/.test(cmd)) { applyDayPreset('demijour', true); sysHandled = sysMsg('Gabarit demi-journee'); }
-
     if (/plein\s+ecran|plein\s+ecran\s+saisie|toggle\s+fullscreen/.test(cmd)) { toggleFullscreen(); sysHandled = sysMsg('Plein ecran'); }
     if (/raccourcis|raccourci\s+clavier|aide\s+clavier|shortcuts/.test(cmd)) { toggleShortcutsModal(); sysHandled = sysMsg('Raccourcis'); }
     if (/guide\s+de\s+demarrage|guide\s+debut|aide\s+globale|demarrage/.test(cmd)) { openHelpModal(); sysHandled = sysMsg('Guide de demarrage'); }
@@ -8765,10 +8756,6 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'k') { e.preventDefault(); openDatePickerModal(); return; }
         if (e.key === 'z') { e.preventDefault(); undo(); return; }
         if (e.key === 'y') { e.preventDefault(); redo(); return; }
-        if (!inInput && e.key === '1') { e.preventDefault(); applyDayPreset('bureau'); return; }
-        if (!inInput && e.key === '2') { e.preventDefault(); applyDayPreset('chantier'); return; }
-        if (!inInput && e.key === '3') { e.preventDefault(); applyDayPreset('long'); return; }
-        if (!inInput && e.key === '4') { e.preventDefault(); applyDayPreset('demijour'); return; }
         if (!inInput && e.key === '5') { e.preventDefault(); applyDayPreset('repos'); return; }
     }
     if (e.key === 'Escape') {
@@ -10782,9 +10769,8 @@ function renderOrchestrator() {
     html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">';
     html += '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent3);margin-bottom:10px">Actions rapides</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    html += orchBtn("applyDayPreset('bureau',true)", 'Bureau 8h30', 'var(--accent)');
-    html += orchBtn("applyDayPreset('chantier',true)", 'Chantier', 'var(--accent2)');
-    html += orchBtn("applyDayPreset('long',true)", 'Long 11h', 'var(--accent3)');
+    html += orchBtn("toggleOrchestrator();goToToday();scrollPanelIntoView('mainFormPanel')", 'Saisir', 'var(--accent)');
+    html += orchBtn("quickCompleteDay()", 'Journee type', 'var(--accent2)');
     html += orchBtn("applyDayPreset('repos',true)", 'Repos', 'var(--red)');
     html += orchBtn("toggleOrchestrator();showAnalytics()", 'Analytics', 'var(--accent4)');
     html += orchBtn("toggleOrchestrator();showPlanning()", 'Planning', 'var(--accent)');
@@ -10915,7 +10901,7 @@ function orchRecommend(ctx) {
     if (ctx.today && ctx.today.totalWork > 0 && ctx.pctWeek >= 100) return { label: 'Objectif semaine atteint', hint: 'regardez les statistiques', fn: "toggleOrchestrator();showAnalytics()", style: 'accent4', icon: '&#127942;' };
     if (ctx.today && !ctx.today.isRepos && ctx.today.totalWork === 0) {
         if (ctx.smartTimes || ctx.topCh) return { label: 'Completer la journee type', hint: 'suggestions apprises disponibles', fn: "smartAction()", style: 'accent3', icon: '&#10022;' };
-        return { label: 'Saisir aujourd&#39;hui', hint: 'journee non saisie', fn: "applyDayPreset('chantier',true);scrollPanelIntoView('mainFormPanel')", style: 'accent', icon: '&#9998;' };
+        return { label: 'Saisir aujourd&#39;hui', hint: 'journee non saisie', fn: "goToToday();scrollPanelIntoView('mainFormPanel')", style: 'accent', icon: '&#9998;' };
     }
     if (ctx.pctWeek < 100) {
         const nextIdx = ctx.entries.some(function(e) { return e.date === ctx.todayKey; }) ? ctx.dayIdx : ctx.dayIdx;
@@ -10979,8 +10965,6 @@ function dispatchUniversalCommand(cmd) {
     if (/semaine\s+precedente|precedente\s+semaine/.test(c)) { changeWeek(-1); setMicStatus('Semaine precedente', 'heard'); return; }
     if (/aujourd/ .test(c)) { goToToday(); setMicStatus("Aujourd'hui", 'heard'); return; }
     if (/jour\s+de\s+repos|repos$/.test(c)) { applyDayPreset('repos', true); setMicStatus('Repos', 'heard'); return; }
-    if (/bureau|8h30/.test(c)) { applyDayPreset('bureau', true); setMicStatus('Bureau', 'heard'); return; }
-    if (/chantier/.test(c)) { applyDayPreset('chantier', true); setMicStatus('Chantier', 'heard'); return; }
     setMicStatus('Commande non reconnue', 'error');
     setTimeout(function(){ setMicStatus('',''); }, 3000);
 }
@@ -11965,7 +11949,7 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">2. Saisir une journee</strong><br>
-                Choisissez le jour avec les onglets (<b>lun.</b> a <b>dim.</b>) en haut, puis soit 1 clic sur un modele (<b>Bureau 8h30</b>, <b>Chantier</b>, <b>Repos</b>), soit dictez/tapez dans le champ : ex. <code style="color:var(--accent4)">8h30-17h00, chantier CHT-042</code>. Le bandeau <b>suggestions du jour</b> propose vos horaires type et chantiers habituels en 1 clic. Terminez par <b>Enregistrer la journee</b>, <b>Enregistrer &amp; suivant</b> pour enchaîner sur la journee suivante, ou <b>Completer &amp; suivant</b> pour poser d'un clic votre journee type (suggestions apprises) et enchaîner.
+                Choisissez le jour avec les onglets (<b>lun.</b> a <b>dim.</b>) en haut, puis dictez/tapez dans le champ : ex. <code style="color:var(--accent4)">8h30-17h00, chantier CHT-042</code>. Le bandeau <b>suggestions du jour</b> propose vos horaires type et chantiers habituels en 1 clic. Terminez par <b>Enregistrer la journee</b>, <b>Enregistrer &amp; suivant</b> pour enchaîner sur la journee suivante, ou <b>Completer &amp; suivant</b> pour poser d'un clic votre journee type (suggestions apprises) et enchaîner.
             </div>
             <div style="background:var(--surface2);padding:10px 14px;border-radius:8px">
                 <strong style="color:var(--accent2)">3. Comptes et sessions (multi-utilisateurs)</strong><br>
@@ -12027,7 +12011,7 @@ if (_startupUsers.length === 0) {
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
                 <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),#2fbfa0);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">2</div>
-                <div><strong style="color:var(--accent2)">Remplissez vos horaires</strong><br>1 clic sur un modele (<b>Bureau 8h30</b>, <b>Chantier</b>, <b>Repos</b>) remplit le formulaire, puis <b>Enregistrer</b> (ou la sauvegarde auto). Ou ajoutez une periode (<b>+ Matin</b>) et vos chantiers favoris.</div>
+                <div><strong style="color:var(--accent2)">Remplissez vos horaires</strong><br>Dictez (F8) ou tapez vos horaires (ex. <code style="color:var(--accent4)">8h30-17h00, chantier CHT-042</code>), ou <b>Completer &amp; suivant</b> pour appliquer votre journee type (apprise de votre historique), puis <b>Enregistrer</b> (ou la sauvegarde auto). Ajoutez une periode (<b>+ Matin</b>) et vos chantiers favoris. <b>Repos</b> marque la journee en repos.</div>
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface2);padding:12px 14px;border-radius:10px;border:1px solid var(--border)">
                 <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent3),#f06a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">3</div>
