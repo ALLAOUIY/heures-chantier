@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0b0d14">
     <meta name="description" content="Suivi d'heures chantier - Releve hebdomadaire">
@@ -11793,6 +11794,9 @@ function bootApp() {
     initUsbAutoSave();
     usbTryAutoConnect();
     setTimeout(maybeShowFirstRun, 1200);
+var _hasAnyData = false;
+for (var _di = 0; _di < localStorage.length; _di++) { var _dk = localStorage.key(_di); if (_dk && _dk.startsWith('chantier_') && CFG.weekKeyRe.test(_dk)) { _hasAnyData = true; break; } }
+if (!_hasAnyData) {
 fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     if (d && d.version && d.weeks) {
         var hasData = false;
@@ -11800,6 +11804,7 @@ fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
         if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(d.weeks[k])); } catch {} } }); invalidateAllDataCache(); render(); showToast('Donnees data.json importees', 'success'); }
     }
 }).catch(function() {});
+}
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(function(reg) {
         function promptReload() {
