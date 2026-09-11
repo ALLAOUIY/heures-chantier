@@ -5198,6 +5198,7 @@ function renderShifts() {
 
     if (!pendingShifts.length) {
         list.innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem;text-align:center;padding:14px;border:1px dashed var(--border);border-radius:8px;line-height:1.6">Aucune periode pour l\'instant.<br>Utilisez un modele en haut (Bureau 8h30, Chantier...) pour tout remplir en 1 clic, ou ajoutez <b style="color:var(--accent2)">+ Matin</b> ci-dessous.</div>';
+        renderDayChecklist();
         return;
     }
 
@@ -5515,14 +5516,19 @@ function updateCalcs() {
 function dayChecklist() {
     const warnings = [];
     let required = 0, filled = 0;
-    if (!pendingShifts.length) return { warnings: [], required: 0, filled: 0, pct: 100 };
+    if (!pendingShifts.length) return { empty: true, warnings: [], required: 0, filled: 0, pct: 0 };
     pendingShifts.forEach(function(s, si) {
         const pLabel = s.periode || ('P' + (si + 1));
         const hasCh = s.chantiers && s.chantiers.length;
+        const shiftHasContent = hasCh || s.departMaison || s.arriveeMaison || s.arriveeBureaux || s.departBureaux;
         if (hasCh) {
             required += 2;
             if (s.departMaison) filled++; else warnings.push(pLabel + ' : depart maison manquant');
             if (s.arriveeMaison) filled++; else warnings.push(pLabel + ' : retour maison manquant');
+        } else if (shiftHasContent) {
+            warnings.push(pLabel + ' : periode sans chantier');
+        } else {
+            warnings.push(pLabel + ' : periode vide (a completer ou supprimer)');
         }
         const seenNum = {};
         (s.chantiers || []).forEach(function(c, ci) {
@@ -5535,14 +5541,26 @@ function dayChecklist() {
         });
         validateTimeSequence(s).forEach(function(w) { if (w.indexOf('Route very longue') === -1) warnings.push(pLabel + ' : ' + w); });
     });
-    return { warnings: warnings.slice(0, 8), required: Math.max(required, 1), filled: Math.min(filled, required), pct: Math.round(Math.min(filled, required) / Math.max(required, 1) * 100) };
+    return { empty: false, warnings: warnings.slice(0, 8), required: Math.max(required, 1), filled: Math.min(filled, required), pct: Math.round(Math.min(filled, required) / Math.max(required, 1) * 100) };
 }
 
 function renderDayChecklist() {
     const zone = document.getElementById('dayChecklistZone');
     if (!zone) return;
     const cl = dayChecklist();
-    if (!pendingShifts.length || !cl.required) { zone.innerHTML = ''; return; }
+    if (cl.empty) {
+        zone.innerHTML = '<div style="padding:8px 10px;border:1px dashed var(--accent4);border-radius:8px;background:rgba(255,163,7,0.05)">' +
+            '<div style="font-size:0.68rem;font-weight:700;color:var(--accent4);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:5px">Journee non remplie - pas encore de repos</div>' +
+            '<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:7px">Enregistrer tel quel fera de ' + DAY_NAMES[selectedDayIdx] + ' un jour de repos. Remplissez d\'abord vos horaires, ou confirmez.</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<button class="btn sm accent4" onclick="smartAction()" title="Remplir intelligemment (F9)">Auto-remplir (F9)</button>' +
+            '<button class="btn sm accent3" onclick="toggleVoice()" title="Dictee vocale (F8)">Dictee (F8)</button>' +
+            '<button class="btn sm" onclick="fillSample()">Exemple</button>' +
+            '<button class="btn sm danger" onclick="applyDayPreset(\'repos\', true)" title="Confirmer explicitement un repos">Confirmer repos</button>' +
+            '</div></div>';
+        return;
+    }
+    if (!cl.required) { zone.innerHTML = ''; return; }
     const pct = cl.pct;
     const isClean = pct >= 100 && !cl.warnings.length;
     const color = isClean ? 'var(--accent2)' : pct >= 70 ? 'var(--accent4)' : 'var(--red)';
