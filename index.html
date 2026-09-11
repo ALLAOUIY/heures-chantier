@@ -5036,6 +5036,8 @@ function autoAdjustChantier(c, s, field, value) {
         if (info.identification && !c.identification) c.identification = info.identification;
         if (info.priorite && !c.priorite) c.priorite = info.priorite;
         if (info.desc && !c.desc) c.desc = info.desc;
+        if (info.client && !c.client) c.client = info.client;
+        if (info.tarifH && !c.tarifH) c.tarifH = info.tarifH;
         const smartCh = getSmartChantierTimes(value);
         if (smartCh) {
             if (smartCh.debut && !c.debut) c.debut = smartCh.debut;
@@ -5074,7 +5076,12 @@ function getAdaptiveInfo(num) {
         const raw = localStorage.getItem(uK('adaptive'));
         if (!raw) return {};
         const db = JSON.parse(raw);
-        return db[num.toUpperCase()] || db[num] || {};
+        const rec = db[num.toUpperCase()] || db[num] || {};
+        const modeOf = (freq) => { let best = null, bestN = 0; Object.keys(freq || {}).forEach(k => { if (freq[k] > bestN) { best = k; bestN = freq[k]; } }); return best; };
+        const out = Object.assign({}, rec);
+        if (rec._clients) out.client = modeOf(rec._clients);
+        if (rec._tarifs) out.tarifH = modeOf(rec._tarifs);
+        return out;
     } catch { return {}; }
 }
 
@@ -5095,7 +5102,7 @@ function learnFromEntries() {
                 s.chantiers.forEach(c => {
                     if (!c.num) return;
                     const key = c.num.toUpperCase();
-                    if (!db[key]) db[key] = { uses: 0, _workDurations: [] };
+                    if (!db[key]) db[key] = { uses: 0, _workDurations: [], _clients: {}, _tarifs: {} };
                     if (c.lieu) db[key].lieu = c.lieu;
                     if (c.lieu2) db[key].lieu2 = c.lieu2;
                     if (c.lieu3) db[key].lieu3 = c.lieu3;
@@ -5103,6 +5110,8 @@ function learnFromEntries() {
                     if (c.identification) db[key].identification = c.identification;
                     if (c.priorite) db[key].priorite = c.priorite;
                     if (c.desc) db[key].desc = c.desc;
+                    if (c.client) db[key]._clients[c.client] = (db[key]._clients[c.client] || 0) + 1;
+                    if (c.tarifH) db[key]._tarifs[String(c.tarifH)] = (db[key]._tarifs[String(c.tarifH)] || 0) + 1;
                     if (!db[key].lastSeen || e.date > db[key].lastSeen) db[key].lastSeen = e.date;
                     if (c.debut && c.fin) {
                         const dur = calcDiff(c.debut, c.fin);
@@ -6840,8 +6849,14 @@ function runSpeechText(raw) {
     if (!text) return res;
 
     if (!pendingShifts.length && !/repos|repas/.test(text) && !/\b(matin|matinée|matin ee|aprem|apres|après|apres midi|nuit)\b/.test(text)) {
-        const h = new Date().getHours();
-        addShift(h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
+        // Ne cree une tranche que si la phrase contient effectivement de la
+        // saisie (heure ou chantier). Les commandes systeme ("aide", "exporte",
+        // navigation...) ne doivent pas creer une tranche vide fantome.
+        const hasContent = /[0-9]/.test(text) || /\b(chantier|site|intervention|ouvrage|bureau|bureaux|maison|ville|zone|depart|arrivee|retour|rentre|debut|fin|km|pause|client|tarif)\b/.test(text);
+        if (hasContent) {
+            const h = new Date().getHours();
+            addShift(h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
+        }
     }
 
     const segments = splitSpeech(text);
@@ -6993,6 +7008,21 @@ function universalLieu(text) {
     return null;
 }
 
+// Extrait un lieu explicite place APRES une heure ("... a 8h a lyon" -> "lyon",
+// "... a 17h sur villeurbanne" -> "villeurbanne"). On ne retient que le token
+// qui suit immediatement la premiere heure du segment, pour ne pas aspirer la
+// suite de la phrase. Les categories generiques sont exclues.
+function universalPlace(str) {
+    const tm = str.match(/\b\d{1,2}\s*[h:]\s*\d{0,2}\b/);
+    if (!tm) return null;
+    const rest = str.slice(tm.index + tm[0].length);
+    const pm = rest.match(/^\s*(?:a|à|au|aux|vers|sur|chez|dans|du\s+cote\s+de|pres\s+de)\s+([a-zàâäéèêëïîôöùûüç][a-zàâäéèêëïîôöùûüç0-9'\-\u2019]{1,30})/i);
+    if (!pm) return null;
+    const p = pm[1].replace(/[.,;!?]$/, '');
+    if (/^(?:maison|bureaux?|chantier|site|intervention|ouvrage|numero|num|adresse|lieu|heure)$/i.test(p)) return null;
+    return p;
+}
+
 // Extrait la liste d'evenements depuis une phrase de remplissage.
 // Retourne [] si rien de fiable n'est trouve (permet de retomber sur
 // l'ancien moteur pour les commandes hors-remplissage).
@@ -7048,20 +7078,21 @@ function universalParse(text, et) {
         const time = xTime(body);
         const lieuC = universalLieu(body);
         const numM = body.match(/(?:chantier|numero|n[oe])\s+([a-z0-9][a-z0-9\-\/]*)/i);
+        const place = universalPlace(body);
         let e = null;
 
         if (action === 'depart' || action === 'pars' || action === 'repart' || action === 'sort') {
             const lieu = lieuC === 'bureaux' ? 'bureaux' : lieuC === 'chantier' ? 'chantier' : 'maison';
-            e = { kind: 'depart', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Départ ' + (lieuC||'maison')) };
+            e = { kind: 'depart', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, place, label: ((time||'') + ' Départ ' + (lieuC||'maison')) };
         } else if (action === 'arrivee' || action === 'arrive' || action === 'retour' || action === 'rentre') {
             const lieu = lieuC === 'maison' ? 'maison' : lieuC === 'bureaux' ? 'bureaux' : 'chantier';
-            e = { kind: 'arrivee', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, label: ((time||'') + ' Arrivée ' + (lieuC||'?')) };
+            e = { kind: 'arrivee', lieu, time, corr, num: numM ? numM[1].toUpperCase() : null, place, label: ((time||'') + ' Arrivée ' + (lieuC||'?')) };
         } else if (action === 'debut' || action === 'commence' || action === 'demarre' || action === 'debute') {
-            e = { kind: 'debut', time, corr, num: null, label: ((time||'') + ' Début') };
+            e = { kind: 'debut', time, corr, num: null, place, label: ((time||'') + ' Début') };
         } else if (action === 'fin' || action === 'fini' || action === 'termine' || action === 'arrete' || action === 'clotur') {
-            e = { kind: 'fin', time, corr, num: null, label: ((time||'') + ' Fin') };
+            e = { kind: 'fin', time, corr, num: null, place, label: ((time||'') + ' Fin') };
         } else if (action === 'chantier') {
-            e = { kind: 'chantier', num: numM ? numM[1].toUpperCase() : null, lieu: (universalLieu(body) || null) === 'chantier' ? null : universalLieu(body), time, corr, label: ('+ Chantier' + (numM ? ' ' + numM[1] : '')) };
+            e = { kind: 'chantier', num: numM ? numM[1].toUpperCase() : null, lieu: (universalLieu(body) || null) === 'chantier' ? null : universalLieu(body), time, corr, place, label: ('+ Chantier' + (numM ? ' ' + numM[1] : '')) };
         } else if (action === 'lieu' || action === 'adresse') {
             const val = body.replace(/^.*?\b(lieu|adresse)\s*:?\s*/i, '').trim().replace(/[.,;!]$/,'');
             e = { kind: 'lieu', val: val || null, time, corr, num: null, label: 'Lieu' };
@@ -7082,7 +7113,8 @@ function universalParse(text, et) {
         if (e.kind !== 'chantier') continue;
         const dup = events.some(x => x.kind === 'arrivee' && x.lieu === 'chantier' && x.num === e.num)
                  || events.some(x => x.kind === 'depart' && x.lieu === 'chantier' && x.num === e.num)
-                 || (!e.num && events.some(x => (x.kind === 'arrivee' || x.kind === 'depart') && x.lieu === 'chantier'));
+                 || (!e.num && events.some(x => (x.kind === 'arrivee' || x.kind === 'depart') && x.lieu === 'chantier'))
+                 || (e.num && events.some(x => (x.kind === 'debut' || x.kind === 'fin') && x.num === e.num && x.seg < e.seg));
         if (dup) events.splice(i, 1);
     }
 
@@ -7147,9 +7179,11 @@ function universalApply(events) {
         if (cur.chantiers && cur.chantiers.length) tarC = cur.chantiers[cur.chantiers.length - 1];
         if (f.kind === 'chantier') {
             // Ajoute un nouveau chantier dans le shift courant
-            addChantierToShift(cur.id, f.num || '');
+            addChantierToShift(cur.id, '');
             const nc = getLastChantier(); const ns2 = nc ? findShiftOfChantier(nc.id) : null;
+            if (nc && f.num && !nc.num) setChantierField(ns2.id, nc.id, 'num', f.num.toUpperCase());
             if (nc && f.lieu) setChantierField(ns2.id, nc.id, 'lieu', f.lieu);
+            if (nc && f.place && !nc.lieu) setChantierField(ns2.id, nc.id, 'lieu', f.place);
             // Une heure accompagnee ("8h chantier 42") = arrivee sur ce chantier
             if (nc && f.time) setChantierField(ns2.id, nc.id, 'arriveeChantier', f.time);
             handled = true;
@@ -7159,7 +7193,7 @@ function universalApply(events) {
             let found = null;
             if (cur.chantiers) { for (let ci = 0; ci < cur.chantiers.length; ci++) { if (String(cur.chantiers[ci].num || '').toUpperCase() === f.num) { found = cur.chantiers[ci]; break; } } }
             if (found) { tarC = found; tarS = cur; }
-            else { addChantierToShift(cur.id, f.num); tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id); }
+            else { addChantierToShift(cur.id, ''); tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id); if (tarC && f.num && !tarC.num) setChantierField(tarS.id, tarC.id, 'num', f.num.toUpperCase()); }
         } else if (!tarC && (f.kind === 'debut' || f.kind === 'fin' || f.kind === 'arrivee' && f.lieu === 'chantier' || f.kind === 'depart' && f.lieu === 'chantier')) {
             addChantierToShift(cur.id, '');
             tarC = getLastChantier(); tarS = findShiftOfChantier(tarC.id);
@@ -7182,6 +7216,11 @@ function universalApply(events) {
             if (tarC && f.val){ setChantierField(tarS.id,tarC.id,'lieu',f.val); handled=true; }
         } else if (f.kind === 'num') {
             if (tarC && f.val){ setChantierField(tarS.id,tarC.id,'num',f.val.toUpperCase()); handled=true; }
+        }
+        // Lieu explicite accompagne ("a lyon") : prefere le lieu porte par le
+        // segment au lieu generique, sans ecraser une valeur deja saisie.
+        if (f.place && tarC && (f.lieu === 'chantier' || f.kind === 'chantier' || f.kind === 'debut' || f.kind === 'fin')) {
+            if (!tarC.lieu || tarC.lieu === 'chantier') { setChantierField(tarS.id, tarC.id, 'lieu', f.place); handled = true; }
         }
     }
     return { handled: handled };
@@ -8459,7 +8498,7 @@ function getTopChantiers(limit) {
 function renderSmartSuggest() {
     const zone = document.getElementById('smartSuggestZone');
     if (!zone) return;
-    try { learnIntelligence(); } catch {}
+    debouncedLearn();
     const dayIdx = parseInt(document.getElementById('fDay').value) || 0;
     const dayKey = ['lun','mar','mer','jeu','ven','sam','dim'][dayIdx];
     const smartTimes = getSmartTimes(dayIdx, 'matin') || getSmartTimes(dayIdx, 'aprem') || getSmartTimes(dayIdx, 'nuit');
@@ -11091,8 +11130,11 @@ function validateTimeSequence(s) {
     const arrM = timeToMinutes(s.arriveeMaison);
     const arrB = timeToMinutes(s.arriveeBureaux);
     const depB = timeToMinutes(s.departBureaux);
-    if (depM && arrM && arrM < depM) warnings.push('Arrivee maison avant depart maison');
-    if (depM && arrB && arrB < depM) warnings.push('Arrivee bureaux avant depart maison');
+    // Periode nuit : le retour maison peut se faire apres minuit, les controles
+    // "retour avant depart" produiraient des faux positifs.
+    const isNight = s.periode === 'nuit';
+    if (depM && arrM && arrM < depM && !isNight) warnings.push('Arrivee maison avant depart maison');
+    if (depM && arrB && arrB < depM && !isNight) warnings.push('Arrivee bureaux avant depart maison');
     if (arrB && depB && depB < arrB) warnings.push('Depart bureaux avant arrivee bureaux');
     if (depM && arrM) {
         const routeMin = arrM < depM ? arrM + 1440 - depM : arrM - depM;
@@ -11117,7 +11159,7 @@ function validateTimeSequence(s) {
             const cStart = timeToMinutes(c.debut);
             if (cStart < depB) warnings.push(label + ': chantier commence avant depart bureaux');
         }
-        if (c.arriveeChantier && arrM && arrM < depM && timeToMinutes(c.arriveeChantier) > arrM + 1440 - depM)
+        if (c.arriveeChantier && arrM && arrM < depM && !isNight && timeToMinutes(c.arriveeChantier) > arrM + 1440 - depM)
             warnings.push(label + ': chantier apres retour maison prevu');
     });
     return warnings;
@@ -11278,14 +11320,18 @@ function initAutoDetect() {
     if (dayIdx !== todayIdx) return;
     const h = now.getHours();
     const smart = getSmartTimes(dayIdx, h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
-    const sameDayLastWeek = entries.find(e => {
-        const d = new Date(e.date + 'T00:00:00');
-        const jsDay = d.getDay();
-        const appDay = jsDay === 0 ? 6 : jsDay - 1;
-        return appDay === todayIdx && e.date !== today;
-    });
-    if (sameDayLastWeek && !pendingShifts.length) {
-        loadEntryIntoForm(sameDayLastWeek);
+    const allData = loadAllWeeksData();
+    const allEntries = Object.values(allData).flat();
+    const sameDayPrev = allEntries
+        .filter(e => {
+            const d = new Date(e.date + 'T00:00:00');
+            const jsDay = d.getDay();
+            const appDay = jsDay === 0 ? 6 : jsDay - 1;
+            return appDay === todayIdx && e.date !== today;
+        })
+        .sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : 0))[0];
+    if (sameDayPrev && !pendingShifts.length) {
+        loadEntryIntoForm(sameDayPrev);
         showToast('Auto-rempli depuis ' + DAY_NAMES[todayIdx] + ' precedent');
     } else if (smart && !pendingShifts.length) {
         pushUndo();
