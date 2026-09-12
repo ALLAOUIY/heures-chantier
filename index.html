@@ -51,8 +51,16 @@
             animation: bodyFadeIn 0.3s ease;
             background-attachment: fixed;
         }
+        /* background-attachment:fixed se dechire sur iOS (repaint/scroll glitch) :
+           on repasse en local sur les appareils tactiles. */
+        @media (pointer: coarse) {
+            body { background-attachment: scroll; }
+        }
         @keyframes bodyFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        html { scroll-behavior: smooth; }
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
         ::selection { background: rgba(108,122,255,0.3); color: var(--text); }
         .container { max-width: min(1500px, 95vw); margin: 0 auto; }
         header {
@@ -111,7 +119,7 @@
         .dropdown-content {
             position: absolute; top: calc(100% + 4px); right: 0; z-index: 400;
             background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.4); min-width: 220px; max-height: 70vh; overflow-y: auto;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.4); min-width: 220px; max-width: calc(100vw - 24px); max-height: 70vh; overflow-y: auto;
             padding: 8px;
         }
         .dropdown-content .dd-group { font-size: 0.62rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 8px 6px 4px; }
@@ -633,6 +641,12 @@
             .chantier-row .form-row.r4 { grid-template-columns: 1fr; }
         }
 
+        /* Phones (381–600): gateaux en 1 colonne pour rester lisible sans
+           debordement horizontal (inputs pleine largeur). */
+        @media (max-width: 600px) {
+            .form-row.r2, .form-row.r3 { grid-template-columns: 1fr; }
+        }
+
         /* ============================================================
            RESPONSIVE HARDENED FRAME — Desktop / Laptop / Ultrawide
            ============================================================ */
@@ -776,6 +790,12 @@
             .time-input input { padding: 14px 12px; font-size: 1rem; }
             .now-btn { padding: 12px 8px; font-size: 0.72rem; }
             #micInput { min-height: 52px; padding: 16px 14px; font-size: 1.05rem; }
+        }
+
+        /* Petites tablettes tactiles (481-767) : inputs >= 16px pour eviter le
+           zoom automatique iOS au focus. */
+        @media (min-width: 481px) and (max-width: 767px) and (pointer: coarse) {
+            .form-group input, .form-group select, .time-input input, #micInput { font-size: 1rem; }
         }
 
         /* Tiny phone 380px et dessous: densite maximale, pas de gaspillage */
@@ -2552,6 +2572,7 @@ function checkAutoBackup() {
 // === MULTI-WEEK DATE RANGE ===
 function showReleveRange() {
     var overlay = document.getElementById('modalOverlay');
+    if (!overlay) { overlay = document.createElement('div'); overlay.id = 'modalOverlay'; overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden'; overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; }; document.body.appendChild(overlay); }
     overlay.innerHTML = '';
     overlay.style.display = 'flex';
     var now = new Date();
@@ -6141,8 +6162,9 @@ function showModal(html) {
         overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
         document.body.appendChild(overlay);
     }
-    overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:400px;width:100%">' + html + '</div>';
+    overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:400px;width:100%;max-height:calc(100vh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch">' + html + '</div>';
     overlay.style.display = 'flex';
+    overlay.style.overflow = 'hidden';
 }
 
 function resetWeek() {
