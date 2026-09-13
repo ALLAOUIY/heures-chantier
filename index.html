@@ -9624,7 +9624,7 @@ function renderPrintModelPanel() {
         scanModelHtml += '<div style="flex:1;min-width:210px;font-size:.72rem;color:var(--text-dim)">Modele actif : les donnees de la semaine sont emplacees dans les cases numerisees.<br><span style="color:var(--accent2)">Colonnes : ' + esc((sm.colMap || []).join(' / ')) + '</span></div>';
         scanModelHtml += '<button class="btn sm" onclick="pmScanModelStartModelizer()">Editer le modele</button>';
         scanModelHtml += '<button class="btn sm" onclick="pmScanModelReset()" style="color:var(--accent3)">Retirer</button></div>';
-        scanModelHtml += '<div class="pm-row" style="margin-top:4px"><button class="btn sm primary" onclick="setFeuilleScanMode(true);toggleFeuille()">Voir la feuille modelée (semaine en cours)</button></div>';
+        scanModelHtml += '<div class="pm-row" style="margin-top:4px"><button class="btn sm primary" onclick="setFeuilleScanMode(true);toggleFeuille()">Voir la feuille modelée (semaine en cours)</button><button class="btn sm" onclick="pmPrintScanModel()" style="margin-left:6px">Imprimer le modele</button></div>';
     } else {
         scanModelHtml += '<div class="pm-scan-row"><input type="file" id="pmScanModelFile" accept="image/*" onchange="pmScanModelUpload(this)"></div>';
         scanModelHtml += '<div style="font-size:.68rem;color:var(--text-dim);margin-top:6px">Photographiez ou numerisez votre modele papier : l\'app detecte le quadrillage, vous calez les lignes/colonnes, et vos vrais horaires sont imprimes dans les cases du formulaire.</div>';
@@ -9796,7 +9796,23 @@ var PM_SCAN_FIELDS = [
     { id: 'neant', name: '(vide)', hint: 'Colonne sans donnees' }
 ];
 var PM_SCAN_ROW_DEF = 9; var PM_SCAN_COL_DEF = 6;
-var PM_SCAN_CSS = '.rel-scan-sheet{width:100%;max-width:840px;margin:0 auto;font-family:\'Segoe UI\',Helvetica,Arial,sans-serif}.rel-scan-sheet .rsc-form{position:relative;width:100%;background-color:#fff;background-repeat:no-repeat;background-position:center;background-size:100% 100%}.rel-scan-sheet .rsc-cell{position:absolute;display:flex;align-items:center;overflow:hidden;box-sizing:border-box;padding:0 4px;font-weight:600;color:#111;line-height:1.15}.rel-scan-sheet .rsc-cell.rsc-repos{font-style:italic;color:#666}.rel-scan-sheet .rsc-cell.rsc-total{font-weight:700}.rel-scan-sheet .rsc-lbl{position:absolute;background:#fff;color:#2563eb;font-size:8px;font-weight:700;line-height:1;padding:1px 3px;border:1px dashed #2563eb;border-radius:3px;pointer-events:none;z-index:5}@media print{.rel-scan-sheet{max-width:none;margin:0}.rel-scan-sheet .rsc-form{page-break-inside:avoid}}body.print-feuille .rel-scan-sheet .rsc-cell{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+var PM_SCAN_CSS = '' +
+'.rel-scan-sheet{width:100%;max-width:840px;margin:0 auto;font-family:\'Segoe UI\',Helvetica,Arial,sans-serif}' +
+'.rel-scan-sheet .rsc-form{position:relative;width:100%;background-color:#fff;background-repeat:no-repeat;background-position:center;background-size:100% 100%}' +
+'.rel-scan-sheet .rsc-cell{position:absolute;display:flex;align-items:center;overflow:hidden;box-sizing:border-box;padding:0 4px;font-weight:600;color:#111;line-height:1.15}' +
+'.rel-scan-sheet .rsc-cell.rsc-repos{font-style:italic;color:#666}' +
+'.rel-scan-sheet .rsc-cell.rsc-total{font-weight:700}' +
+'#printScanSheet{position:absolute;left:-9999px;top:0;width:0;height:0;overflow:hidden}' +
+'@media print{' +
+  '@page scan{size:297mm 210mm;margin:0}' +
+  '.rel-scan-sheet{max-width:none;margin:0}' +
+  '.rel-scan-sheet .rsc-form{page-break-inside:avoid}' +
+  '#printScanSheet{position:relative!important;left:auto!important;display:block!important;width:297mm;max-width:none}' +
+  'body.print-feuille #feuillePanel{padding:0!important;margin:0!important}' +
+  'body.print-feuille #feuilleScanWrap .rel-scan-sheet,#printScanSheet .rel-scan-sheet{page:scan;width:100%;max-width:297mm}' +
+  'body.print-feuille #feuilleScanWrap .rsc-form,#printScanSheet .rsc-form{aspect-ratio:297/210;width:100%}' +
+'}' +
+'body.print-feuille .rel-scan-sheet .rsc-cell{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
 
 function exactScanGrid() {
     return { image: null, w: 297, h: 210, rows: [10, 21, 32, 43, 54, 65, 76, 87, 95], cols: [4, 24, 44, 64, 80, 97], colMap: ['jour', 'chantier', 'debut', 'fin', 'heures'], fontSize: 9 };
@@ -10057,6 +10073,20 @@ function renderFeuilleScan(m) {
 function setFeuilleScanMode(flag) {
     _feuilleScanOff = !flag;
     if (typeof renderFeuille === 'function') renderFeuille();
+}
+function pmPrintScanModel() {
+    var m = loadPrintModel();
+    if (!m.scanModel || !m.scanModel.image) { showToast('Aucun modele scanne actif', 'error'); return; }
+    var sheetHtml = renderScanModelSheet(loadEntries(), m);
+    var el = document.createElement('div');
+    el.id = 'printScanSheet';
+    el.innerHTML = sheetHtml;
+    el.style.cssText = 'position:absolute;left:-9999px;top:0;width:0;height:0;overflow:hidden';
+    document.body.appendChild(el);
+    document.body.classList.add('print-feuille');
+    window.print();
+    document.body.classList.remove('print-feuille');
+    el.remove();
 }
 function resetPrintModel() {
     var d = defaultPrintModel();
