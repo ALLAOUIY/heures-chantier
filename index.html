@@ -2060,7 +2060,9 @@ function renderBackupBadge() {
 }
 
 // === GLOBAL SEARCH ===
+let _searchIndexCache = null;
 function buildSearchIndex() {
+    if (_searchIndexCache) return _searchIndexCache;
     const index = [];
     try {
         const keys = Object.keys(localStorage).filter(k => isCurrentUserWeekKey(k));
@@ -2093,6 +2095,7 @@ function buildSearchIndex() {
             } catch {}
         });
     } catch {}
+    _searchIndexCache = index;
     return index;
 }
 function globalSearch(query) {
@@ -2117,7 +2120,12 @@ function showGlobalSearch() {
     panel.style.display = '';
     setTimeout(function() { document.getElementById('globalSearchInput').focus(); }, 100);
 }
+let _globalSearchTimer = null;
 function performGlobalSearch(query) {
+    if (_globalSearchTimer) clearTimeout(_globalSearchTimer);
+    _globalSearchTimer = setTimeout(function() { _performGlobalSearchNow(query); }, 250);
+}
+function _performGlobalSearchNow(query) {
     const resultsEl = document.getElementById('globalSearchResults');
     if (!resultsEl) return;
     if (!query || query.length < 2) { resultsEl.innerHTML = '<div style="color:var(--text-dim);padding:8px">Tapez au moins 2 caracteres...</div>'; return; }
@@ -2572,8 +2580,7 @@ function checkAutoBackup() {
 
 // === MULTI-WEEK DATE RANGE ===
 function showReleveRange() {
-    var overlay = document.getElementById('modalOverlay');
-    if (!overlay) { overlay = document.createElement('div'); overlay.id = 'modalOverlay'; overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden'; overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; }; document.body.appendChild(overlay); }
+    var overlay = ensureOverlay('modalOverlay', { clickToClose: true });
     overlay.innerHTML = '';
     overlay.style.display = 'flex';
     var now = new Date();
@@ -5211,6 +5218,13 @@ function markDirty() {
     if (sb && sb.textContent.indexOf('modifs') === -1) { sb.textContent = 'Enregistrer (modifs non sauvees)'; }
     triggerAutoSave();
 }
+function markDraft() {
+    _isDirty = true;
+    var el = document.getElementById('saveIndicator');
+    if (el) { el.className = 'save-indicator dirty'; }
+    var sb = document.getElementById('mainSaveBtn');
+    if (sb && sb.textContent.indexOf('modifs') === -1) { sb.textContent = 'Enregistrer (modifs non sauvees)'; }
+}
 function markSaved() {
     _isDirty = false;
     var el = document.getElementById('saveIndicator');
@@ -6154,15 +6168,20 @@ function moveEntryTo(entryId, newDayIdx) {
     showToast('Deplace de ' + oldDay + ' vers ' + DAY_NAMES[newDayIdx]);
 }
 
+function ensureOverlay(id, opts) {
+    var o = document.getElementById(id);
+    if (o) return o;
+    opts = opts || {};
+    o = document.createElement('div');
+    o.id = id;
+    o.style.cssText = 'position:fixed;inset:0;background:' + (opts.bg || 'rgba(0,0,0,0.6)') + ';z-index:' + (opts.zIndex != null ? opts.zIndex : 250) + ';display:flex;align-items:center;justify-content:center;padding:20px;overflow:' + (opts.overflow || 'hidden');
+    if (opts.clickToClose) o.onclick = function(e) { if (e.target === o) o.style.display = 'none'; };
+    document.body.appendChild(o);
+    return o;
+}
+
 function showModal(html) {
-    let overlay = document.getElementById('modalOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'modalOverlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px';
-        overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
-        document.body.appendChild(overlay);
-    }
+    let overlay = ensureOverlay('modalOverlay', { clickToClose: true });
     overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:400px;width:100%;max-height:calc(100vh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch">' + html + '</div>';
     overlay.style.display = 'flex';
     overlay.style.overflow = 'hidden';
@@ -9025,7 +9044,7 @@ function showRecap() {
 
 // --- All weeks data loader ---
 let _allDataCache = null;
-function invalidateAllDataCache() { _allDataCache = null; }
+function invalidateAllDataCache() { _allDataCache = null; _searchIndexCache = null; }
 function loadAllWeeksData() {
     if (_allDataCache) return _allDataCache;
     const allData = {};
@@ -11281,6 +11300,7 @@ let _clockInterval = null;
 function startLiveClock() {
     if (_clockInterval) clearInterval(_clockInterval);
     function tick() {
+        if (typeof document !== 'undefined' && document.hidden) return;
         const now = new Date();
         const el = document.getElementById('liveClock');
         if (el) el.textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -11339,7 +11359,8 @@ function initAutoDetect() {
         .sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : 0))[0];
     if (sameDayPrev && !pendingShifts.length) {
         loadEntryIntoForm(sameDayPrev);
-        showToast('Auto-rempli depuis ' + DAY_NAMES[todayIdx] + ' precedent');
+        markDraft();
+        showToast('Auto-rempli depuis ' + DAY_NAMES[todayIdx] + ' precedent (brouillon)');
     } else if (smart && !pendingShifts.length) {
         pushUndo();
         addShift(h < 12 ? 'matin' : h < 18 ? 'aprem' : 'nuit');
@@ -11352,7 +11373,8 @@ function initAutoDetect() {
         }
         renderShifts();
         updateCalcs();
-        showToast('Horaires suggeres pour ' + DAY_NAMES[todayIdx]);
+        markDraft();
+        showToast('Horaires suggeres pour ' + DAY_NAMES[todayIdx] + ' (brouillon)');
     }
 }
 
@@ -11590,13 +11612,7 @@ function escapeHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;'
 
 function showLoginOverlay() {
     var users = loadUsersList();
-    var ov = document.getElementById('loginOverlay');
-    if (!ov) {
-        ov = document.createElement('div');
-        ov.id = 'loginOverlay';
-        ov.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
-        document.body.appendChild(ov);
-    }
+    var ov = ensureOverlay('loginOverlay', { bg: 'var(--bg)', zIndex: 500, overflow: 'auto' });
     var card = '';
     if (users.length === 0) {
         card += '<h2 style="margin:0 0 6px;color:var(--accent);font-size:1.25rem">Bienvenue !</h2>';
@@ -11685,14 +11701,7 @@ function openSessionPanel() {
     html += '</div>';
     html += '<div id="sessionPanelBody"></div>';
     html += '</div>';
-    var overlay = document.getElementById('modalOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'modalOverlay';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px';
-        overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
-        document.body.appendChild(overlay);
-    }
+    var overlay = ensureOverlay('modalOverlay', { clickToClose: true });
     overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:480px;width:100%;max-height:85vh;overflow:auto">' + html + '</div>';
     overlay.style.display = 'flex';
     showAuditInPanel();
@@ -11820,13 +11829,31 @@ function bootApp() {
     if (window._booted) return;
     window._booted = true;
     window_booted_backup = true;
-    window.addEventListener('error', function(ev) {
+    function recordGlobalError(where, msg, detail) {
+        try {
+            var k = uK('lastErrors');
+            var list = [];
+            try { list = JSON.parse(localStorage.getItem(k)) || []; } catch (e) {}
+            if (!Array.isArray(list)) list = [];
+            list.unshift({ ts: Date.now(), where: String(where || 'runtime'), msg: String(msg || 'Erreur'), stack: String(detail || '') });
+            list = list.slice(0, 3);
+            try { localStorage.setItem(k, JSON.stringify(list)); } catch (e) {}
+        } catch (e) {}
+        if (typeof console !== 'undefined' && console.error) console.error('[heures-chantier] ' + (where || 'runtime'), msg, detail);
         try {
             var el = document.getElementById('globalErrBadge');
             if (!el) return;
             el.style.display = '';
-            el.title = (ev && ev.message) ? String(ev.message) : 'Erreur';
+            el.textContent = '\u26A0\uFE0F Erreur interne';
+            el.title = String(msg || 'Erreur') + (detail ? '\n' + String(detail).slice(0, 400) : '');
         } catch (e) {}
+    }
+    window.addEventListener('error', function(ev) {
+        recordGlobalError(ev && ev.filename ? String(ev.filename).split('/').pop() : 'runtime', ev && ev.message, ev && ev.error && ev.error.stack ? String(ev.error.stack) : (ev && ev.message));
+    });
+    window.addEventListener('unhandledrejection', function(ev) {
+        var r = ev && ev.reason;
+        recordGlobalError('promesse', r && r.message ? r.message : String(r), r && r.stack ? String(r.stack) : '');
     });
     render();
     applyPrintModel();
@@ -11841,7 +11868,7 @@ function bootApp() {
     initInlineValidation();
     setTimeout(runIntegrityCheck, 5000);
     setTimeout(checkAutoBackup, 8000);
-    setInterval(function() { runIntegrityCheck(); checkAutoBackup(); }, 300000);
+    setInterval(function() { if (!document.hidden) { runIntegrityCheck(); checkAutoBackup(); } }, 3600000);
     initNotifications();
     initUsbAutoSave();
     usbTryAutoConnect();
@@ -11853,7 +11880,7 @@ fetch('./data.json').then(function(r) { return r.json(); }).then(function(d) {
     if (d && d.version && d.weeks) {
         var hasData = false;
         for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.startsWith('chantier_') && CFG.weekKeyRe.test(k)) { hasData = true; break; } }
-        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } Object.keys(d.weeks).forEach(function(k) { if (CFG.weekKeyRe.test(k) && Array.isArray(d.weeks[k])) { try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(d.weeks[k])); } catch {} } }); invalidateAllDataCache(); render(); showToast('Donnees data.json importees', 'success'); }
+        if (!hasData && d.profile) { saveProfile(d.profile); if (d.company) saveCompanyName(d.company); if (d.logo) { var logoK = uK('logo'); try { localStorage.setItem(logoK, d.logo); } catch {} } var imported = 0, rejected = 0; Object.keys(d.weeks || {}).forEach(function(k) { if (!CFG.weekKeyRe.test(k) || !Array.isArray(d.weeks[k])) return; var cooked = []; (d.weeks[k] || []).forEach(function(e) { var m = migrateEntry(e); if (!m) { rejected++; return; } var v = validateEntry(m); if (!v.valid) rejected++; cooked.push(m); }); if (!cooked.length) return; deduplicateEntries(cooked); try { localStorage.setItem(uK(keySuffix(k)), JSON.stringify(cooked)); imported++; } catch {} }); invalidateAllDataCache(); render(); showToast((imported ? imported + ' semaine(s) importees' : 'Import vide') + (rejected ? ', ' + rejected + ' entree(s) ecartee(s)' : ''), 'success'); }
     }
 }).catch(function() {});
 }
