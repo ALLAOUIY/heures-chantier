@@ -1780,6 +1780,7 @@
             <span>Feuille de temps - Semaine <span id="feuilleWeekRange" style="font-weight:400;color:var(--text-dim)"></span></span>
             <div class="feuille-toolbar">
                 <button class="btn sm primary" onclick="feuilleSaveAll()">Enregistrer tout</button>
+                <button class="btn sm" onclick="setFeuilleScanMode(_feuilleScanOff)" id="feuilleScanToggle" style="display:none" title="Basculer entre le tableau interactif et le modele scanné rempli">Vue modele scanne</button>
                 <button class="btn sm" onclick="feuilleAddRow()">+ Ligne</button>
                 <button class="btn sm" onclick="toggleFeuille()">Fermer</button>
             </div>
@@ -1828,6 +1829,7 @@
                     </thead>
                     <tbody id="feuilleBody"></tbody>
                 </table>
+                <div id="feuilleScanWrap" style="display:none"></div>
             </div>
         </div>
     </div>
@@ -4472,6 +4474,15 @@ function toggleFeuille() {
 
 function renderFeuille() {
     const entries = loadEntries();
+    const m = loadPrintModel();
+    const scanActive = !!(m.scanModel && !_feuilleScanOff);
+    const tg = document.getElementById('feuilleScanToggle');
+    if (tg) { tg.style.display = m.scanModel ? '' : 'none'; tg.textContent = scanActive ? 'Vue tableau' : 'Vue modele scanne'; }
+    if (scanActive) { renderFeuilleScan(m); return; }
+    const _tbl = document.getElementById('feuilleTable');
+    if (_tbl) _tbl.style.display = '';
+    const _wrp = document.getElementById('feuilleScanWrap');
+    if (_wrp) _wrp.style.display = 'none';
     const dates = getWeekDates();
     const datesStr = dates.map(d => formatDate(d));
     document.getElementById('feuilleWeekRange').textContent = getWeekNumber(dates[0]);
@@ -9398,7 +9409,7 @@ var PRINT_FONTS = [
 var PM_UI_CSS = '.pm-ui{font-size:.8rem}.pm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:8px;margin-bottom:6px}.pm-card{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:6px;text-align:left}.pm-card:hover{border-color:var(--accent)}.pm-card.pm-card-sel{border-color:var(--accent);background:rgba(37,99,235,0.08);box-shadow:0 0 0 1px var(--accent)}.pm-swatch{width:100%;height:8px;border-radius:4px}.pm-card-name{font-size:.72rem;font-weight:600}.pm-section-title{margin:12px 0 6px;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent2)}.pm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:.8rem}.pm-row select{max-width:210px}.pm-preview{border:1px dashed var(--border);border-radius:10px;padding:10px;margin-top:6px;background:#fafbfc}.pm-preview-title{font-size:.68rem;color:var(--text-dim);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}.pm-preview-sheet{width:100%;max-width:520px;margin:0 auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);border-radius:4px}.pm-scan-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.pm-ui input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer}';
 
 function defaultPrintModel() {
-    return { templateId: 'classic', accent: '', accent2: '', font: 'system', density: 'std', headerStyle: 'classic', mono: false, showLogo: true, watermark: '', scan: null, scanOpacity: 20, scanPos: 'center' };
+    return { templateId: 'classic', accent: '', accent2: '', font: 'system', density: 'std', headerStyle: 'classic', mono: false, showLogo: true, watermark: '', scan: null, scanOpacity: 20, scanPos: 'center', scanModel: null };
 }
 function loadPrintModel() {
     var d = defaultPrintModel();
@@ -9532,7 +9543,7 @@ function printModelCss(m) {
         lines.push('#recapBody.rel-sheet { position:relative !important; }');
         lines.push('#recapBody.rel-sheet > * { position:relative !important; z-index:1; }');
     }
-    if (m.scan) {
+    if (m.scan && !m.scanModel) {
         lines.push('#recapBody.rel-sheet.print-scan::before { content:""; display:block; position:absolute; top:0; left:0; width:100%; height:100%; background-image:url(' + m.scan + '); background-repeat:no-repeat; background-size:contain; background-position:50% 50%; opacity:' + (m.scanOpacity / 100) + '; z-index:0; pointer-events:none; }');
         if (m.scanPos === 'top') lines.push('#recapBody.rel-sheet.print-scan::before { background-position:50% 0% !important; }');
         if (m.scanPos === 'bottom') lines.push('#recapBody.rel-sheet.print-scan::before { background-position:50% 100% !important; }');
@@ -9549,6 +9560,8 @@ function applyPrintModel() {
     st.textContent = printModelCss(loadPrintModel());
     var ui = document.getElementById('pmUiStyle');
     if (!ui) { ui = document.createElement('style'); ui.id = 'pmUiStyle'; ui.textContent = PM_UI_CSS; document.head.appendChild(ui); }
+    var sc = document.getElementById('pmScanStyle');
+    if (!sc) { sc = document.createElement('style'); sc.id = 'pmScanStyle'; sc.textContent = PM_SCAN_CSS; document.head.appendChild(sc); }
     applySheetClass();
 }
 function applySheetClass() {
@@ -9604,9 +9617,21 @@ function renderPrintModelPanel() {
         scanHtml += '<div class="pm-scan-row"><input type="file" id="pmScanFile" accept="image/*" onchange="pmScanUpload(this)"></div>';
         scanHtml += '<div style="font-size:.68rem;color:var(--text-dim);margin-top:6px">Photographiez ou numerisez un modele papier existant : il servira de fond transparent sous le releve (taille ajustee automatiquement).</div>';
     }
+    var scanModelHtml = '';
+    var sm = m.scanModel;
+    if (sm && sm.image) {
+        scanModelHtml += '<div class="pm-scan-row"><img src="' + sm.image + '" alt="Modele scanné" style="width:110px;height:80px;object-fit:contain;background:#fff;border:1px solid var(--border);border-radius:6px">';
+        scanModelHtml += '<div style="flex:1;min-width:210px;font-size:.72rem;color:var(--text-dim)">Modele actif : les donnees de la semaine sont emplacees dans les cases numerisees.<br><span style="color:var(--accent2)">Colonnes : ' + esc((sm.colMap || []).join(' / ')) + '</span></div>';
+        scanModelHtml += '<button class="btn sm" onclick="pmScanModelStartModelizer()">Editer le modele</button>';
+        scanModelHtml += '<button class="btn sm" onclick="pmScanModelReset()" style="color:var(--accent3)">Retirer</button></div>';
+        scanModelHtml += '<div class="pm-row" style="margin-top:4px"><button class="btn sm primary" onclick="setFeuilleScanMode(true);toggleFeuille()">Voir la feuille modelée (semaine en cours)</button></div>';
+    } else {
+        scanModelHtml += '<div class="pm-scan-row"><input type="file" id="pmScanModelFile" accept="image/*" onchange="pmScanModelUpload(this)"></div>';
+        scanModelHtml += '<div style="font-size:.68rem;color:var(--text-dim);margin-top:6px">Photographiez ou numerisez votre modele papier : l\'app detecte le quadrillage, vous calez les lignes/colonnes, et vos vrais horaires sont imprimes dans les cases du formulaire.</div>';
+    }
     var html = '';
     html += '<div class="pm-ui">';
-    html += '<div style="font-size:.7rem;color:var(--text-dim);margin-bottom:10px;background:var(--surface2);border-radius:8px;padding:8px 10px">Combinaison illimitee : chaque modele premium se combine avec vos couleurs, la police, la densite, l\'en-tete, le noir et blanc, le filigrane et un scan 1:1 de votre papier.</div>';
+    html += '<div style="font-size:.7rem;color:var(--text-dim);margin-bottom:10px;background:var(--surface2);border-radius:8px;padding:8px 10px">Combinaison illimitee : chaque modele premium se combine avec vos couleurs, la police, la densite, l\'en-tete, le noir et blanc, le filigrane, un scan 1:1 de votre papier (fond) ou une feuille entierement modelee par vos cases.</div>';
     html += '<div class="pm-section-title">1. Modele de base</div>';
     html += '<div class="pm-grid">' + cards + '</div>';
     html += '<div class="pm-section-title">2. Personnalisation</div>';
@@ -9618,8 +9643,10 @@ function renderPrintModelPanel() {
     html += '<div class="pm-row"><span>Imprimer en noir et blanc</span><input type="checkbox" ' + (m.mono ? 'checked' : '') + ' onchange="pmChange({\'mono\':this.checked})"></div>';
     html += '<div class="pm-row"><span>Afficher le logo</span><input type="checkbox" ' + (m.showLogo !== false ? 'checked' : '') + ' onchange="pmChange({\'showLogo\':this.checked})"></div>';
     html += '<div class="pm-row"><span>Filigrane (texte)</span><input type="text" id="pmWmInput" value="' + esc(m.watermark || '') + '" placeholder="ex : BROUILLON" style="width:180px" onchange="pmChange({\'watermark\':this.value})"></div>';
-    html += '<div class="pm-section-title">3. Numeriser un modele papier</div>';
+    html += '<div class="pm-section-title">3. Releve sur fond scanné (option)</div>';
     html += scanHtml;
+    html += '<div class="pm-section-title">4. Feuille modelée par scan</div>';
+    html += scanModelHtml;
     html += '<div class="pm-section-title">Apercu du modele</div>';
     html += '<div class="pm-preview"><div class="pm-preview-title">Apercu simplifie (le releve reel reprend ces styles a l\'impression)</div><div id="pmPreview"></div></div>';
     html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="pmPrintExample()">Imprimer un exemple</button><button class="btn" onclick="resetPrintModel()">Reinitialiser</button></div>';
@@ -9751,6 +9778,285 @@ function clearScanModel() {
     savePrintModel(m);
     applyPrintModel();
     renderPrintModelPanel();
+}
+
+// ============================================================
+// FEUILLE MODELEE PAR SCAN (modelisation)
+// L'utilisateur numerise son modele papier : la grille est detectee,
+// calibree (lignes/colonnes/roles), puis les vraies donnees de la
+// semaine sont positionnees DANS les cases du scan a l'impression.
+// ============================================================
+var PM_SCAN_FIELDS = [
+    { id: 'jour', name: 'Jour', hint: 'Lundi, Mardi...' },
+    { id: 'chantier', name: 'Chantier', hint: 'N\u00b0 + lieu (ex: CH-001 Duplex)' },
+    { id: 'debut', name: 'Debut', hint: 'Heure de debut (08:00)' },
+    { id: 'fin', name: 'Fin', hint: 'Heure de fin (17:00)' },
+    { id: 'heures', name: 'Heures', hint: 'Total du jour (8h30)' },
+    { id: 'km', name: 'Km', hint: 'Kilometres total du jour' },
+    { id: 'neant', name: '(vide)', hint: 'Colonne sans donnees' }
+];
+var PM_SCAN_ROW_DEF = 9; var PM_SCAN_COL_DEF = 6;
+var PM_SCAN_CSS = '.rel-scan-sheet{width:100%;max-width:840px;margin:0 auto;font-family:\'Segoe UI\',Helvetica,Arial,sans-serif}.rel-scan-sheet .rsc-form{position:relative;width:100%;background-color:#fff;background-repeat:no-repeat;background-position:center;background-size:100% 100%}.rel-scan-sheet .rsc-cell{position:absolute;display:flex;align-items:center;overflow:hidden;box-sizing:border-box;padding:0 4px;font-weight:600;color:#111;line-height:1.15}.rel-scan-sheet .rsc-cell.rsc-repos{font-style:italic;color:#666}.rel-scan-sheet .rsc-cell.rsc-total{font-weight:700}.rel-scan-sheet .rsc-lbl{position:absolute;background:#fff;color:#2563eb;font-size:8px;font-weight:700;line-height:1;padding:1px 3px;border:1px dashed #2563eb;border-radius:3px;pointer-events:none;z-index:5}@media print{.rel-scan-sheet{max-width:none;margin:0}.rel-scan-sheet .rsc-form{page-break-inside:avoid}}body.print-feuille .rel-scan-sheet .rsc-cell{-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+
+function exactScanGrid() {
+    return { image: null, w: 297, h: 210, rows: [10, 21, 32, 43, 54, 65, 76, 87, 95], cols: [4, 24, 44, 64, 80, 97], colMap: ['jour', 'chantier', 'debut', 'fin', 'heures'], fontSize: 9 };
+}
+// Detection pure : a partir des profils de densite (0..1), renvoie les
+// positions des traits horizontaux/verticaux du quadrillage (en pixels).
+function detectScanLines(rowDens, colDens, W, H) {
+    function lineAt(dens, thr) {
+        var out = [], streak = -1, i;
+        for (i = 0; i < dens.length; i++) {
+            if (dens[i] >= thr) { if (streak === -1) streak = i; }
+            else if (streak !== -1) { out.push(Math.round((streak + i - 1) / 2)); streak = -1; }
+        }
+        if (streak !== -1) out.push(Math.round((streak + dens.length - 1) / 2));
+        return out;
+    }
+    return { ys: lineAt(rowDens, 0.5), xs: lineAt(colDens, 0.5) };
+}
+// Deduit 6 bords de colonnes et 9 bords de lignes (7 jours + ligne totale)
+// a partir des traits detects ; replie sur une grille reguliere sinon.
+function guessScanGrid(lines, W, H) {
+    function toPct(v, n) { return Math.min(99, Math.max(1, Math.round((v / n) * 100))); }
+    var xs = (lines && lines.xs || []).map(function(x) { return toPct(x, W); });
+    if (xs.length < PM_SCAN_COL_DEF) { xs = [4, 24, 44, 64, 80, 97]; }
+    else { xs = xs.slice(0, PM_SCAN_COL_DEF); }
+    var ys = (lines && lines.ys || []).map(function(y) { return toPct(y, H); }).filter(function(y) { return y > 4 && y < 97; });
+    if (ys.length < PM_SCAN_ROW_DEF) { ys = [10, 21, 32, 43, 54, 65, 76, 87, 95]; }
+    else { ys = ys.slice(0, PM_SCAN_ROW_DEF); ys[0] = Math.max(4, ys[0]); }
+    return { rows: ys, cols: xs };
+}
+// --- Draft de modelisation (en memoire, non persiste tant que Valider) ---
+var _scanDraft = null; var _feuilleScanMode = false; var _feuilleScanOff = false;
+function pmScanModelUpload(input) {
+    var file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) { showToast('Image trop lourde (max 12 Mo)', 'error'); if (input) input.value = ''; return; }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var maxW = 1600;
+            var scale = Math.min(1, maxW / img.width);
+            var w = Math.max(1, Math.round(img.width * scale));
+            var h = Math.max(1, Math.round(img.height * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            var data = null;
+            try { data = canvas.toDataURL('image/jpeg', 0.9); } catch (err) {}
+            if (!data) { showToast('Numerisation impossible', 'error'); return; }
+            var draft = exactScanGrid();
+            draft.image = data; draft.w = w; draft.h = h;
+            try {
+                var px = ctx.getImageData(0, 0, w, h).data;
+                var rowD = new Array(h), colD = new Array(w);
+                var x, y;
+                for (y = 0; y < h; y++) { rowD[y] = 0; }
+                for (x = 0; x < w; x++) { colD[x] = 0; }
+                for (y = 0; y < h; y++) {
+                    var base = y * w;
+                    for (x = 0; x < w; x++) {
+                        var o = (base + x) * 4;
+                        var lum = (px[o] * 0.299 + px[o + 1] * 0.587 + px[o + 2] * 0.114);
+                        if (lum < 140) { rowD[y]++; colD[x]++; }
+                    }
+                }
+                for (y = 0; y < h; y++) rowD[y] = rowD[y] / w;
+                for (x = 0; x < w; x++) colD[x] = colD[x] / h;
+                var G = guessScanGrid(detectScanLines(rowD, colD, w, h), w, h);
+                draft.rows = G.rows; draft.cols = G.cols;
+            } catch (err) {}
+            _scanDraft = draft;
+            renderScanModelizer();
+            showToast('Scan charge, grille detectee. Ajustez si besoin puis Valider.', 'success');
+        };
+        img.onerror = function() { showToast('Image illisible', 'error'); };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+function pmScanModelStartModelizer() {
+    var m = loadPrintModel();
+    if (m.scanModel) _scanDraft = JSON.parse(JSON.stringify(m.scanModel));
+    else _scanDraft = exactScanGrid();
+    renderScanModelizer();
+}
+function pmScanModelReset() {
+    var d = loadPrintModel();
+    d.scanModel = null;
+    savePrintModel(d);
+    applyPrintModel();
+    _scanDraft = exactScanGrid();
+    renderPrintModelPanel();
+}
+// --- Calibration ---
+function renderScanModelizer() {
+    var body = document.getElementById('printModelBody');
+    if (!body) return;
+    if (!_scanDraft) { _scanDraft = exactScanGrid(); }
+    var d = _scanDraft;
+    var rowsHtml = '', colsHtml = '';
+    var i;
+    for (i = 0; i < d.rows.length; i++) {
+        rowsHtml += '<div class="pm-row"><span>Ligne ' + (i + 1) + (i === 0 ? ' (haut tableau)' : i === d.rows.length - 1 ? ' (bas tableau)' : (i < 7 ? ' — ligne jour ' + i : ' — ligne totale')) + '</span><input type="range" min="4" max="97" value="' + Math.round(d.rows[i]) + '" style="width:160px" oninput="pmScanRowIn(' + i + ',this.value)"><b id="pmScanRow_' + i + '" style="width:30px;text-align:right">' + Math.round(d.rows[i]) + '%</b></div>';
+    }
+    for (i = 0; i < d.cols.length; i++) {
+        colsHtml += '<div class="pm-row"><span>Colonne ' + (i + 1) + (i === 0 ? ' (bord gauche)' : i === d.cols.length - 1 ? ' (bord droit)' : '') + '</span><input type="range" min="2" max="98" value="' + Math.round(d.cols[i]) + '" style="width:160px" oninput="pmScanColIn(' + i + ',this.value)"><b id="pmScanCol_' + i + '" style="width:30px;text-align:right">' + Math.round(d.cols[i]) + '%</b></div>';
+    }
+    var mapHtml = '';
+    for (i = 0; i < PM_SCAN_COL_DEF - 1; i++) {
+        var sel = '<span style="flex:1;min-width:120px">Colonne ' + (i + 1) + ' = </span><select style="flex:1" onchange="pmScanMapIn(' + i + ',this.value)">';
+        for (var f = 0; f < PM_SCAN_FIELDS.length; f++) {
+            var ff = PM_SCAN_FIELDS[f];
+            sel += '<option value="' + ff.id + '"' + ((d.colMap || [])[i] === ff.id ? ' selected' : '') + '>' + ff.name + (ff.hint ? ' — ' + ff.hint : '') + '</option>';
+        }
+        sel += '</select>';
+        mapHtml += '<div class="pm-row">' + sel + '</div>';
+    }
+    var canvasHtml = '<canvas id="pmScanCanvas" width="640" height="452" style="width:100%;max-width:640px;background:#fff;border:1px solid var(--border);border-radius:8px"></canvas>';
+    var html = '<div class="pm-ui">';
+    html += '<div class="pm-section-title">Feuille modelee par scan — modelisation</div>';
+    html += '<div style="font-size:.72rem;color:var(--text-dim);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:8px">Le quadrillage detecte est tracee sur votre modele. Ajustez les lignes (bords des 7 jours + ligne totale) et les colonnes, puis assignez a chaque colonne son role (Jour, Chantier, Debut, Fin, Heures...). Vos donnees seront emplacees dans ces cases a l\'impression.</div>';
+    html += canvasHtml;
+    html += '<div class="pm-section-title">Lignes horizontales</div>' + rowsHtml;
+    html += '<div class="pm-section-title">Colonnes verticales</div>' + colsHtml;
+    html += '<div class="pm-section-title">Role de chaque colonne</div>' + mapHtml;
+    html += '<div class="pm-row"><span>Taille du texte</span><input type="range" min="6" max="14" value="' + (d.fontSize || 9) + '" style="width:160px" oninput="pmScanFsIn(this.value)"><b id="pmScanFsLabel" style="width:34px;text-align:right">' + (d.fontSize || 9) + 'pt</b></div>';
+    html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" onclick="pmScanModelSave()">Valider le modele</button><button class="btn" onclick="renderPrintModelPanel()">Retour</button><button class="btn accent3" onclick="_scanDraft=null;pmScanModelReset()">Annuler le modele</button></div>';
+    html += '</div>';
+    body.innerHTML = html;
+    pmScanRedraw();
+}
+function pmScanRowIn(i, v) { if (_scanDraft) _scanDraft.rows[i] = parseFloat(v); var b = document.getElementById('pmScanRow_' + i); if (b) b.textContent = Math.round(v) + '%'; pmScanRedraw(); }
+function pmScanColIn(i, v) { if (_scanDraft) _scanDraft.cols[i] = parseFloat(v); var b = document.getElementById('pmScanCol_' + i); if (b) b.textContent = Math.round(v) + '%'; pmScanRedraw(); }
+function pmScanMapIn(i, v) { if (_scanDraft) { if (!_scanDraft.colMap) _scanDraft.colMap = ['jour', 'chantier', 'debut', 'fin', 'heures']; _scanDraft.colMap[i] = v; } pmScanRedraw(); }
+function pmScanFsIn(v) { if (_scanDraft) _scanDraft.fontSize = parseFloat(v); var l = document.getElementById('pmScanFsLabel'); if (l) l.textContent = v + 'pt'; pmScanRedraw(); }
+function pmScanRedraw() {
+    var cv = document.getElementById('pmScanCanvas');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    if (!ctx) return;
+    var d = _scanDraft;
+    if (!d) return;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    if (d.image) {
+        var img = new Image();
+        img.onload = function() { try { ctx.drawImage(img, 0, 0, cv.width, cv.height); } catch (e) {} pmScanRedrawGrid(ctx, d, cv.width, cv.height); };
+        img.src = d.image;
+    } else {
+        pmScanRedrawGrid(ctx, d, cv.width, cv.height);
+    }
+}
+function pmScanRedrawGrid(ctx, d, W, H) {
+    var i;
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5;
+    for (i = 0; i < d.rows.length; i++) {
+        var y = Math.round(d.rows[i] / 100 * H);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.strokeStyle = '#16a34a';
+    for (i = 0; i < d.cols.length; i++) {
+        var x = Math.round(d.cols[i] / 100 * W);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    ctx.fillStyle = '#d00'; ctx.font = 'bold 12px sans-serif';
+    for (i = 0; i < (d.colMap || []).length && i < PM_SCAN_COL_DEF - 1; i++) {
+        var x0 = Math.round(d.cols[i] / 100 * W) + 2, x1 = Math.round(d.cols[i + 1] / 100 * W);
+        var mx = x0 + (x1 - x0) / 2; var name = '';
+        for (var f = 0; f < PM_SCAN_FIELDS.length; f++) if (PM_SCAN_FIELDS[f].id === d.colMap[i]) name = PM_SCAN_FIELDS[f].name;
+        ctx.fillText(name, mx - 14, Math.round(d.rows[0] / 100 * H) - 6);
+    }
+}
+function pmScanModelSave() {
+    if (!_scanDraft) return;
+    var m = loadPrintModel();
+    m.scanModel = JSON.parse(JSON.stringify(_scanDraft));
+    if (!savePrintModel(m)) return;
+    applyPrintModel();
+    renderPrintModelPanel();
+    showToast('Modele scanné enregistre : la feuille utilise vos cases', 'success');
+}
+// --- Rendu des donnees dans les cases du scan ---
+function scanDayField(e, field, bandIdx, weekTotal) {
+    if (!e) return '';
+    if (e.isRepos) { return field === 'chantier' ? 'REPOS' : ''; }
+    var shifts = (e.shifts || []).filter(function(s) { return s && s.chantiers && s.chantiers.length; });
+    if (field === 'chantier') {
+        return shifts.map(function(s) {
+            return (s.chantiers || []).map(function(c) { return ((c.num ? c.num + ' ' : '') + (c.lieu || '')).trim(); }).filter(Boolean).join(' / ');
+        }).join('  ');
+    }
+    if (field === 'debut') {
+        var dMin = null;
+        shifts.forEach(function(s) { (s.chantiers || []).forEach(function(c) { if (c.debut && (!dMin || c.debut < dMin)) dMin = c.debut; }); });
+        return dMin || '';
+    }
+    if (field === 'fin') {
+        var fMax = null;
+        shifts.forEach(function(s) { (s.chantiers || []).forEach(function(c) { if (c.fin && (!fMax || c.fin > fMax)) fMax = c.fin; }); });
+        return fMax || '';
+    }
+    if (field === 'heures') { return fmtH(e.totalWork || 0); }
+    if (field === 'km') { return (e.totalKm || 0) ? e.totalKm + ' km' : ''; }
+    return '';
+}
+function renderScanModelSheet(entries, m) {
+    var sm = m && m.scanModel;
+    if (!sm) return '';
+    var rows = sm.rows && sm.rows.length === PM_SCAN_ROW_DEF ? sm.rows : [10, 21, 32, 43, 54, 65, 76, 87, 95];
+    var cols = sm.cols && sm.cols.length === PM_SCAN_COL_DEF ? sm.cols : [4, 24, 44, 64, 80, 97];
+    var colMap = sm.colMap && sm.colMap.length === PM_SCAN_COL_DEF - 1 ? sm.colMap : ['jour', 'chantier', 'debut', 'fin', 'heures'];
+    var fs = sm.fontSize || 9;
+    var byDate = {};
+    (entries || []).forEach(function(e) { byDate[e.date] = e; });
+    var weekTotal = (entries || []).reduce(function(a, e) { return a + (e.totalWork || 0); }, 0);
+    var dates = getWeekDates();
+    var html = '<div class="rel-scan-sheet" data-role="scan"><div class="rsc-form" style="aspect-ratio:' + (sm.w || 297) + '/' + (sm.h || 210) + ';background-image:url(' + sm.image + ');background-color:#fff">';
+    var i, c;
+    for (i = 0; i < rows.length - 1; i++) {
+        var top = rows[i], bot = rows[i + 1];
+        var isTotal = i >= 7;
+        var e = isTotal ? null : byDate[formatDate(dates[i])];
+        for (c = 0; c < cols.length - 1; c++) {
+            var field = colMap[c] || '';
+            var left = cols[c], right = cols[c + 1];
+            var text = '';
+            if (isTotal) {
+                if (field === 'jour') text = 'TOTAL';
+                else if (field === 'heures') text = fmtH(weekTotal);
+            } else if (field === 'jour') {
+                text = DAY_NAMES[i];
+            } else {
+                text = scanDayField(e, field, i, weekTotal);
+            }
+            if (!text && !(isTotal && (field === 'jour' || field === 'heures'))) continue;
+            html += '<div class="rsc-cell' + (isTotal ? ' rsc-total' : '') + (e && e.isRepos ? ' rsc-repos' : '') + '" style="left:' + left + '%;top:' + top + '%;width:' + (right - left) + '%;height:' + (bot - top) + '%;font-size:' + fs + 'pt">' + esc(text) + '</div>';
+        }
+    }
+    html += '</div></div>';
+    return html;
+}
+function renderFeuilleScan(m) {
+    m = m || loadPrintModel();
+    var wrap = document.getElementById('feuilleScanWrap');
+    var table = document.getElementById('feuilleTable');
+    var tbody = document.getElementById('feuilleBody');
+    if (!wrap) return;
+    if (table) table.style.display = 'none';
+    if (tbody) tbody.innerHTML = '';
+    wrap.style.display = '';
+    wrap.innerHTML = renderScanModelSheet(loadEntries(), m) || '<div style="padding:12px;color:var(--text-dim);font-size:.8rem">Aucun modele scanne actif.</div>';
+    var tg = document.getElementById('feuilleScanToggle');
+    if (tg) { tg.textContent = 'Vue tableau'; tg.title = 'Revenir au tableau interactif'; }
+}
+function setFeuilleScanMode(flag) {
+    _feuilleScanOff = !flag;
+    if (typeof renderFeuille === 'function') renderFeuille();
 }
 function resetPrintModel() {
     var d = defaultPrintModel();
